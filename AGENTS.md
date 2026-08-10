@@ -12,15 +12,16 @@ qbcalc is a client-side blackjack expected value (EV) calculator. It's a single-
 
 ### Technology Stack
 
-| Layer          | Technology                        |
-| -------------- | --------------------------------- |
-| **Language**   | TypeScript                        |
-| **Hosting**    | GitHub Pages                      |
-| **Framework**  | SolidJS                           |
-| **Build Tool** | Vite                              |
-| **Testing**    | Vitest + @solidjs/testing-library |
-| **Styling**    | SASS/SCSS                         |
-| **Linting**    | ESLint (flat config) + Prettier   |
+| Layer          | Technology                                     |
+| -------------- | ---------------------------------------------- |
+| **Language**   | TypeScript                                     |
+| **Hosting**    | GitHub Pages                                   |
+| **Framework**  | SolidJS                                        |
+| **Build Tool** | Vite                                           |
+| **Testing**    | Vitest + @solidjs/testing-library              |
+| **Styling**    | SASS/SCSS                                      |
+| **Components** | @ark-ui/solid (headless), lucide-solid (icons) |
+| **Linting**    | ESLint (flat config) + Prettier                |
 
 ### Code Organization
 
@@ -62,6 +63,14 @@ Use these instead of relative `../../` chains. Order matters when adding aliases
 - **Use fine-grained reactivity**: Prefer `createSignal`, `createEffect`, and `createMemo` over broad re-renders.
 - **Avoid refs unless necessary**: SolidJS generally doesn't need refs; use signal-based state instead.
 - **Resource management**: Always clean up timers, workers, and event listeners in cleanup functions.
+
+### UI Component Guidelines
+
+- **Ark UI for behaviour, not looks**: Use `@ark-ui/solid` headless components (dialogs, popovers, selects, sliders, etc.) for accessibility and interaction logic instead of hand-rolling focus traps, keyboard nav, or ARIA wiring.
+- **Style with existing conventions**: Ark UI ships unstyled — target its parts with classes and style them via `_theme.scss` mixins/BEM classes like any other component; never reach for Ark's inline `style` props or a separate CSS-in-JS system.
+- **Wrap, don't scatter**: If an Ark UI primitive is used in more than one place, wrap it in a component under `src/components/` with the project's own props/API rather than importing `@ark-ui/solid` parts ad hoc throughout the app.
+- **Lucide for icons**: Use `lucide-solid` for all iconography instead of inline SVGs or other icon sets. Import icons individually (e.g. `import { ChevronDown } from 'lucide-solid'`) so unused icons are tree-shaken.
+- **Icon sizing/colour**: Size and colour icons via `class`/CSS (`currentColor`, theme variables), not hardcoded `stroke`/`fill`/`size` props, so they follow dark-mode theming automatically.
 
 ### TypeScript Standards
 
