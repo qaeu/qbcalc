@@ -17,7 +17,7 @@ describe('EvTable', () => {
 	it('renders a single EV grid for the default rule set', () => {
 		render(() => <EvTable />);
 
-		expect(screen.getByText('Optimal-action EV, count +1 (% of bet)')).toBeDefined();
+		expect(screen.getByText('Optimal play, count +1')).toBeDefined();
 
 		const tables = screen.getAllByRole('table');
 		expect(tables).toHaveLength(1);
@@ -35,7 +35,7 @@ describe('EvTable', () => {
 		expect(await screen.findByText(/too extreme/i)).toBeDefined();
 	});
 
-	it('shows baseline, delta, optimal play, and bust odds when a cell is hovered', async () => {
+	it('shows optimal-action EV, delta, optimal play, and bust odds when a cell is hovered', async () => {
 		render(() => <EvTable />);
 
 		const tables = screen.getAllByRole('table');
@@ -49,7 +49,7 @@ describe('EvTable', () => {
 			expect(popover.hidden).toBe(false);
 		});
 
-		expect(popover.textContent).toMatch(/Baseline EV:/);
+		expect(popover.textContent).toMatch(/Optimal-action EV:/);
 		expect(popover.textContent).toMatch(/Δ vs\. baseline:/);
 		expect(popover.textContent).toMatch(/Optimal play: (Hit|Stand|Double)/);
 		expect(popover.textContent).toMatch(/Player bust% on hit: \d+\.\d%/);
@@ -94,20 +94,22 @@ describe('EvTable', () => {
 	it('recomputes cell values when the S17 checkbox is toggled', async () => {
 		render(() => <EvTable />);
 
-		const tables = screen.getAllByRole('table');
-		const cellBefore = within(tables[0])
-			.getAllByRole('row')[10]
-			.querySelectorAll('td')[0].textContent;
+		const cell = () =>
+			within(screen.getAllByRole('table')[0])
+				.getAllByRole('row')[10]
+				.querySelectorAll('td')[0];
+
+		fireEvent.pointerEnter(cell());
+		const popoverBefore = popoverFor(cell());
+		await waitFor(() => expect(popoverBefore.hidden).toBe(false));
+		const textBefore = popoverBefore.textContent;
 
 		const checkbox = screen.getByLabelText('S17') as HTMLInputElement;
 		fireEvent.click(checkbox);
 		fireEvent.submit(checkbox.closest('form')!);
 
 		await waitFor(() => {
-			const cellAfter = within(screen.getAllByRole('table')[0])
-				.getAllByRole('row')[10]
-				.querySelectorAll('td')[0].textContent;
-			expect(cellAfter).not.toEqual(cellBefore);
+			expect(popoverFor(cell()).textContent).not.toEqual(textBefore);
 		});
 	});
 });

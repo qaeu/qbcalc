@@ -24,7 +24,7 @@ const EvCellPopover: Component<EvCellPopoverProps> = (props) => (
 				<HoverCard.Arrow class="ev-table__popover-arrow">
 					<HoverCard.ArrowTip class="ev-table__popover-arrow-tip" />
 				</HoverCard.Arrow>
-				<p>Baseline EV: {formatEvPercent(props.row.baseEvPercent)}%</p>
+				<p>Optimal-action EV: {formatEvPercent(props.row.countEvPercent)}%</p>
 				<p>Δ vs. baseline: {formatEvPercent(props.row.deltaPercentPoints)} pts</p>
 				<p>Optimal play: {ACTION_LABELS[props.row.optimalAction]}</p>
 				<p>Player bust% on hit: {formatPercent(props.row.playerBustOnHitPercent)}</p>

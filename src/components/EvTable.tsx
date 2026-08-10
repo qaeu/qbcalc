@@ -10,7 +10,7 @@ import {
 	type EvComparisonRow,
 	type Rank,
 } from '#utils/blackjackEv';
-import { formatCount, formatDuration, formatEvPercent } from '#utils/format';
+import { formatCount, formatDuration } from '#utils/format';
 
 import EvCellPopover from '#c/EvCellPopover';
 
@@ -48,7 +48,7 @@ const EvCell: Component<EvCellProps> = (props) => {
 						tabIndex={0}
 						classList={{ 'is-positive': value() > 0, 'is-negative': value() < 0 }}
 					>
-						{formatEvPercent(value())}
+						{props.row.optimalAction}
 					</td>
 				)}
 			/>
@@ -149,50 +149,54 @@ const EvTable: Component = () => {
 
 	return (
 		<section class="ev-table">
-			<h2>Ace-Five Count EV Table</h2>
-			<form class="ev-table__controls" onSubmit={handleSubmit}>
-				<label>
-					Decks
-					<input
-						type="number"
-						min="1"
-						max="8"
-						value={decksInput()}
-						onInput={(event) => setDecksInput(Number(event.currentTarget.value))}
-					/>
-				</label>
-				<label>
-					Ace-Five count
-					<input
-						type="number"
-						step="1"
-						value={countInput()}
-						onInput={(event) => setCountInput(Number(event.currentTarget.value))}
-					/>
-				</label>
-				<label class="ev-table__checkbox">
-					<input
-						type="checkbox"
-						title="Dealer stands on soft 17"
-						checked={standsSoft17Input()}
-						onInput={(event) => setStandsSoft17Input(event.currentTarget.checked)}
-					/>
-					S17
-				</label>
-				<button type="submit">Calculate</button>
-				<Show when={calcTimeMs() !== null}>
-					<span class="ev-table__calc-time">(took {formatDuration(calcTimeMs()!)})</span>
-				</Show>
-			</form>
+			<div class="ev-table__header">
+				<h2>Ace-Five Count EV Table</h2>
+				<form class="ev-table__controls" onSubmit={handleSubmit}>
+					<label>
+						Decks
+						<input
+							type="number"
+							min="1"
+							max="8"
+							value={decksInput()}
+							onInput={(event) => setDecksInput(Number(event.currentTarget.value))}
+						/>
+					</label>
+					<label>
+						Ace-Five count
+						<input
+							type="number"
+							step="1"
+							value={countInput()}
+							onInput={(event) => setCountInput(Number(event.currentTarget.value))}
+						/>
+					</label>
+					<label class="ev-table__checkbox">
+						<input
+							type="checkbox"
+							title="Dealer stands on soft 17"
+							checked={standsSoft17Input()}
+							onInput={(event) => setStandsSoft17Input(event.currentTarget.checked)}
+						/>
+						S17
+					</label>
+					<button type="submit">Calculate</button>
+					<Show when={calcTimeMs() !== null}>
+						<span class="ev-table__calc-time">
+							(took {formatDuration(calcTimeMs()!)})
+						</span>
+					</Show>
+				</form>
 
-			<Show when={error()}>
-				{(message) => <p class="ev-table__error">{message()}</p>}
-			</Show>
+				<Show when={error()}>
+					{(message) => <p class="ev-table__error">{message()}</p>}
+				</Show>
+			</div>
 
 			<Show when={comparison()}>
 				{(result) => (
 					<EvGrid
-						title={`Optimal-action EV, count ${formatCount(params().count)} (% of bet)`}
+						title={`Optimal play, count ${formatCount(params().count)}`}
 						comparison={result()}
 						rowsByKey={rowsByKey()}
 					/>

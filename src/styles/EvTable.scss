@@ -2,14 +2,15 @@
 
 @layer screen {
 	.ev-table {
-		@include card;
+		&__header {
+			@include card;
+		}
 
 		&__controls {
 			display: flex;
 			flex-wrap: wrap;
 			align-items: flex-end;
 			gap: 16px;
-			margin-bottom: 20px;
 
 			label {
 				display: flex;
@@ -45,11 +46,12 @@
 		}
 
 		&__error {
+			margin-top: 12px;
 			color: get($errors, 'fg');
 		}
 
 		&__grid {
-			margin-bottom: 24px;
+			@include card;
 
 			h3 {
 				margin-bottom: 8px;
@@ -64,6 +66,7 @@
 			border-collapse: collapse;
 			width: 100%;
 			font-size: 13px;
+			user-select: none;
 		}
 
 		th,
