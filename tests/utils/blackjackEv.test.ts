@@ -2,10 +2,13 @@ import { describe, it, expect } from 'vitest';
 
 import {
 	RANKS,
+	type RuleSet,
 	baseComposition,
 	applyAceFiveCount,
 	computeEvComparison,
 } from '#utils/blackjackEv';
+
+const RULE_SET: RuleSet = { decks: 4, dealerHitsSoft17: true };
 
 describe('baseComposition', () => {
 	it('builds a fresh shoe in half-card units', () => {
@@ -91,5 +94,52 @@ describe('computeEvComparison', () => {
 			expect(row.baseEvPercent).toBeLessThanOrEqual(100);
 			expect(row.baseEvPercent).toBeGreaterThanOrEqual(-100);
 		}
+	});
+});
+
+describe('optimal play', () => {
+	it('recommends doubling hard 11 against a weak dealer upcard', () => {
+		const result = computeEvComparison(RULE_SET, 0, [11], RANKS);
+		const row = result.rows.find((r) => r.upcard === '6')!;
+		expect(row.optimalAction).toBe('D');
+	});
+
+	it('recommends standing on a strong hard total regardless of upcard', () => {
+		const result = computeEvComparison(RULE_SET, 0, [20], RANKS);
+		for (const row of result.rows) {
+			expect(row.optimalAction).toBe('S');
+		}
+	});
+
+	it('recommends hitting a weak hard total against a strong dealer upcard', () => {
+		const result = computeEvComparison(RULE_SET, 0, [16], RANKS);
+		const row = result.rows.find((r) => r.upcard === 'T')!;
+		expect(row.optimalAction).toBe('H');
+	});
+});
+
+describe('bust percentages', () => {
+	it('gives 0% player bust-on-hit for a total that cannot bust in one card', () => {
+		const result = computeEvComparison(RULE_SET, 0, [8], RANKS);
+		for (const row of result.rows) {
+			expect(row.playerBustOnHitPercent).toBe(0);
+		}
+	});
+
+	it('gives a high player bust-on-hit chance for a near-max hard total', () => {
+		// Every card of value 2+ busts hard 20; only a redrawn ace survives as a
+		// soft-adjusted 21, so the bust chance is high but not exactly 100%.
+		const result = computeEvComparison(RULE_SET, 0, [20], RANKS);
+		for (const row of result.rows) {
+			expect(row.playerBustOnHitPercent).toBeGreaterThan(85);
+			expect(row.playerBustOnHitPercent).toBeLessThan(100);
+		}
+	});
+
+	it('gives the dealer a higher bust chance showing a 6 than showing a T', () => {
+		const result = computeEvComparison(RULE_SET, 0, [12], RANKS);
+		const six = result.rows.find((r) => r.upcard === '6')!;
+		const ten = result.rows.find((r) => r.upcard === 'T')!;
+		expect(six.dealerBustPercent).toBeGreaterThan(ten.dealerBustPercent);
 	});
 });

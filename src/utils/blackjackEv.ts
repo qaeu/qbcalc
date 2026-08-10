@@ -35,6 +35,9 @@
 
 export type Rank = '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | 'T' | 'A';
 
+/** Optimal first action for a hard total against a given upcard: hit, stand, or double. */
+export type PlayerAction = 'H' | 'S' | 'D';
+
 export interface RuleSet {
 	decks: number;
 	dealerHitsSoft17: boolean;
@@ -49,6 +52,9 @@ export interface EvComparisonRow {
 	baseEvPercent: number;
 	countEvPercent: number;
 	deltaPercentPoints: number;
+	optimalAction: PlayerAction;
+	playerBustOnHitPercent: number;
+	dealerBustPercent: number;
 }
 
 export interface EvComparisonResult {
@@ -98,6 +104,12 @@ function addValue(total: number, soft: boolean, rank: Rank): [number, boolean] {
 /** Fast, collision-free memo key: one char per rank count plus total/soft/upcard. */
 function compKey(comp: Composition): string {
 	return String.fromCharCode(...comp);
+}
+
+interface CellAnalysis {
+	optimalAction: PlayerAction;
+	playerBustOnHitPercent: number;
+	dealerBustPercent: number;
 }
 
 class ShoeEv {
@@ -168,6 +180,20 @@ class ShoeEv {
 		return ev;
 	}
 
+	private hitEv(comp: Composition, total: number, soft: boolean, upcard: Rank): number {
+		const totCards = comp.reduce((sum, n) => sum + n, 0);
+		let evHit = 0.0;
+		for (const rank of RANKS) {
+			const n = comp[RANK_INDEX[rank]];
+			if (n <= 0) continue;
+			const p = n / totCards;
+			const newComp = removeCard(comp, rank);
+			const [newTotal, newSoft] = addValue(total, soft, rank);
+			evHit += p * this.bestEv(newComp, newTotal, newSoft, upcard);
+		}
+		return evHit;
+	}
+
 	private bestEv(comp: Composition, total: number, soft: boolean, upcard: Rank): number {
 		if (total > 21) return -1.0;
 
@@ -182,21 +208,58 @@ class ShoeEv {
 		}
 
 		const totCards = comp.reduce((sum, n) => sum + n, 0);
-		let evHit = 0.0;
-		if (totCards > 0) {
-			for (const rank of RANKS) {
-				const n = comp[RANK_INDEX[rank]];
-				if (n <= 0) continue;
-				const p = n / totCards;
-				const newComp = removeCard(comp, rank);
-				const [newTotal, newSoft] = addValue(total, soft, rank);
-				evHit += p * this.bestEv(newComp, newTotal, newSoft, upcard);
-			}
-		}
+		const evHit = totCards > 0 ? this.hitEv(comp, total, soft, upcard) : 0.0;
 
 		const best = Math.max(evStand, evHit);
 		this.memoPlayer.set(key, best);
 		return best;
+	}
+
+	/** EV of taking exactly one more card, then being forced to stand, at double the bet. */
+	private doubleEv(
+		comp: Composition,
+		total: number,
+		soft: boolean,
+		upcard: Rank
+	): number {
+		const totCards = comp.reduce((sum, n) => sum + n, 0);
+		if (totCards === 0) return this.standEv(comp, total, upcard) * 2;
+
+		let ev = 0.0;
+		for (const rank of RANKS) {
+			const n = comp[RANK_INDEX[rank]];
+			if (n <= 0) continue;
+			const p = n / totCards;
+			const [newTotal] = addValue(total, soft, rank);
+			if (newTotal > 21) {
+				ev += p * -2;
+				continue;
+			}
+			const newComp = removeCard(comp, rank);
+			ev += p * 2 * this.standEv(newComp, newTotal, upcard);
+		}
+		return ev;
+	}
+
+	/** Probability that a single hit card busts the player's current total. */
+	private playerBustOnHitProb(comp: Composition, total: number, soft: boolean): number {
+		const totCards = comp.reduce((sum, n) => sum + n, 0);
+		if (totCards === 0) return 0;
+
+		let bustP = 0.0;
+		for (const rank of RANKS) {
+			const n = comp[RANK_INDEX[rank]];
+			if (n <= 0) continue;
+			const [newTotal] = addValue(total, soft, rank);
+			if (newTotal > 21) bustP += n / totCards;
+		}
+		return bustP;
+	}
+
+	private dealerBustProb(comp: Composition, upcard: Rank): number {
+		const startTotal = upcard === 'A' ? 11 : RANK_VALUE[upcard];
+		const dist = this.dealerDist(comp, startTotal, upcard === 'A');
+		return dist['bust'] ?? 0;
 	}
 
 	grid(
@@ -209,6 +272,42 @@ class ShoeEv {
 			const compUpcard = removeCard(comp0, upcard);
 			for (const total of totals) {
 				out.set(gridKey(total, upcard), this.bestEv(compUpcard, total, false, upcard));
+			}
+		}
+		return out;
+	}
+
+	/** Optimal action (incl. doubling) and bust odds, independent of the hit/stand-only `grid()` EV. */
+	analyzeGrid(
+		comp0: Composition,
+		totals: readonly number[],
+		upcards: readonly Rank[]
+	): Map<string, CellAnalysis> {
+		const out = new Map<string, CellAnalysis>();
+		for (const upcard of upcards) {
+			const compUpcard = removeCard(comp0, upcard);
+			const dealerBustPercent = this.dealerBustProb(compUpcard, upcard) * 100;
+			for (const total of totals) {
+				const evStand = this.standEv(compUpcard, total, upcard);
+				const evHit = this.hitEv(compUpcard, total, false, upcard);
+				const evDouble = this.doubleEv(compUpcard, total, false, upcard);
+
+				let optimalAction: PlayerAction = 'S';
+				let best = evStand;
+				if (evDouble > best) {
+					best = evDouble;
+					optimalAction = 'D';
+				}
+				if (evHit > best) {
+					optimalAction = 'H';
+				}
+
+				out.set(gridKey(total, upcard), {
+					optimalAction,
+					playerBustOnHitPercent:
+						this.playerBustOnHitProb(compUpcard, total, false) * 100,
+					dealerBustPercent,
+				});
 			}
 		}
 		return out;
@@ -255,7 +354,9 @@ export function computeEvComparison(
 	const modified = applyAceFiveCount(base, Math.round(count));
 
 	const baseGrid = new ShoeEv(ruleSet).grid(base, totals, upcards);
-	const modGrid = new ShoeEv(ruleSet).grid(modified, totals, upcards);
+	const countEngine = new ShoeEv(ruleSet);
+	const modGrid = countEngine.grid(modified, totals, upcards);
+	const analysisGrid = countEngine.analyzeGrid(modified, totals, upcards);
 
 	const rows: EvComparisonRow[] = [];
 	for (const upcard of upcards) {
@@ -263,12 +364,16 @@ export function computeEvComparison(
 			const key = gridKey(total, upcard);
 			const baseEvPercent = (baseGrid.get(key) ?? 0) * 100;
 			const countEvPercent = (modGrid.get(key) ?? 0) * 100;
+			const analysis = analysisGrid.get(key)!;
 			rows.push({
 				total,
 				upcard,
 				baseEvPercent,
 				countEvPercent,
 				deltaPercentPoints: countEvPercent - baseEvPercent,
+				optimalAction: analysis.optimalAction,
+				playerBustOnHitPercent: analysis.playerBustOnHitPercent,
+				dealerBustPercent: analysis.dealerBustPercent,
 			});
 		}
 	}
