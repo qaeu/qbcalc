@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
+import {
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from '@solidjs/testing-library';
 
 import EvTable from '#c/EvTable';
 
@@ -92,6 +99,30 @@ describe('EvTable', () => {
 		fireEvent.submit(form);
 
 		expect(await screen.findByText(/\(took \d+\.\d+s\)/)).toBeDefined();
+	});
+
+	it('persists the config to localStorage on Calculate, and restores it on the next mount', async () => {
+		render(() => <EvTable />);
+
+		const decksInput = screen.getByLabelText('Decks');
+		fireEvent.input(decksInput, { target: { value: '6' } });
+		const countInput = screen.getByLabelText('Ace-Five count');
+		fireEvent.input(countInput, { target: { value: '-2' } });
+		const checkbox = screen.getByLabelText('S17') as HTMLInputElement;
+		fireEvent.click(checkbox);
+		fireEvent.submit(decksInput.closest('form')!);
+
+		expect(await screen.findByText('Optimal play, count -2')).toBeDefined();
+
+		cleanup();
+		render(() => <EvTable />);
+
+		expect((screen.getByLabelText('Decks') as HTMLInputElement).value).toBe('6');
+		expect((screen.getByLabelText('Ace-Five count') as HTMLInputElement).value).toBe(
+			'-2'
+		);
+		expect((screen.getByLabelText('S17') as HTMLInputElement).checked).toBe(true);
+		expect(screen.getByText('Optimal play, count -2')).toBeDefined();
 	});
 
 	it('recomputes cell values when the S17 checkbox is toggled', async () => {

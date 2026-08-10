@@ -14,4 +14,5 @@ globalThis.ResizeObserver ??= ResizeObserverStub;
 // Cleanup after each test
 afterEach(() => {
 	cleanup();
+	localStorage.clear();
 });

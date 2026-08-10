@@ -12,6 +12,7 @@ import {
 	type Rank,
 } from '#utils/blackjackEv';
 import { formatCount, formatDuration } from '#utils/format';
+import { loadCalculatorConfig, saveCalculatorConfig } from '#utils/storage';
 
 import EvCellPopover from '#c/EvCellPopover';
 
@@ -106,12 +107,14 @@ const EvGrid: Component<EvGridProps> = (props) => (
 );
 
 const EvTable: Component = () => {
-	const [decksInput, setDecksInput] = createSignal(DEFAULT_PARAMS.decks);
-	const [countInput, setCountInput] = createSignal(DEFAULT_PARAMS.count);
+	const initialParams = loadCalculatorConfig() ?? DEFAULT_PARAMS;
+
+	const [decksInput, setDecksInput] = createSignal(initialParams.decks);
+	const [countInput, setCountInput] = createSignal(initialParams.count);
 	const [standsSoft17Input, setStandsSoft17Input] = createSignal(
-		!DEFAULT_PARAMS.dealerHitsSoft17
+		!initialParams.dealerHitsSoft17
 	);
-	const [params, setParams] = createSignal(DEFAULT_PARAMS);
+	const [params, setParams] = createSignal(initialParams);
 	const [error, setError] = createSignal<string | null>(null);
 	const [calcTimeMs, setCalcTimeMs] = createSignal<number | null>(null);
 
@@ -145,11 +148,13 @@ const EvTable: Component = () => {
 
 	const handleSubmit = (event: SubmitEvent) => {
 		event.preventDefault();
-		setParams({
+		const nextParams: CalculatorParams = {
 			decks: decksInput(),
 			count: countInput(),
 			dealerHitsSoft17: !standsSoft17Input(),
-		});
+		};
+		setParams(nextParams);
+		saveCalculatorConfig(nextParams);
 	};
 
 	return (
