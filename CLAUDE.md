@@ -8,4 +8,4 @@ Points worth repeating here:
 
 - **Formatting is enforced**: Prettier with tabs, single quotes, 90-column width. Run `npm run lint` and `npm run format` before committing.
 - **Pages base path**: `vite.config.ts` sets `base: '/qbcalc/'` to match the GitHub Pages URL. Changing the repo name means changing this.
-- **The app is still a scaffold**: `src/App.tsx` renders a placeholder and the EV engine in `src/utils/` does not exist yet. Don't assume behaviour that isn't there.
+- **The app is still early**: `src/utils/blackjackEv.ts` has one EV engine (Ace-Five count hit/stand deltas for hard totals), rendered by `src/components/EvTable.tsx`. Don't assume other strategy/rule coverage exists beyond that.

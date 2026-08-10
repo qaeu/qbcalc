@@ -2,7 +2,7 @@
 
 qbcalc is a client-side blackjack expected value (EV) calculator. It's a single-page static app built with **SolidJS** and **Vite**, performing all EV computation locally in the browser.
 
-> **Status**: early scaffold. `src/App.tsx` renders a placeholder; the EV engine has not been implemented yet.
+> **Status**: early scaffold. `src/App.tsx` renders the first EV engine component (`EvTable`, backed by `src/utils/blackjackEv.ts`); most other functionality has not been implemented yet.
 
 ### Key Architectural Principles
 
