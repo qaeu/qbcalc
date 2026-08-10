@@ -1,3 +1,4 @@
+import { HoverCard } from '@ark-ui/solid/hover-card';
 import { createMemo, createSignal, For, Show, type Component } from 'solid-js';
 
 import {
@@ -9,6 +10,9 @@ import {
 	type EvComparisonRow,
 	type Rank,
 } from '#utils/blackjackEv';
+import { formatCount, formatDuration, formatEvPercent } from '#utils/format';
+
+import EvCellPopover from '#c/EvCellPopover';
 
 import '#styles/EvTable';
 
@@ -24,24 +28,39 @@ const DEFAULT_PARAMS: CalculatorParams = {
 	dealerHitsSoft17: DEFAULT_RULE_SET.dealerHitsSoft17,
 };
 
-interface EvGridProps {
-	title: string;
-	comparison: EvComparisonResult;
-	rowsByKey: Map<string, EvComparisonRow>;
-	select: (row: EvComparisonRow) => number;
-}
-
 function rowKey(total: number, upcard: Rank): string {
 	return `${total}-${upcard}`;
 }
 
-function formatEv(value: number): string {
-	const rounded = value.toFixed(3);
-	return value > 0 ? `+${rounded}` : rounded;
+interface EvCellProps {
+	row: EvComparisonRow;
 }
 
-function formatCount(value: number): string {
-	return value >= 0 ? `+${value}` : `${value}`;
+const EvCell: Component<EvCellProps> = (props) => {
+	const value = () => props.row.countEvPercent;
+
+	return (
+		<HoverCard.Root openDelay={0} closeDelay={0} positioning={{ placement: 'bottom' }}>
+			<HoverCard.Trigger
+				asChild={(triggerProps) => (
+					<td
+						{...triggerProps()}
+						tabIndex={0}
+						classList={{ 'is-positive': value() > 0, 'is-negative': value() < 0 }}
+					>
+						{formatEvPercent(value())}
+					</td>
+				)}
+			/>
+			<EvCellPopover row={props.row} />
+		</HoverCard.Root>
+	);
+};
+
+interface EvGridProps {
+	title: string;
+	comparison: EvComparisonResult;
+	rowsByKey: Map<string, EvComparisonRow>;
 }
 
 const EvGrid: Component<EvGridProps> = (props) => (
@@ -63,17 +82,14 @@ const EvGrid: Component<EvGridProps> = (props) => (
 							<tr>
 								<th scope="row">{total}</th>
 								<For each={props.comparison.upcards}>
-									{(upcard) => {
-										const row = props.rowsByKey.get(rowKey(total, upcard));
-										const value = row ? props.select(row) : 0;
-										return (
-											<td
-												classList={{ 'is-positive': value > 0, 'is-negative': value < 0 }}
-											>
-												{formatEv(value)}
-											</td>
-										);
-									}}
+									{(upcard) => (
+										<Show
+											when={props.rowsByKey.get(rowKey(total, upcard))}
+											fallback={<td>—</td>}
+										>
+											{(row) => <EvCell row={row()} />}
+										</Show>
+									)}
 								</For>
 							</tr>
 						)}
@@ -92,9 +108,11 @@ const EvTable: Component = () => {
 	);
 	const [params, setParams] = createSignal(DEFAULT_PARAMS);
 	const [error, setError] = createSignal<string | null>(null);
+	const [calcTimeMs, setCalcTimeMs] = createSignal<number | null>(null);
 
 	const comparison = createMemo<EvComparisonResult | null>(() => {
 		const { decks, count, dealerHitsSoft17 } = params();
+		const start = performance.now();
 		try {
 			const result = computeEvComparison(
 				{ decks, dealerHitsSoft17 },
@@ -102,9 +120,11 @@ const EvTable: Component = () => {
 				HARD_TOTALS,
 				RANKS
 			);
+			setCalcTimeMs(performance.now() - start);
 			setError(null);
 			return result;
 		} catch (err) {
+			setCalcTimeMs(null);
 			setError(err instanceof Error ? err.message : String(err));
 			return null;
 		}
@@ -153,12 +173,16 @@ const EvTable: Component = () => {
 				<label class="ev-table__checkbox">
 					<input
 						type="checkbox"
+						title="Dealer stands on soft 17"
 						checked={standsSoft17Input()}
 						onInput={(event) => setStandsSoft17Input(event.currentTarget.checked)}
 					/>
-					Dealer stands on soft 17
+					S17
 				</label>
 				<button type="submit">Calculate</button>
+				<Show when={calcTimeMs() !== null}>
+					<span class="ev-table__calc-time">(took {formatDuration(calcTimeMs()!)})</span>
+				</Show>
 			</form>
 
 			<Show when={error()}>
@@ -167,20 +191,11 @@ const EvTable: Component = () => {
 
 			<Show when={comparison()}>
 				{(result) => (
-					<>
-						<EvGrid
-							title="Baseline optimal-action EV (% of bet)"
-							comparison={result()}
-							rowsByKey={rowsByKey()}
-							select={(row) => row.baseEvPercent}
-						/>
-						<EvGrid
-							title={`EV delta vs. baseline, count ${formatCount(params().count)} (percentage points)`}
-							comparison={result()}
-							rowsByKey={rowsByKey()}
-							select={(row) => row.deltaPercentPoints}
-						/>
-					</>
+					<EvGrid
+						title={`Optimal-action EV, count ${formatCount(params().count)} (% of bet)`}
+						comparison={result()}
+						rowsByKey={rowsByKey()}
+					/>
 				)}
 			</Show>
 		</section>

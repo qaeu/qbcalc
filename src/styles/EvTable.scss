@@ -30,6 +30,11 @@
 			}
 		}
 
+		&__calc-time {
+			font-size: 13px;
+			color: get($neutrals, 'fg-light');
+		}
+
 		input[type='number'] {
 			width: 80px;
 			padding: 6px 8px;
@@ -75,12 +80,41 @@
 			font-weight: 400;
 		}
 
+		thead th:not(:first-child) {
+			text-align: right;
+		}
+
 		td.is-positive {
 			color: get($successes, 'fg-light');
 		}
 
 		td.is-negative {
 			color: get($errors, 'fg-light');
+		}
+
+		&__popover {
+			@include shadow($shadow-light);
+			z-index: 20;
+			max-width: 220px;
+			padding: 10px 12px;
+			background-color: get($neutrals, 'bg');
+			border: 1px solid get($neutrals, 'sep');
+			border-radius: 6px;
+			font-size: 12px;
+			color: $foreground;
+
+			p {
+				margin: 0;
+
+				& + p {
+					margin-top: 4px;
+				}
+			}
+		}
+
+		&__popover-arrow {
+			--arrow-size: 8px;
+			--arrow-background: #{get($neutrals, 'bg')};
 		}
 	}
 }
