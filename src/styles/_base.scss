@@ -1,0 +1,79 @@
+@forward 'theme';
+@use 'theme' as *;
+
+@layer base, screen, ui, override;
+
+@layer base {
+	body {
+		width: 100vw;
+		overflow-x: hidden;
+		min-height: 100vh;
+		margin: 0;
+		padding: 0;
+		font-family: 'Noto Sans', system-ui, sans-serif;
+		font-weight: 400;
+		font-size: 16px;
+		color: $foreground;
+		background-color: $background;
+		transition:
+			color 300ms,
+			background-color 300ms,
+			border-color 300ms,
+			box-shadow 300ms;
+	}
+
+	// Always reserve the scrollbar gutter to prevent layout shift
+	html {
+		scrollbar-gutter: stable;
+	}
+
+	h1 {
+		font-weight: 300;
+		font-size: 32px;
+		color: get($primaries, 'fg-light');
+		margin: 20px 0;
+	}
+
+	h2 {
+		font-weight: 400;
+		font-size: 24px;
+		letter-spacing: 1px;
+		color: get($primaries, 'fg-light');
+		margin: 16px 0;
+	}
+
+	h3 {
+		font-weight: 400;
+		font-size: 18px;
+		letter-spacing: 1px;
+		color: get($primaries, 'fg-light');
+		margin: 12px 0;
+	}
+
+	button,
+	select {
+		font-family: inherit;
+		font-size: inherit;
+		line-height: inherit;
+	}
+
+	button {
+		@include button();
+	}
+
+	.button-group {
+		display: flex;
+		gap: 10px;
+
+		button {
+			flex: 1;
+		}
+	}
+
+	input,
+	textarea {
+		font-family: 'Fira Mono', monospace;
+		font-size: 14px;
+		color: $foreground;
+	}
+}

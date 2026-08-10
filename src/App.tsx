@@ -1,0 +1,14 @@
+import type { Component } from 'solid-js';
+
+import '#styles/App';
+
+const App: Component = () => {
+	return (
+		<main class="app">
+			<h1>Blackjack EV Calculator</h1>
+			<p>Coming soon.</p>
+		</main>
+	);
+};
+
+export default App;

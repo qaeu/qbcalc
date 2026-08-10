@@ -1,0 +1,7 @@
+@use 'base' as *;
+
+@layer screen {
+	.app {
+		@include container;
+	}
+}

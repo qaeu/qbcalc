@@ -1,0 +1,193 @@
+@forward 'sass:map';
+@use 'sass:map' as *;
+
+@use '@radix-ui/colors/grass';
+@use '@radix-ui/colors/grass-alpha';
+@use '@radix-ui/colors/sage';
+@use '@radix-ui/colors/sage-alpha';
+@use '@radix-ui/colors/teal';
+@use '@radix-ui/colors/teal-alpha';
+@use '@radix-ui/colors/amber';
+@use '@radix-ui/colors/amber-alpha';
+@use '@radix-ui/colors/ruby';
+@use '@radix-ui/colors/ruby-alpha';
+
+@use '@radix-ui/colors/grass-dark';
+@use '@radix-ui/colors/grass-dark-alpha';
+@use '@radix-ui/colors/sage-dark';
+@use '@radix-ui/colors/sage-dark-alpha';
+@use '@radix-ui/colors/teal-dark';
+@use '@radix-ui/colors/teal-dark-alpha';
+@use '@radix-ui/colors/amber-dark';
+@use '@radix-ui/colors/amber-dark-alpha';
+@use '@radix-ui/colors/ruby-dark';
+@use '@radix-ui/colors/ruby-dark-alpha';
+
+@use '@radix-ui/colors/white-alpha';
+@use '@radix-ui/colors/black-alpha';
+
+/* - THEME COLOURS - */
+
+// Maps a Radix 12-step scale onto semantic slot names. Every value is a CSS
+// custom property, so switching `.dark-theme` on <body> reskins the whole app
+// without recompiling.
+@function _colourset($colour-name) {
+	@return (
+		'fg': var(--#{$colour-name}-12),
+		'fg-light': var(--#{$colour-name}-11),
+		'base-dark': var(--#{$colour-name}-10),
+		'base': var(--#{$colour-name}-9),
+		'sep-dark': var(--#{$colour-name}-8),
+		'sep': var(--#{$colour-name}-7),
+		'sep-light': var(--#{$colour-name}-6),
+		'highlight': var(--#{$colour-name}-4),
+		'bg-dark': var(--#{$colour-name}-2),
+		'bg': var(--#{$colour-name}-1),
+		'fade-less': var(--#{$colour-name}-a3),
+		'fade': var(--#{$colour-name}-a2),
+		'fade-light': var(--#{$colour-name}-a1)
+	);
+}
+
+// Primary brand colour - blackjack table felt
+$primaries: _colourset('grass');
+$primary: get($primaries, 'base');
+
+// Neutrals - primary text and key UI elements
+$neutrals: _colourset('sage');
+$foreground: get($neutrals, 'fg');
+$background: get($neutrals, 'bg');
+
+// Greys - container surfaces, borders and separators
+$greys: $neutrals;
+
+// Semantic colours
+$successes: _colourset('teal');
+$warnings: _colourset('amber');
+$errors: _colourset('ruby');
+
+$white: var(--white-a12);
+$black: var(--black-a12);
+
+/* - SHADOWS - */
+
+$shadow-base: $black;
+$shadow-light: var(--sage-10);
+
+@mixin shadow-short($colour: $shadow-base) {
+	box-shadow:
+		0px 0px 1px oklch(from $colour l c h / 0.05),
+		1px 2px 3px oklch(from $colour l c h / 0.05);
+
+	@at-root .dark-theme & {
+		box-shadow:
+			0px 0px 1px oklch(from $colour l c h / 0.2),
+			1px 2px 3px oklch(from $colour l c h / 0.2);
+	}
+}
+
+@mixin shadow($colour: $shadow-base) {
+	box-shadow:
+		1px 2px 3px oklch(from $colour l c h / 0.05),
+		2px 4px 6px oklch(from $colour l c h / 0.05);
+
+	@at-root .dark-theme & {
+		box-shadow:
+			1px 2px 3px oklch(from $colour l c h / 0.2),
+			2px 4px 6px oklch(from $colour l c h / 0.2);
+	}
+}
+
+@mixin shadow-inset($colour: $shadow-base) {
+	box-shadow:
+		inset 1px 2px 3px oklch(from $colour l c h / 0.05),
+		inset 2px 4px 6px oklch(from $colour l c h / 0.05);
+
+	@at-root .dark-theme & {
+		box-shadow:
+			inset 1px 2px 3px oklch(from $colour l c h / 0.3),
+			inset 2px 4px 6px oklch(from $colour l c h / 0.3);
+	}
+}
+
+/* - LAYOUT MIXINS - */
+
+// Main content areas
+@mixin container {
+	padding: 20px;
+	max-width: 1400px;
+	margin: 0 auto;
+}
+
+// Card/box styling with shadow and rounded corners
+@mixin card($bg-colour: $background) {
+	@include shadow-short;
+	padding: 20px;
+	margin-bottom: 30px;
+	background-color: $bg-colour;
+	border-radius: 8px;
+	contain: layout;
+}
+
+// Info box styling with left border accent
+@mixin info-box($bg-colour, $border-colour) {
+	padding: 15px;
+	background-color: $bg-colour;
+	border-left: 4px solid $border-colour;
+	margin-bottom: 20px;
+	border-radius: 4px;
+
+	p {
+		margin: 0;
+		font-size: 14px;
+	}
+}
+
+@mixin button($colourset: $primaries) {
+	@include shadow-short($shadow-light);
+	padding: 8px 12px;
+	border: 1px solid get($greys, 'sep');
+	border-radius: 4px;
+	color: get($greys, 'fg-light');
+	background-color: transparent;
+	cursor: pointer;
+	font-size: 13px;
+	letter-spacing: 1px;
+	transition: all 0.2s ease;
+
+	&:hover:not(:disabled, .active) {
+		border-color: get($colourset, 'sep-dark');
+		color: get($colourset, 'base-dark');
+	}
+
+	&.highlight:hover:not(:disabled, .active) {
+		background-color: get($colourset, 'fade');
+	}
+
+	&.active {
+		background-color: get($colourset, 'base');
+		border-color: transparent;
+		color: $white;
+	}
+
+	&:disabled {
+		box-shadow: none;
+		background: none;
+		border-color: get($greys, 'fade-less');
+		color: get($greys, 'sep-dark');
+		cursor: default;
+	}
+}
+
+// Pre/code block styling
+@mixin code-block($bg: $background) {
+	background-color: $bg;
+	padding: 15px;
+	border-radius: 4px;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	border: 1px solid get($neutrals, 'sep');
+	font-family: 'Fira Mono', monospace;
+	font-size: 12px;
+	line-height: 1.5;
+}
