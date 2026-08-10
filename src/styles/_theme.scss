@@ -11,6 +11,8 @@
 @use '@radix-ui/colors/amber-alpha';
 @use '@radix-ui/colors/ruby';
 @use '@radix-ui/colors/ruby-alpha';
+@use '@radix-ui/colors/blue';
+@use '@radix-ui/colors/blue-alpha';
 
 @use '@radix-ui/colors/grass-dark';
 @use '@radix-ui/colors/grass-dark-alpha';
@@ -22,6 +24,8 @@
 @use '@radix-ui/colors/amber-dark-alpha';
 @use '@radix-ui/colors/ruby-dark';
 @use '@radix-ui/colors/ruby-dark-alpha';
+@use '@radix-ui/colors/blue-dark';
+@use '@radix-ui/colors/blue-dark-alpha';
 
 @use '@radix-ui/colors/white-alpha';
 @use '@radix-ui/colors/black-alpha';
@@ -65,6 +69,7 @@ $greys: $neutrals;
 $successes: _colourset('teal');
 $warnings: _colourset('amber');
 $errors: _colourset('ruby');
+$infos: _colourset('blue');
 
 $white: var(--white-a12);
 $black: var(--black-a12);

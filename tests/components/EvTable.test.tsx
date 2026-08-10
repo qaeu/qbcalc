@@ -35,13 +35,16 @@ describe('EvTable', () => {
 		expect(await screen.findByText(/too extreme/i)).toBeDefined();
 	});
 
-	it('shows optimal-action EV, delta, optimal play, and bust odds when a cell is hovered', async () => {
+	it('shows the optimal play as a single letter in the cell, and EV, delta, and bust odds when hovered', async () => {
 		render(() => <EvTable />);
 
 		const tables = screen.getAllByRole('table');
 		const firstDataCell = within(tables[0])
 			.getAllByRole('row')[1]
 			.querySelectorAll('td')[0];
+
+		expect(firstDataCell.textContent).toMatch(/^[HSD]$/);
+
 		fireEvent.pointerEnter(firstDataCell);
 
 		const popover = popoverFor(firstDataCell);
@@ -51,7 +54,7 @@ describe('EvTable', () => {
 
 		expect(popover.textContent).toMatch(/Optimal-action EV:/);
 		expect(popover.textContent).toMatch(/Δ vs\. baseline:/);
-		expect(popover.textContent).toMatch(/Optimal play: (Hit|Stand|Double)/);
+		expect(popover.textContent).not.toMatch(/Optimal play:/);
 		expect(popover.textContent).toMatch(/Player bust% on hit: \d+\.\d%/);
 		expect(popover.textContent).toMatch(/Dealer bust%: \d+\.\d%/);
 	});

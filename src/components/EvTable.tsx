@@ -8,6 +8,7 @@ import {
 	computeEvComparison,
 	type EvComparisonResult,
 	type EvComparisonRow,
+	type PlayerAction,
 	type Rank,
 } from '#utils/blackjackEv';
 import { formatCount, formatDuration } from '#utils/format';
@@ -36,9 +37,13 @@ interface EvCellProps {
 	row: EvComparisonRow;
 }
 
-const EvCell: Component<EvCellProps> = (props) => {
-	const value = () => props.row.countEvPercent;
+const ACTION_CLASS: Record<PlayerAction, string> = {
+	H: 'is-hit',
+	S: 'is-stand',
+	D: 'is-double',
+};
 
+const EvCell: Component<EvCellProps> = (props) => {
 	return (
 		<HoverCard.Root openDelay={0} closeDelay={0} positioning={{ placement: 'bottom' }}>
 			<HoverCard.Trigger
@@ -46,7 +51,7 @@ const EvCell: Component<EvCellProps> = (props) => {
 					<td
 						{...triggerProps()}
 						tabIndex={0}
-						classList={{ 'is-positive': value() > 0, 'is-negative': value() < 0 }}
+						class={ACTION_CLASS[props.row.optimalAction]}
 					>
 						{props.row.optimalAction}
 					</td>

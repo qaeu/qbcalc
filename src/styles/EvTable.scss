@@ -71,7 +71,7 @@
 
 		th,
 		td {
-			padding: 6px 10px;
+			padding: 12px 10px;
 			text-align: right;
 			border-bottom: 1px solid get($neutrals, 'sep-light');
 		}
@@ -87,12 +87,37 @@
 			text-align: right;
 		}
 
-		td.is-positive {
-			color: get($successes, 'fg-light');
+		td.is-hit,
+		td.is-stand,
+		td.is-double {
+			transition: background-color 0.15s ease;
 		}
 
-		td.is-negative {
+		td.is-hit {
+			color: get($primaries, 'fg-light');
+			background-color: get($primaries, 'fade-light');
+
+			&:hover {
+				background-color: get($primaries, 'fade');
+			}
+		}
+
+		td.is-stand {
 			color: get($errors, 'fg-light');
+			background-color: get($errors, 'fade-light');
+
+			&:hover {
+				background-color: get($errors, 'fade');
+			}
+		}
+
+		td.is-double {
+			color: get($infos, 'fg-light');
+			background-color: get($infos, 'fade-light');
+
+			&:hover {
+				background-color: get($infos, 'fade');
+			}
 		}
 
 		&__popover {
