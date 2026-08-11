@@ -10,10 +10,11 @@ import {
 
 import EvTable from '#c/EvTable';
 
-// Rendering now runs three exact-enumeration tables (hard totals, soft
-// totals, splits) per mount (~8-9s under jsdom); tests that mount and/or
-// recompute more than once need generous headroom above the default 5s.
-vi.setConfig({ testTimeout: 45000 });
+// Rendering runs three exact-enumeration tables (hard totals, soft totals,
+// splits) per mount (~5-6s under jsdom, computed via a shared engine); tests
+// that mount and/or recompute more than once need headroom above the
+// default 5s.
+vi.setConfig({ testTimeout: 20000 });
 
 // The HoverCard content isn't unmounted while closed (it's hidden via the
 // `hidden` attribute instead), so look it up by the id HoverCard pairs with
@@ -29,7 +30,7 @@ describe('EvTable', () => {
 	it('renders hard totals, soft totals, and splits grids for the default rule set', () => {
 		render(() => <EvTable />);
 
-		expect(screen.getByText('Optimal play, count +1')).toBeDefined();
+		expect(screen.getByText('Hard totals')).toBeDefined();
 		expect(screen.getByText('Soft totals')).toBeDefined();
 		expect(screen.getByText('Splits')).toBeDefined();
 
@@ -37,8 +38,8 @@ describe('EvTable', () => {
 		expect(tables).toHaveLength(3);
 		// 10 hard totals (8-17) as rows, plus 10 dealer upcards as columns.
 		expect(within(tables[0]).getAllByRole('row')).toHaveLength(11);
-		// 9 soft totals (A,2-A,T) as rows.
-		expect(within(tables[1]).getAllByRole('row')).toHaveLength(10);
+		// 8 soft totals (A,2-A,9) as rows.
+		expect(within(tables[1]).getAllByRole('row')).toHaveLength(9);
 		// 10 splittable pairs (2,2-A,A) as rows.
 		expect(within(tables[2]).getAllByRole('row')).toHaveLength(11);
 	});
@@ -123,7 +124,7 @@ describe('EvTable', () => {
 		fireEvent.click(checkbox);
 		fireEvent.submit(decksInput.closest('form')!);
 
-		expect(await screen.findByText('Optimal play, count -2')).toBeDefined();
+		expect(await screen.findByText('Hard totals')).toBeDefined();
 
 		cleanup();
 		render(() => <EvTable />);
@@ -133,7 +134,7 @@ describe('EvTable', () => {
 			'-2'
 		);
 		expect((screen.getByLabelText('S17') as HTMLInputElement).checked).toBe(true);
-		expect(screen.getByText('Optimal play, count -2')).toBeDefined();
+		expect(screen.getByText('Hard totals')).toBeDefined();
 	});
 
 	it('recomputes cell values when the S17 checkbox is toggled', async () => {

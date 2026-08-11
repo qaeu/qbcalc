@@ -86,8 +86,12 @@ export interface SplitEvComparisonResult {
 
 export const RANKS: readonly Rank[] = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'A'];
 export const HARD_TOTALS: readonly number[] = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
-/** Soft totals A,2 (13) through A,T (21), i.e. an ace plus one non-ace card. */
-export const SOFT_TOTALS: readonly number[] = [13, 14, 15, 16, 17, 18, 19, 20, 21];
+/**
+ * Soft totals A,2 (13) through A,9 (20), i.e. an ace plus one non-ace card.
+ * A,T (21) is omitted: it's a made blackjack-value hand where hitting is
+ * never a real decision, so there's no optimal-play comparison to show.
+ */
+export const SOFT_TOTALS: readonly number[] = [13, 14, 15, 16, 17, 18, 19, 20];
 /** Splittable pairs 2,2 through T,T and A,A -- one entry per rank. */
 export const PAIR_RANKS: readonly Rank[] = RANKS;
 export const DEFAULT_RULE_SET: RuleSet = { decks: 4, dealerHitsSoft17: true };
@@ -482,18 +486,23 @@ export function applyAceFiveCount(comp: Composition, count: number): Composition
 	return next;
 }
 
-export function computeEvComparison(
-	ruleSet: RuleSet,
-	count: number,
-	totals: readonly number[] = HARD_TOTALS,
-	upcards: readonly Rank[] = RANKS,
-	soft = false
+/**
+ * Builds one hard/soft-totals comparison table from a pair of engines the
+ * caller already has (one warmed on `base`, one on `modified`). Sharing
+ * engines across tables lets their memo caches carry over instead of
+ * recomputing identical dealer/player recursion states from scratch --
+ * see `computeAllEvTables`.
+ */
+function buildEvComparison(
+	baseEngine: ShoeEv,
+	countEngine: ShoeEv,
+	base: Composition,
+	modified: Composition,
+	totals: readonly number[],
+	upcards: readonly Rank[],
+	soft: boolean
 ): EvComparisonResult {
-	const base = baseComposition(ruleSet);
-	const modified = applyAceFiveCount(base, Math.round(count));
-
-	const baseGrid = new ShoeEv(ruleSet).grid(base, totals, upcards, soft);
-	const countEngine = new ShoeEv(ruleSet);
+	const baseGrid = baseEngine.grid(base, totals, upcards, soft);
 	const modGrid = countEngine.grid(modified, totals, upcards, soft);
 	const analysisGrid = countEngine.analyzeGrid(modified, totals, upcards, soft);
 
@@ -520,6 +529,26 @@ export function computeEvComparison(
 	return { totals, upcards, rows };
 }
 
+export function computeEvComparison(
+	ruleSet: RuleSet,
+	count: number,
+	totals: readonly number[] = HARD_TOTALS,
+	upcards: readonly Rank[] = RANKS,
+	soft = false
+): EvComparisonResult {
+	const base = baseComposition(ruleSet);
+	const modified = applyAceFiveCount(base, Math.round(count));
+	return buildEvComparison(
+		new ShoeEv(ruleSet),
+		new ShoeEv(ruleSet),
+		base,
+		modified,
+		totals,
+		upcards,
+		soft
+	);
+}
+
 /**
  * Unlike `computeEvComparison` (whose EV numbers are hit/stand-only, per the
  * module docs), each row's EV here is the fully optimal action's EV --
@@ -527,21 +556,17 @@ export function computeEvComparison(
  * hit/stand-only `bestEv` recursion. `optimalAction` is drawn from the same
  * comparison, so the displayed EV always matches the recommended action.
  */
-export function computeSplitEvComparison(
-	ruleSet: RuleSet,
-	count: number,
-	pairRanks: readonly Rank[] = PAIR_RANKS,
-	upcards: readonly Rank[] = RANKS
+/** Same sharing idea as `buildEvComparison`, for the splits table. */
+function buildSplitEvComparison(
+	baseEngine: ShoeEv,
+	countEngine: ShoeEv,
+	base: Composition,
+	modified: Composition,
+	pairRanks: readonly Rank[],
+	upcards: readonly Rank[]
 ): SplitEvComparisonResult {
-	const base = baseComposition(ruleSet);
-	const modified = applyAceFiveCount(base, Math.round(count));
-
-	const baseAnalysis = new ShoeEv(ruleSet).analyzeSplitGrid(base, pairRanks, upcards);
-	const countAnalysis = new ShoeEv(ruleSet).analyzeSplitGrid(
-		modified,
-		pairRanks,
-		upcards
-	);
+	const baseAnalysis = baseEngine.analyzeSplitGrid(base, pairRanks, upcards);
+	const countAnalysis = countEngine.analyzeSplitGrid(modified, pairRanks, upcards);
 
 	const rows: SplitEvComparisonRow[] = [];
 	for (const upcard of upcards) {
@@ -563,4 +588,76 @@ export function computeSplitEvComparison(
 	}
 
 	return { pairRanks, upcards, rows };
+}
+
+export function computeSplitEvComparison(
+	ruleSet: RuleSet,
+	count: number,
+	pairRanks: readonly Rank[] = PAIR_RANKS,
+	upcards: readonly Rank[] = RANKS
+): SplitEvComparisonResult {
+	const base = baseComposition(ruleSet);
+	const modified = applyAceFiveCount(base, Math.round(count));
+	return buildSplitEvComparison(
+		new ShoeEv(ruleSet),
+		new ShoeEv(ruleSet),
+		base,
+		modified,
+		pairRanks,
+		upcards
+	);
+}
+
+/**
+ * Computes all three tables (hard totals, soft totals, splits) sharing one
+ * engine for `base` and one for `modified` across all of them. Dealer
+ * outcome distributions -- and, for split, the hit/stand/double sub-EVs --
+ * depend only on shoe composition and hand-in-progress state, not on which
+ * table triggered the computation, so the memo caches populated by the
+ * first table are reused by the other two instead of being rebuilt from
+ * scratch. This is the entry point `EvTable` should use; the single-table
+ * `computeEvComparison`/`computeSplitEvComparison` functions above remain
+ * for standalone/test use and always compute with fresh, unshared engines.
+ */
+export function computeAllEvTables(
+	ruleSet: RuleSet,
+	count: number
+): {
+	hard: EvComparisonResult;
+	soft: EvComparisonResult;
+	split: SplitEvComparisonResult;
+} {
+	const base = baseComposition(ruleSet);
+	const modified = applyAceFiveCount(base, Math.round(count));
+	const baseEngine = new ShoeEv(ruleSet);
+	const countEngine = new ShoeEv(ruleSet);
+
+	const hard = buildEvComparison(
+		baseEngine,
+		countEngine,
+		base,
+		modified,
+		HARD_TOTALS,
+		RANKS,
+		false
+	);
+	const soft = buildEvComparison(
+		baseEngine,
+		countEngine,
+		base,
+		modified,
+		SOFT_TOTALS,
+		RANKS,
+		true
+	);
+	const split = buildSplitEvComparison(
+		baseEngine,
+		countEngine,
+		base,
+		modified,
+		PAIR_RANKS,
+		RANKS
+	);
+
+	return { hard, soft, split };
 }

@@ -3,24 +3,14 @@ import { createMemo, createSignal, For, Show, type Component } from 'solid-js';
 
 import {
 	DEFAULT_RULE_SET,
-	HARD_TOTALS,
-	PAIR_RANKS,
-	RANKS,
-	SOFT_TOTALS,
-	computeEvComparison,
-	computeSplitEvComparison,
+	computeAllEvTables,
 	type EvCellData,
 	type EvComparisonResult,
 	type PlayerAction,
 	type Rank,
 	type SplitEvComparisonResult,
 } from '#utils/blackjackEv';
-import {
-	formatCount,
-	formatDuration,
-	formatPairLabel,
-	formatSoftTotalLabel,
-} from '#utils/format';
+import { formatDuration, formatPairLabel, formatSoftTotalLabel } from '#utils/format';
 import { loadCalculatorConfig, saveCalculatorConfig } from '#utils/storage';
 
 import EvCellPopover from '#c/EvCellPopover';
@@ -184,9 +174,7 @@ const EvTable: Component = () => {
 		const ruleSet = { decks, dealerHitsSoft17 };
 		const start = performance.now();
 		try {
-			const hard = computeEvComparison(ruleSet, count, HARD_TOTALS, RANKS);
-			const soft = computeEvComparison(ruleSet, count, SOFT_TOTALS, RANKS, true);
-			const split = computeSplitEvComparison(ruleSet, count, PAIR_RANKS, RANKS);
+			const { hard, soft, split } = computeAllEvTables(ruleSet, count);
 			setCalcTimeMs(performance.now() - start);
 			setError(null);
 			return { hard, soft, split };
@@ -282,7 +270,7 @@ const EvTable: Component = () => {
 				{(result) => (
 					<>
 						<EvGrid
-							title={`Optimal play, count ${formatCount(params().count)}`}
+							title="Hard totals"
 							rowHeading="Hard total"
 							comparison={result().hard}
 							rowsByKey={hardRowsByKey()}
