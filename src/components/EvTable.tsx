@@ -1,17 +1,19 @@
 import { HoverCard } from '@ark-ui/solid/hover-card';
-import { createMemo, createSignal, For, Show, type Component } from 'solid-js';
+import { createMemo, createSignal, For, onCleanup, Show, type Component } from 'solid-js';
 
 import {
 	DEFAULT_RULE_SET,
-	computeAllEvTables,
+	HARD_TOTALS,
+	PAIR_RANKS,
+	RANKS,
+	SOFT_TOTALS,
 	type EvCellData,
-	type EvComparisonResult,
 	type PlayerAction,
 	type Rank,
-	type SplitEvComparisonResult,
 } from '#utils/blackjackEv';
 import { formatDuration, formatPairLabel, formatSoftTotalLabel } from '#utils/format';
 import { loadCalculatorConfig, saveCalculatorConfig } from '#utils/storage';
+import type { EvWorkerRequest, EvWorkerResponse, EvWorkerResult } from '#utils/evWorkerProtocol';
 
 import EvCellPopover from '#c/EvCellPopover';
 
@@ -23,11 +25,7 @@ interface CalculatorParams {
 	dealerHitsSoft17: boolean;
 }
 
-interface ComparisonBundle {
-	hard: EvComparisonResult;
-	soft: EvComparisonResult;
-	split: SplitEvComparisonResult;
-}
+type ComparisonBundle = EvWorkerResult;
 
 const DEFAULT_PARAMS: CalculatorParams = {
 	decks: DEFAULT_RULE_SET.decks,
@@ -69,11 +67,19 @@ const EvCell: Component<EvCellProps> = (props) => {
 	);
 };
 
+const LoadingCell: Component = () => (
+	<td class="is-loading">
+		<span class="ev-table__cell-skeleton" aria-hidden="true" />
+	</td>
+);
+
 interface EvGridProps {
 	title: string;
 	rowHeading: string;
-	comparison: EvComparisonResult;
+	totals: readonly number[];
+	upcards: readonly Rank[];
 	rowsByKey: Map<string, EvCellData>;
+	loading: boolean;
 	rowLabel?: (total: number) => string;
 }
 
@@ -85,23 +91,23 @@ const EvGrid: Component<EvGridProps> = (props) => (
 				<thead>
 					<tr>
 						<th scope="col">{props.rowHeading}</th>
-						<For each={props.comparison.upcards}>
-							{(upcard) => <th scope="col">{upcard}</th>}
-						</For>
+						<For each={props.upcards}>{(upcard) => <th scope="col">{upcard}</th>}</For>
 					</tr>
 				</thead>
 				<tbody>
-					<For each={props.comparison.totals}>
+					<For each={props.totals}>
 						{(total) => (
 							<tr>
 								<th scope="row">{props.rowLabel ? props.rowLabel(total) : total}</th>
-								<For each={props.comparison.upcards}>
+								<For each={props.upcards}>
 									{(upcard) => (
-										<Show
-											when={props.rowsByKey.get(cellKey(total, upcard))}
-											fallback={<td>—</td>}
-										>
-											{(row) => <EvCell row={row()} />}
+										<Show when={!props.loading} fallback={<LoadingCell />}>
+											<Show
+												when={props.rowsByKey.get(cellKey(total, upcard))}
+												fallback={<td>—</td>}
+											>
+												{(row) => <EvCell row={row()} />}
+											</Show>
 										</Show>
 									)}
 								</For>
@@ -116,8 +122,10 @@ const EvGrid: Component<EvGridProps> = (props) => (
 
 interface SplitEvGridProps {
 	title: string;
-	comparison: SplitEvComparisonResult;
+	pairRanks: readonly Rank[];
+	upcards: readonly Rank[];
 	rowsByKey: Map<string, EvCellData>;
+	loading: boolean;
 }
 
 const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
@@ -128,23 +136,23 @@ const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
 				<thead>
 					<tr>
 						<th scope="col">Pair</th>
-						<For each={props.comparison.upcards}>
-							{(upcard) => <th scope="col">{upcard}</th>}
-						</For>
+						<For each={props.upcards}>{(upcard) => <th scope="col">{upcard}</th>}</For>
 					</tr>
 				</thead>
 				<tbody>
-					<For each={props.comparison.pairRanks}>
+					<For each={props.pairRanks}>
 						{(pairRank) => (
 							<tr>
 								<th scope="row">{formatPairLabel(pairRank)}</th>
-								<For each={props.comparison.upcards}>
+								<For each={props.upcards}>
 									{(upcard) => (
-										<Show
-											when={props.rowsByKey.get(cellKey(pairRank, upcard))}
-											fallback={<td>—</td>}
-										>
-											{(row) => <EvCell row={row()} />}
+										<Show when={!props.loading} fallback={<LoadingCell />}>
+											<Show
+												when={props.rowsByKey.get(cellKey(pairRank, upcard))}
+												fallback={<td>—</td>}
+											>
+												{(row) => <EvCell row={row()} />}
+											</Show>
 										</Show>
 									)}
 								</For>
@@ -165,29 +173,65 @@ const EvTable: Component = () => {
 	const [standsSoft17Input, setStandsSoft17Input] = createSignal(
 		!initialParams.dealerHitsSoft17
 	);
-	const [params, setParams] = createSignal(initialParams);
+	const [result, setResult] = createSignal<ComparisonBundle | null>(null);
+	const [isComputing, setIsComputing] = createSignal(false);
 	const [error, setError] = createSignal<string | null>(null);
 	const [calcTimeMs, setCalcTimeMs] = createSignal<number | null>(null);
 
-	const comparison = createMemo<ComparisonBundle | null>(() => {
-		const { decks, count, dealerHitsSoft17 } = params();
-		const ruleSet = { decks, dealerHitsSoft17 };
-		const start = performance.now();
-		try {
-			const { hard, soft, split } = computeAllEvTables(ruleSet, count);
-			setCalcTimeMs(performance.now() - start);
-			setError(null);
-			return { hard, soft, split };
-		} catch (err) {
-			setCalcTimeMs(null);
-			setError(err instanceof Error ? err.message : String(err));
-			return null;
+	// Exact enumeration over the full shoe takes seconds; offload it to a
+	// worker so the main thread stays responsive and the grids can show a
+	// loading state instead of freezing the tab.
+	let worker: Worker | undefined;
+	let latestRequestId = 0;
+	let latestRequestStart = 0;
+
+	const getWorker = (): Worker => {
+		if (!worker) {
+			worker = new Worker(new URL('../utils/blackjackEv.worker.ts', import.meta.url), {
+				type: 'module',
+			});
+			// A single persistent handler, not one added per request: every
+			// listener on a worker sees every message, so routing by comparing
+			// each message's own requestId against the latest one is what keeps
+			// a superseded request's (still in-flight) response from landing.
+			worker.addEventListener('message', (event: MessageEvent<EvWorkerResponse>) => {
+				if (event.data.requestId !== latestRequestId) return;
+				setIsComputing(false);
+				if (event.data.status === 'success') {
+					setCalcTimeMs(performance.now() - latestRequestStart);
+					setResult(event.data.result);
+				} else {
+					setCalcTimeMs(null);
+					setError(event.data.message);
+				}
+			});
 		}
-	});
+		return worker;
+	};
+
+	onCleanup(() => worker?.terminate());
+
+	const runCalculation = (nextParams: CalculatorParams) => {
+		const w = getWorker();
+		latestRequestId += 1;
+		latestRequestStart = performance.now();
+		setIsComputing(true);
+		setError(null);
+
+		const { decks, count, dealerHitsSoft17 } = nextParams;
+		const request: EvWorkerRequest = {
+			requestId: latestRequestId,
+			ruleSet: { decks, dealerHitsSoft17 },
+			count,
+		};
+		w.postMessage(request);
+	};
+
+	runCalculation(initialParams);
 
 	const hardRowsByKey = createMemo(() => {
 		const map = new Map<string, EvCellData>();
-		for (const row of comparison()?.hard.rows ?? []) {
+		for (const row of result()?.hard.rows ?? []) {
 			map.set(cellKey(row.total, row.upcard), row);
 		}
 		return map;
@@ -195,7 +239,7 @@ const EvTable: Component = () => {
 
 	const softRowsByKey = createMemo(() => {
 		const map = new Map<string, EvCellData>();
-		for (const row of comparison()?.soft.rows ?? []) {
+		for (const row of result()?.soft.rows ?? []) {
 			map.set(cellKey(row.total, row.upcard), row);
 		}
 		return map;
@@ -203,7 +247,7 @@ const EvTable: Component = () => {
 
 	const splitRowsByKey = createMemo(() => {
 		const map = new Map<string, EvCellData>();
-		for (const row of comparison()?.split.rows ?? []) {
+		for (const row of result()?.split.rows ?? []) {
 			map.set(cellKey(row.pairRank, row.upcard), row);
 		}
 		return map;
@@ -216,8 +260,8 @@ const EvTable: Component = () => {
 			count: countInput(),
 			dealerHitsSoft17: !standsSoft17Input(),
 		};
-		setParams(nextParams);
 		saveCalculatorConfig(nextParams);
+		runCalculation(nextParams);
 	};
 
 	return (
@@ -266,29 +310,31 @@ const EvTable: Component = () => {
 				</Show>
 			</div>
 
-			<Show when={comparison()}>
-				{(result) => (
-					<>
-						<EvGrid
-							title="Hard totals"
-							rowHeading="Hard total"
-							comparison={result().hard}
-							rowsByKey={hardRowsByKey()}
-						/>
-						<EvGrid
-							title="Soft totals"
-							rowHeading="Soft total"
-							comparison={result().soft}
-							rowsByKey={softRowsByKey()}
-							rowLabel={formatSoftTotalLabel}
-						/>
-						<SplitEvGrid
-							title="Splits"
-							comparison={result().split}
-							rowsByKey={splitRowsByKey()}
-						/>
-					</>
-				)}
+			<Show when={!error()}>
+				<EvGrid
+					title="Hard totals"
+					rowHeading="Hard total"
+					totals={HARD_TOTALS}
+					upcards={RANKS}
+					rowsByKey={hardRowsByKey()}
+					loading={isComputing()}
+				/>
+				<EvGrid
+					title="Soft totals"
+					rowHeading="Soft total"
+					totals={SOFT_TOTALS}
+					upcards={RANKS}
+					rowsByKey={softRowsByKey()}
+					rowLabel={formatSoftTotalLabel}
+					loading={isComputing()}
+				/>
+				<SplitEvGrid
+					title="Splits"
+					pairRanks={PAIR_RANKS}
+					upcards={RANKS}
+					rowsByKey={splitRowsByKey()}
+					loading={isComputing()}
+				/>
 			</Show>
 		</section>
 	);

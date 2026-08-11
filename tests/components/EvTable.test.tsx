@@ -44,29 +44,41 @@ describe('EvTable', () => {
 		expect(within(tables[2]).getAllByRole('row')).toHaveLength(11);
 	});
 
-	it('shows an error instead of a table when the count is too extreme', async () => {
-		render(() => <EvTable />);
+	it(
+		'shows an error instead of a table when the count is too extreme',
+		async () => {
+			render(() => <EvTable />);
 
-		const countInput = screen.getByLabelText('Ace-Five count');
-		fireEvent.input(countInput, { target: { value: '10000' } });
-		fireEvent.submit(countInput.closest('form')!);
+			const countInput = screen.getByLabelText('Ace-Five count');
+			fireEvent.input(countInput, { target: { value: '10000' } });
+			fireEvent.submit(countInput.closest('form')!);
 
-		expect(await screen.findByText(/too extreme/i)).toBeDefined();
-	});
+			// The initial mount's own (valid) calculation is still in flight on
+			// the worker stub's microtask queue ahead of this one and must finish
+			// first (~5-6s under jsdom), so this needs more than findByText's 1s
+			// default -- and the test itself needs more than the file's default
+			// 20s budget to have room for that wait.
+			expect(await screen.findByText(/too extreme/i, {}, { timeout: 25000 })).toBeDefined();
+		},
+		30000
+	);
 
-	it('shows the optimal play as a single letter in the cell, and EV, delta, and bust odds when hovered', async () => {
+	it('shows a loading placeholder in cells while computing, then the optimal play as a single letter, and EV, delta, and bust odds when hovered', async () => {
 		render(() => <EvTable />);
 
 		const tables = screen.getAllByRole('table');
-		const firstDataCell = within(tables[0])
-			.getAllByRole('row')[1]
-			.querySelectorAll('td')[0];
+		const firstDataCell = () =>
+			within(tables[0]).getAllByRole('row')[1].querySelectorAll('td')[0];
 
-		expect(firstDataCell.textContent).toMatch(/^[HSD]$/);
+		expect(firstDataCell().classList.contains('is-loading')).toBe(true);
 
-		fireEvent.pointerEnter(firstDataCell);
+		await waitFor(() => {
+			expect(firstDataCell().textContent).toMatch(/^[HSD]$/);
+		});
 
-		const popover = popoverFor(firstDataCell);
+		fireEvent.pointerEnter(firstDataCell());
+
+		const popover = popoverFor(firstDataCell());
 		await waitFor(() => {
 			expect(popover.hidden).toBe(false);
 		});
@@ -82,17 +94,20 @@ describe('EvTable', () => {
 		render(() => <EvTable />);
 
 		const tables = screen.getAllByRole('table');
-		const firstDataCell = within(tables[0])
-			.getAllByRole('row')[1]
-			.querySelectorAll('td')[0];
-		fireEvent.pointerEnter(firstDataCell);
+		const firstDataCell = () =>
+			within(tables[0]).getAllByRole('row')[1].querySelectorAll('td')[0];
+		await waitFor(() => {
+			expect(firstDataCell().textContent).toMatch(/^[HSD]$/);
+		});
 
-		const popover = popoverFor(firstDataCell);
+		fireEvent.pointerEnter(firstDataCell());
+
+		const popover = popoverFor(firstDataCell());
 		await waitFor(() => {
 			expect(popover.hidden).toBe(false);
 		});
 
-		fireEvent.pointerLeave(firstDataCell);
+		fireEvent.pointerLeave(firstDataCell());
 		fireEvent.pointerEnter(popover);
 
 		expect(popover.hidden).toBe(false);
@@ -144,6 +159,10 @@ describe('EvTable', () => {
 			within(screen.getAllByRole('table')[0])
 				.getAllByRole('row')[10]
 				.querySelectorAll('td')[0];
+
+		await waitFor(() => {
+			expect(cell().textContent).toMatch(/^[HSD]$/);
+		});
 
 		fireEvent.pointerEnter(cell());
 		const popoverBefore = popoverFor(cell());

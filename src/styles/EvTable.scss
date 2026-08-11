@@ -130,6 +130,29 @@
 			}
 		}
 
+		td.is-loading {
+			text-align: center;
+		}
+
+		&__cell-skeleton {
+			display: inline-block;
+			width: 14px;
+			height: 14px;
+			border-radius: 3px;
+			background-color: get($neutrals, 'sep');
+			animation: ev-table-skeleton-pulse 1.2s ease-in-out infinite;
+		}
+
+		@keyframes ev-table-skeleton-pulse {
+			0%,
+			100% {
+				opacity: 0.35;
+			}
+			50% {
+				opacity: 0.9;
+			}
+		}
+
 		&__popover {
 			@include shadow($shadow-light);
 			z-index: 20;
