@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
 	cleanup,
 	fireEvent,
@@ -9,6 +9,11 @@ import {
 } from '@solidjs/testing-library';
 
 import EvTable from '#c/EvTable';
+
+// Rendering now runs three exact-enumeration tables (hard totals, soft
+// totals, splits) per mount (~8-9s under jsdom); tests that mount and/or
+// recompute more than once need generous headroom above the default 5s.
+vi.setConfig({ testTimeout: 45000 });
 
 // The HoverCard content isn't unmounted while closed (it's hidden via the
 // `hidden` attribute instead), so look it up by the id HoverCard pairs with
@@ -21,15 +26,21 @@ function popoverFor(trigger: Element): HTMLElement {
 }
 
 describe('EvTable', () => {
-	it('renders a single EV grid for the default rule set', () => {
+	it('renders hard totals, soft totals, and splits grids for the default rule set', () => {
 		render(() => <EvTable />);
 
 		expect(screen.getByText('Optimal play, count +1')).toBeDefined();
+		expect(screen.getByText('Soft totals')).toBeDefined();
+		expect(screen.getByText('Splits')).toBeDefined();
 
 		const tables = screen.getAllByRole('table');
-		expect(tables).toHaveLength(1);
+		expect(tables).toHaveLength(3);
 		// 10 hard totals (8-17) as rows, plus 10 dealer upcards as columns.
 		expect(within(tables[0]).getAllByRole('row')).toHaveLength(11);
+		// 9 soft totals (A,2-A,T) as rows.
+		expect(within(tables[1]).getAllByRole('row')).toHaveLength(10);
+		// 10 splittable pairs (2,2-A,A) as rows.
+		expect(within(tables[2]).getAllByRole('row')).toHaveLength(11);
 	});
 
 	it('shows an error instead of a table when the count is too extreme', async () => {

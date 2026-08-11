@@ -89,7 +89,8 @@
 
 		td.is-hit,
 		td.is-stand,
-		td.is-double {
+		td.is-double,
+		td.is-split {
 			transition: background-color 0.15s ease;
 		}
 
@@ -117,6 +118,15 @@
 
 			&:hover {
 				background-color: get($infos, 'fade');
+			}
+		}
+
+		td.is-split {
+			color: get($warnings, 'fg-light');
+			background-color: get($warnings, 'fade-light');
+
+			&:hover {
+				background-color: get($warnings, 'fade');
 			}
 		}
 

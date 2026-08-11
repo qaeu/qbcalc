@@ -2,10 +2,13 @@ import { describe, it, expect } from 'vitest';
 
 import {
 	RANKS,
+	SOFT_TOTALS,
+	PAIR_RANKS,
 	type RuleSet,
 	baseComposition,
 	applyAceFiveCount,
 	computeEvComparison,
+	computeSplitEvComparison,
 } from '#utils/blackjackEv';
 
 const RULE_SET: RuleSet = { decks: 4, dealerHitsSoft17: true };
@@ -115,6 +118,87 @@ describe('optimal play', () => {
 		const result = computeEvComparison(RULE_SET, 0, [16], RANKS);
 		const row = result.rows.find((r) => r.upcard === 'T')!;
 		expect(row.optimalAction).toBe('H');
+	});
+});
+
+describe('soft totals', () => {
+	it('recommends standing on soft 20 regardless of upcard', () => {
+		const result = computeEvComparison(RULE_SET, 0, [20], RANKS, true);
+		for (const row of result.rows) {
+			expect(row.optimalAction).toBe('S');
+		}
+	});
+
+	it('recommends doubling soft 18 (A,7) against a weak dealer upcard', () => {
+		const result = computeEvComparison(RULE_SET, 0, [18], RANKS, true);
+		const row = result.rows.find((r) => r.upcard === '6')!;
+		expect(row.optimalAction).toBe('D');
+	});
+
+	it('recommends hitting soft 18 (A,7) against a strong dealer upcard', () => {
+		const result = computeEvComparison(RULE_SET, 0, [18], RANKS, true);
+		const row = result.rows.find((r) => r.upcard === 'T')!;
+		expect(row.optimalAction).toBe('H');
+	});
+
+	it('recommends doubling soft 19 (A,8) only against a dealer 6 (H17)', () => {
+		const result = computeEvComparison(RULE_SET, 0, [19], RANKS, true);
+		const six = result.rows.find((r) => r.upcard === '6')!;
+		const two = result.rows.find((r) => r.upcard === '2')!;
+		expect(six.optimalAction).toBe('D');
+		expect(two.optimalAction).toBe('S');
+	});
+
+	it('gives 0% player bust-on-hit for every soft total', () => {
+		const result = computeEvComparison(RULE_SET, 0, SOFT_TOTALS, RANKS, true);
+		for (const row of result.rows) {
+			expect(row.playerBustOnHitPercent).toBe(0);
+		}
+	});
+});
+
+describe('splits', () => {
+	it('always recommends splitting aces', () => {
+		const result = computeSplitEvComparison(RULE_SET, 0, ['A'], RANKS);
+		for (const row of result.rows) {
+			expect(row.optimalAction).toBe('P');
+		}
+	});
+
+	it('recommends splitting 8s against every upcard from 2 through 9', () => {
+		const weakToMediumUpcards = RANKS.filter((r) => r !== 'T' && r !== 'A');
+		const result = computeSplitEvComparison(RULE_SET, 0, ['8'], weakToMediumUpcards);
+		for (const row of result.rows) {
+			expect(row.optimalAction).toBe('P');
+		}
+	});
+
+	it('never recommends splitting 10s', () => {
+		const result = computeSplitEvComparison(RULE_SET, 0, ['T'], RANKS);
+		for (const row of result.rows) {
+			expect(row.optimalAction).not.toBe('P');
+		}
+	});
+
+	it('recommends splitting 9s against a weak upcard but standing against a strong one', () => {
+		const result = computeSplitEvComparison(RULE_SET, 0, ['9'], RANKS);
+		const weak = result.rows.find((r) => r.upcard === '6')!;
+		const strong = result.rows.find((r) => r.upcard === 'T')!;
+		expect(weak.optimalAction).toBe('P');
+		expect(strong.optimalAction).toBe('S');
+	});
+
+	it('recommends doubling 5,5 (hard 10) rather than splitting it', () => {
+		const result = computeSplitEvComparison(RULE_SET, 0, ['5'], RANKS);
+		const row = result.rows.find((r) => r.upcard === '6')!;
+		expect(row.optimalAction).toBe('D');
+	});
+
+	it('gives the dealer a higher bust chance showing a 6 than showing a T', () => {
+		const result = computeSplitEvComparison(RULE_SET, 0, PAIR_RANKS, RANKS);
+		const six = result.rows.find((r) => r.upcard === '6' && r.pairRank === '8')!;
+		const ten = result.rows.find((r) => r.upcard === 'T' && r.pairRank === '8')!;
+		expect(six.dealerBustPercent).toBeGreaterThan(ten.dealerBustPercent);
 	});
 });
 

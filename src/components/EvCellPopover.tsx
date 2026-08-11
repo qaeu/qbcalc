@@ -2,13 +2,13 @@ import { HoverCard } from '@ark-ui/solid/hover-card';
 import { Portal } from 'solid-js/web';
 import { type Component } from 'solid-js';
 
-import type { EvComparisonRow } from '#utils/blackjackEv';
+import type { EvCellData } from '#utils/blackjackEv';
 import { formatEvPercent, formatPercent } from '#utils/format';
 
 import '#styles/EvTable';
 
 interface EvCellPopoverProps {
-	row: EvComparisonRow;
+	row: EvCellData;
 }
 
 const EvCellPopover: Component<EvCellPopoverProps> = (props) => (

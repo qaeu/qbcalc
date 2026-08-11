@@ -1,9 +1,9 @@
 /**
  * Composition-dependent blackjack EV calculator.
  *
- * Computes exact optimal-action EV (stand vs. hit, hard totals only) for each
- * hard total against each dealer upcard, for a full shoe and for a shoe
- * adjusted to simulate a given Ace-Five running count, then reports the
+ * Computes exact optimal-action EV for hard totals, soft totals, and
+ * splittable pairs against each dealer upcard, for a full shoe and for a
+ * shoe adjusted to simulate a given Ace-Five running count, then reports the
  * delta. Ported from the reference Python implementation.
  *
  * METHOD
@@ -15,15 +15,18 @@
  *
  * KEY SIMPLIFICATIONS (documented, not hidden)
  * ----------------------------------------------
- * 1. The player's own two cards are NOT removed from the shoe composition.
- *    Only the dealer's upcard is removed before computing dealer/player EV.
- *    This isolates the primary count effect (ten/five/ace density driving
- *    dealer bust and dealer-completion probabilities) while skipping the
- *    second-order effect of exactly which two cards the player is holding.
- * 2. This table only captures the *playing-decision* channel of the count.
- *    It does NOT include the extra 3:2 payout from more player blackjacks
+ * 1. The player's own cards are NOT removed from the shoe composition. Only
+ *    the dealer's upcard is removed before computing dealer/player EV. This
+ *    isolates the primary count effect (ten/five/ace density driving dealer
+ *    bust and dealer-completion probabilities) while skipping the
+ *    second-order effect of exactly which cards the player is holding. For
+ *    split hands, this extends to the sibling hand too: each split hand's
+ *    draws are computed independently against the same shoe composition,
+ *    not conditioned on what the other hand actually drew.
+ * 2. These tables only capture the *playing-decision* channel of the count.
+ *    They do NOT include the extra 3:2 payout from more player blackjacks
  *    at the deal -- that only matters at the two-card stage, which is
- *    outside the scope of a "hard totals 8-17" hit/stand table.
+ *    outside the scope of a hit/stand/double/split table.
  * 3. The Ace-Five running count is translated into a shoe composition by
  *    assuming the count value N was produced by removing exactly N/2 more
  *    fives than aces from a fresh shoe, split evenly: five-count -= N/2,
@@ -31,12 +34,15 @@
  *    collapse a count value into a composition -- it is NOT the only
  *    possible shoe that produces a given running count, since the same
  *    count can arise from many different actual removal histories.
+ * 4. Split hands follow the common one-card-per-hand, must-stand rule for
+ *    split aces, and no resplitting is modelled (a second pair after a
+ *    split cannot be split again).
  */
 
 export type Rank = '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | 'T' | 'A';
 
-/** Optimal first action for a hard total against a given upcard: hit, stand, or double. */
-export type PlayerAction = 'H' | 'S' | 'D';
+/** Optimal first action: hit, stand, double, or (pairs only) split. */
+export type PlayerAction = 'H' | 'S' | 'D' | 'P';
 
 export interface RuleSet {
 	decks: number;
@@ -46,9 +52,8 @@ export interface RuleSet {
 /** Shoe composition in half-card units, indexed by RANK_INDEX. */
 export type Composition = readonly number[];
 
-export interface EvComparisonRow {
-	total: number;
-	upcard: Rank;
+/** Fields an EV table cell (and its popover) needs, shared by every table's row shape. */
+export interface EvCellData {
 	baseEvPercent: number;
 	countEvPercent: number;
 	deltaPercentPoints: number;
@@ -57,14 +62,34 @@ export interface EvComparisonRow {
 	dealerBustPercent: number;
 }
 
+export interface EvComparisonRow extends EvCellData {
+	total: number;
+	upcard: Rank;
+}
+
 export interface EvComparisonResult {
 	totals: readonly number[];
 	upcards: readonly Rank[];
 	rows: readonly EvComparisonRow[];
 }
 
+export interface SplitEvComparisonRow extends EvCellData {
+	pairRank: Rank;
+	upcard: Rank;
+}
+
+export interface SplitEvComparisonResult {
+	pairRanks: readonly Rank[];
+	upcards: readonly Rank[];
+	rows: readonly SplitEvComparisonRow[];
+}
+
 export const RANKS: readonly Rank[] = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'A'];
 export const HARD_TOTALS: readonly number[] = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+/** Soft totals A,2 (13) through A,T (21), i.e. an ace plus one non-ace card. */
+export const SOFT_TOTALS: readonly number[] = [13, 14, 15, 16, 17, 18, 19, 20, 21];
+/** Splittable pairs 2,2 through T,T and A,A -- one entry per rank. */
+export const PAIR_RANKS: readonly Rank[] = RANKS;
 export const DEFAULT_RULE_SET: RuleSet = { decks: 4, dealerHitsSoft17: true };
 
 type DealerDist = Record<string, number>;
@@ -110,6 +135,20 @@ interface CellAnalysis {
 	optimalAction: PlayerAction;
 	playerBustOnHitPercent: number;
 	dealerBustPercent: number;
+}
+
+interface SplitCellAnalysis {
+	evPercent: number;
+	optimalAction: PlayerAction;
+	playerBustOnHitPercent: number;
+	dealerBustPercent: number;
+}
+
+/** The two-card hard/soft total of a pair, e.g. 8,8 -> hard 16; A,A -> hard 12
+ * (only one ace can count as 11 once both are combined into one hand). */
+function pairTotal(rank: Rank): [number, boolean] {
+	const [afterFirst, softAfterFirst] = addValue(0, false, rank);
+	return addValue(afterFirst, softAfterFirst, rank);
 }
 
 class ShoeEv {
@@ -265,13 +304,14 @@ class ShoeEv {
 	grid(
 		comp0: Composition,
 		totals: readonly number[],
-		upcards: readonly Rank[]
+		upcards: readonly Rank[],
+		soft = false
 	): Map<string, number> {
 		const out = new Map<string, number>();
 		for (const upcard of upcards) {
 			const compUpcard = removeCard(comp0, upcard);
 			for (const total of totals) {
-				out.set(gridKey(total, upcard), this.bestEv(compUpcard, total, false, upcard));
+				out.set(gridKey(total, upcard), this.bestEv(compUpcard, total, soft, upcard));
 			}
 		}
 		return out;
@@ -281,16 +321,29 @@ class ShoeEv {
 	analyzeGrid(
 		comp0: Composition,
 		totals: readonly number[],
-		upcards: readonly Rank[]
+		upcards: readonly Rank[],
+		soft = false
 	): Map<string, CellAnalysis> {
 		const out = new Map<string, CellAnalysis>();
 		for (const upcard of upcards) {
 			const compUpcard = removeCard(comp0, upcard);
 			const dealerBustPercent = this.dealerBustProb(compUpcard, upcard) * 100;
 			for (const total of totals) {
+				// A made 21 (e.g. soft A,T) is always stood on -- hitting it is not a
+				// real decision, and addValue's single-ace-demotion adjustment isn't
+				// meant to handle drawing a second ace on top of an already-soft 21.
+				if (total >= 21) {
+					out.set(gridKey(total, upcard), {
+						optimalAction: 'S',
+						playerBustOnHitPercent: 0,
+						dealerBustPercent,
+					});
+					continue;
+				}
+
 				const evStand = this.standEv(compUpcard, total, upcard);
-				const evHit = this.hitEv(compUpcard, total, false, upcard);
-				const evDouble = this.doubleEv(compUpcard, total, false, upcard);
+				const evHit = this.hitEv(compUpcard, total, soft, upcard);
+				const evDouble = this.doubleEv(compUpcard, total, soft, upcard);
 
 				let optimalAction: PlayerAction = 'S';
 				let best = evStand;
@@ -304,8 +357,89 @@ class ShoeEv {
 
 				out.set(gridKey(total, upcard), {
 					optimalAction,
-					playerBustOnHitPercent:
-						this.playerBustOnHitProb(compUpcard, total, false) * 100,
+					playerBustOnHitPercent: this.playerBustOnHitProb(compUpcard, total, soft) * 100,
+					dealerBustPercent,
+				});
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * EV of splitting a pair into two independent hands, each starting from
+	 * one card of `rank` plus a mandatory second card, then played optimally
+	 * (hit/stand/double). Split aces follow the common one-card-per-hand,
+	 * must-stand rule. Both hands draw against the same shoe composition --
+	 * the second hand's draws are not conditioned on the first hand's actual
+	 * draws, extending simplification #1 (own cards not removed) to sibling
+	 * split hands. No resplitting is modelled.
+	 */
+	private splitHandEv(comp: Composition, rank: Rank, upcard: Rank): number {
+		const isAce = rank === 'A';
+		const startTotal = RANK_VALUE[rank];
+		const totCards = comp.reduce((sum, n) => sum + n, 0);
+		if (totCards === 0) return this.standEv(comp, startTotal, upcard);
+
+		let ev = 0.0;
+		for (const drawRank of RANKS) {
+			const n = comp[RANK_INDEX[drawRank]];
+			if (n <= 0) continue;
+			const p = n / totCards;
+			const newComp = removeCard(comp, drawRank);
+			const [newTotal, newSoft] = addValue(startTotal, isAce, drawRank);
+
+			if (isAce) {
+				ev += p * this.standEv(newComp, newTotal, upcard);
+				continue;
+			}
+			const evStand = this.standEv(newComp, newTotal, upcard);
+			const evHit = this.hitEv(newComp, newTotal, newSoft, upcard);
+			const evDouble = this.doubleEv(newComp, newTotal, newSoft, upcard);
+			ev += p * Math.max(evStand, evHit, evDouble);
+		}
+		return ev;
+	}
+
+	private splitEv(comp: Composition, rank: Rank, upcard: Rank): number {
+		return 2 * this.splitHandEv(comp, rank, upcard);
+	}
+
+	/** Optimal action (incl. splitting) and EV/bust odds for each pair vs. upcard. */
+	analyzeSplitGrid(
+		comp0: Composition,
+		pairRanks: readonly Rank[],
+		upcards: readonly Rank[]
+	): Map<string, SplitCellAnalysis> {
+		const out = new Map<string, SplitCellAnalysis>();
+		for (const upcard of upcards) {
+			const compUpcard = removeCard(comp0, upcard);
+			const dealerBustPercent = this.dealerBustProb(compUpcard, upcard) * 100;
+			for (const rank of pairRanks) {
+				const [total, soft] = pairTotal(rank);
+				const evStand = this.standEv(compUpcard, total, upcard);
+				const evHit = this.hitEv(compUpcard, total, soft, upcard);
+				const evDouble = this.doubleEv(compUpcard, total, soft, upcard);
+				const evSplit = this.splitEv(compUpcard, rank, upcard);
+
+				let optimalAction: PlayerAction = 'S';
+				let best = evStand;
+				if (evDouble > best) {
+					best = evDouble;
+					optimalAction = 'D';
+				}
+				if (evHit > best) {
+					best = evHit;
+					optimalAction = 'H';
+				}
+				if (evSplit > best) {
+					best = evSplit;
+					optimalAction = 'P';
+				}
+
+				out.set(splitGridKey(rank, upcard), {
+					evPercent: best * 100,
+					optimalAction,
+					playerBustOnHitPercent: this.playerBustOnHitProb(compUpcard, total, soft) * 100,
 					dealerBustPercent,
 				});
 			}
@@ -316,6 +450,10 @@ class ShoeEv {
 
 function gridKey(total: number, upcard: Rank): string {
 	return `${total}-${upcard}`;
+}
+
+function splitGridKey(rank: Rank, upcard: Rank): string {
+	return `${rank}-${upcard}`;
 }
 
 export function baseComposition(ruleSet: RuleSet): Composition {
@@ -348,15 +486,16 @@ export function computeEvComparison(
 	ruleSet: RuleSet,
 	count: number,
 	totals: readonly number[] = HARD_TOTALS,
-	upcards: readonly Rank[] = RANKS
+	upcards: readonly Rank[] = RANKS,
+	soft = false
 ): EvComparisonResult {
 	const base = baseComposition(ruleSet);
 	const modified = applyAceFiveCount(base, Math.round(count));
 
-	const baseGrid = new ShoeEv(ruleSet).grid(base, totals, upcards);
+	const baseGrid = new ShoeEv(ruleSet).grid(base, totals, upcards, soft);
 	const countEngine = new ShoeEv(ruleSet);
-	const modGrid = countEngine.grid(modified, totals, upcards);
-	const analysisGrid = countEngine.analyzeGrid(modified, totals, upcards);
+	const modGrid = countEngine.grid(modified, totals, upcards, soft);
+	const analysisGrid = countEngine.analyzeGrid(modified, totals, upcards, soft);
 
 	const rows: EvComparisonRow[] = [];
 	for (const upcard of upcards) {
@@ -379,4 +518,49 @@ export function computeEvComparison(
 	}
 
 	return { totals, upcards, rows };
+}
+
+/**
+ * Unlike `computeEvComparison` (whose EV numbers are hit/stand-only, per the
+ * module docs), each row's EV here is the fully optimal action's EV --
+ * stand, hit, double, or split -- since split EV isn't expressible on the
+ * hit/stand-only `bestEv` recursion. `optimalAction` is drawn from the same
+ * comparison, so the displayed EV always matches the recommended action.
+ */
+export function computeSplitEvComparison(
+	ruleSet: RuleSet,
+	count: number,
+	pairRanks: readonly Rank[] = PAIR_RANKS,
+	upcards: readonly Rank[] = RANKS
+): SplitEvComparisonResult {
+	const base = baseComposition(ruleSet);
+	const modified = applyAceFiveCount(base, Math.round(count));
+
+	const baseAnalysis = new ShoeEv(ruleSet).analyzeSplitGrid(base, pairRanks, upcards);
+	const countAnalysis = new ShoeEv(ruleSet).analyzeSplitGrid(
+		modified,
+		pairRanks,
+		upcards
+	);
+
+	const rows: SplitEvComparisonRow[] = [];
+	for (const upcard of upcards) {
+		for (const rank of pairRanks) {
+			const key = splitGridKey(rank, upcard);
+			const baseCell = baseAnalysis.get(key)!;
+			const countCell = countAnalysis.get(key)!;
+			rows.push({
+				pairRank: rank,
+				upcard,
+				baseEvPercent: baseCell.evPercent,
+				countEvPercent: countCell.evPercent,
+				deltaPercentPoints: countCell.evPercent - baseCell.evPercent,
+				optimalAction: countCell.optimalAction,
+				playerBustOnHitPercent: countCell.playerBustOnHitPercent,
+				dealerBustPercent: countCell.dealerBustPercent,
+			});
+		}
+	}
+
+	return { pairRanks, upcards, rows };
 }
