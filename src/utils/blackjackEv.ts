@@ -164,7 +164,18 @@ class ShoeEv {
 		this.h17 = ruleSet.dealerHitsSoft17;
 	}
 
-	private dealerDist(comp: Composition, total: number, soft: boolean): DealerDist {
+	/**
+	 * `totCards` is the caller-supplied count of cards remaining in `comp`.
+	 * Every recursive step below removes exactly one card, so the count can
+	 * be decremented arithmetically as it's threaded down instead of
+	 * re-summed from `comp` (an O(rank count) scan) at every node.
+	 */
+	private dealerDist(
+		comp: Composition,
+		total: number,
+		soft: boolean,
+		totCards: number
+	): DealerDist {
 		const key = compKey(comp) + String.fromCharCode(total, soft ? 1 : 0);
 		const cached = this.memoDealer.get(key);
 		if (cached) return cached;
@@ -182,7 +193,6 @@ class ShoeEv {
 			return res;
 		}
 
-		const totCards = comp.reduce((sum, n) => sum + n, 0);
 		const res: DealerDist = {};
 		if (totCards === 0) {
 			res[total] = 1.0;
@@ -196,7 +206,7 @@ class ShoeEv {
 			const p = n / totCards;
 			const newComp = removeCard(comp, rank);
 			const [newTotal, newSoft] = addValue(total, soft, rank);
-			const sub = this.dealerDist(newComp, newTotal, newSoft);
+			const sub = this.dealerDist(newComp, newTotal, newSoft, totCards - 1);
 			for (const k in sub) {
 				res[k] = (res[k] ?? 0) + p * sub[k];
 			}
@@ -206,9 +216,14 @@ class ShoeEv {
 		return res;
 	}
 
-	private standEv(comp: Composition, playerTotal: number, upcard: Rank): number {
+	private standEv(
+		comp: Composition,
+		playerTotal: number,
+		upcard: Rank,
+		totCards: number
+	): number {
 		const startTotal = upcard === 'A' ? 11 : RANK_VALUE[upcard];
-		const dist = this.dealerDist(comp, startTotal, upcard === 'A');
+		const dist = this.dealerDist(comp, startTotal, upcard === 'A', totCards);
 		let ev = 0.0;
 		for (const key in dist) {
 			const p = dist[key];
@@ -223,8 +238,13 @@ class ShoeEv {
 		return ev;
 	}
 
-	private hitEv(comp: Composition, total: number, soft: boolean, upcard: Rank): number {
-		const totCards = comp.reduce((sum, n) => sum + n, 0);
+	private hitEv(
+		comp: Composition,
+		total: number,
+		soft: boolean,
+		upcard: Rank,
+		totCards: number
+	): number {
 		let evHit = 0.0;
 		for (const rank of RANKS) {
 			const n = comp[RANK_INDEX[rank]];
@@ -232,26 +252,31 @@ class ShoeEv {
 			const p = n / totCards;
 			const newComp = removeCard(comp, rank);
 			const [newTotal, newSoft] = addValue(total, soft, rank);
-			evHit += p * this.bestEv(newComp, newTotal, newSoft, upcard);
+			evHit += p * this.bestEv(newComp, newTotal, newSoft, upcard, totCards - 1);
 		}
 		return evHit;
 	}
 
-	private bestEv(comp: Composition, total: number, soft: boolean, upcard: Rank): number {
+	private bestEv(
+		comp: Composition,
+		total: number,
+		soft: boolean,
+		upcard: Rank,
+		totCards: number
+	): number {
 		if (total > 21) return -1.0;
 
 		const key = compKey(comp) + String.fromCharCode(total, soft ? 1 : 0) + upcard;
 		const cached = this.memoPlayer.get(key);
 		if (cached !== undefined) return cached;
 
-		const evStand = this.standEv(comp, total, upcard);
+		const evStand = this.standEv(comp, total, upcard, totCards);
 		if (total >= 21) {
 			this.memoPlayer.set(key, evStand);
 			return evStand;
 		}
 
-		const totCards = comp.reduce((sum, n) => sum + n, 0);
-		const evHit = totCards > 0 ? this.hitEv(comp, total, soft, upcard) : 0.0;
+		const evHit = totCards > 0 ? this.hitEv(comp, total, soft, upcard, totCards) : 0.0;
 
 		const best = Math.max(evStand, evHit);
 		this.memoPlayer.set(key, best);
@@ -263,10 +288,10 @@ class ShoeEv {
 		comp: Composition,
 		total: number,
 		soft: boolean,
-		upcard: Rank
+		upcard: Rank,
+		totCards: number
 	): number {
-		const totCards = comp.reduce((sum, n) => sum + n, 0);
-		if (totCards === 0) return this.standEv(comp, total, upcard) * 2;
+		if (totCards === 0) return this.standEv(comp, total, upcard, totCards) * 2;
 
 		let ev = 0.0;
 		for (const rank of RANKS) {
@@ -279,14 +304,18 @@ class ShoeEv {
 				continue;
 			}
 			const newComp = removeCard(comp, rank);
-			ev += p * 2 * this.standEv(newComp, newTotal, upcard);
+			ev += p * 2 * this.standEv(newComp, newTotal, upcard, totCards - 1);
 		}
 		return ev;
 	}
 
 	/** Probability that a single hit card busts the player's current total. */
-	private playerBustOnHitProb(comp: Composition, total: number, soft: boolean): number {
-		const totCards = comp.reduce((sum, n) => sum + n, 0);
+	private playerBustOnHitProb(
+		comp: Composition,
+		total: number,
+		soft: boolean,
+		totCards: number
+	): number {
 		if (totCards === 0) return 0;
 
 		let bustP = 0.0;
@@ -299,9 +328,9 @@ class ShoeEv {
 		return bustP;
 	}
 
-	private dealerBustProb(comp: Composition, upcard: Rank): number {
+	private dealerBustProb(comp: Composition, upcard: Rank, totCards: number): number {
 		const startTotal = upcard === 'A' ? 11 : RANK_VALUE[upcard];
-		const dist = this.dealerDist(comp, startTotal, upcard === 'A');
+		const dist = this.dealerDist(comp, startTotal, upcard === 'A', totCards);
 		return dist['bust'] ?? 0;
 	}
 
@@ -312,10 +341,17 @@ class ShoeEv {
 		soft = false
 	): Map<string, number> {
 		const out = new Map<string, number>();
+		// Every upcard removes exactly one card from the same comp0, so the
+		// remaining count after removal is the same for every upcard -- compute
+		// it once instead of re-summing per upcard/recursion node.
+		const totCardsAfterUpcard = comp0.reduce((sum, n) => sum + n, 0) - 1;
 		for (const upcard of upcards) {
 			const compUpcard = removeCard(comp0, upcard);
 			for (const total of totals) {
-				out.set(gridKey(total, upcard), this.bestEv(compUpcard, total, soft, upcard));
+				out.set(
+					gridKey(total, upcard),
+					this.bestEv(compUpcard, total, soft, upcard, totCardsAfterUpcard)
+				);
 			}
 		}
 		return out;
@@ -329,9 +365,11 @@ class ShoeEv {
 		soft = false
 	): Map<string, CellAnalysis> {
 		const out = new Map<string, CellAnalysis>();
+		const totCardsAfterUpcard = comp0.reduce((sum, n) => sum + n, 0) - 1;
 		for (const upcard of upcards) {
 			const compUpcard = removeCard(comp0, upcard);
-			const dealerBustPercent = this.dealerBustProb(compUpcard, upcard) * 100;
+			const dealerBustPercent =
+				this.dealerBustProb(compUpcard, upcard, totCardsAfterUpcard) * 100;
 			for (const total of totals) {
 				// A made 21 (e.g. soft A,T) is always stood on -- hitting it is not a
 				// real decision, and addValue's single-ace-demotion adjustment isn't
@@ -345,9 +383,15 @@ class ShoeEv {
 					continue;
 				}
 
-				const evStand = this.standEv(compUpcard, total, upcard);
-				const evHit = this.hitEv(compUpcard, total, soft, upcard);
-				const evDouble = this.doubleEv(compUpcard, total, soft, upcard);
+				const evStand = this.standEv(compUpcard, total, upcard, totCardsAfterUpcard);
+				const evHit = this.hitEv(compUpcard, total, soft, upcard, totCardsAfterUpcard);
+				const evDouble = this.doubleEv(
+					compUpcard,
+					total,
+					soft,
+					upcard,
+					totCardsAfterUpcard
+				);
 
 				let optimalAction: PlayerAction = 'S';
 				let best = evStand;
@@ -361,7 +405,8 @@ class ShoeEv {
 
 				out.set(gridKey(total, upcard), {
 					optimalAction,
-					playerBustOnHitPercent: this.playerBustOnHitProb(compUpcard, total, soft) * 100,
+					playerBustOnHitPercent:
+						this.playerBustOnHitProb(compUpcard, total, soft, totCardsAfterUpcard) * 100,
 					dealerBustPercent,
 				});
 			}
@@ -378,11 +423,15 @@ class ShoeEv {
 	 * draws, extending simplification #1 (own cards not removed) to sibling
 	 * split hands. No resplitting is modelled.
 	 */
-	private splitHandEv(comp: Composition, rank: Rank, upcard: Rank): number {
+	private splitHandEv(
+		comp: Composition,
+		rank: Rank,
+		upcard: Rank,
+		totCards: number
+	): number {
 		const isAce = rank === 'A';
 		const startTotal = RANK_VALUE[rank];
-		const totCards = comp.reduce((sum, n) => sum + n, 0);
-		if (totCards === 0) return this.standEv(comp, startTotal, upcard);
+		if (totCards === 0) return this.standEv(comp, startTotal, upcard, totCards);
 
 		let ev = 0.0;
 		for (const drawRank of RANKS) {
@@ -390,22 +439,23 @@ class ShoeEv {
 			if (n <= 0) continue;
 			const p = n / totCards;
 			const newComp = removeCard(comp, drawRank);
+			const newTotCards = totCards - 1;
 			const [newTotal, newSoft] = addValue(startTotal, isAce, drawRank);
 
 			if (isAce) {
-				ev += p * this.standEv(newComp, newTotal, upcard);
+				ev += p * this.standEv(newComp, newTotal, upcard, newTotCards);
 				continue;
 			}
-			const evStand = this.standEv(newComp, newTotal, upcard);
-			const evHit = this.hitEv(newComp, newTotal, newSoft, upcard);
-			const evDouble = this.doubleEv(newComp, newTotal, newSoft, upcard);
+			const evStand = this.standEv(newComp, newTotal, upcard, newTotCards);
+			const evHit = this.hitEv(newComp, newTotal, newSoft, upcard, newTotCards);
+			const evDouble = this.doubleEv(newComp, newTotal, newSoft, upcard, newTotCards);
 			ev += p * Math.max(evStand, evHit, evDouble);
 		}
 		return ev;
 	}
 
-	private splitEv(comp: Composition, rank: Rank, upcard: Rank): number {
-		return 2 * this.splitHandEv(comp, rank, upcard);
+	private splitEv(comp: Composition, rank: Rank, upcard: Rank, totCards: number): number {
+		return 2 * this.splitHandEv(comp, rank, upcard, totCards);
 	}
 
 	/** Optimal action (incl. splitting) and EV/bust odds for each pair vs. upcard. */
@@ -415,15 +465,23 @@ class ShoeEv {
 		upcards: readonly Rank[]
 	): Map<string, SplitCellAnalysis> {
 		const out = new Map<string, SplitCellAnalysis>();
+		const totCardsAfterUpcard = comp0.reduce((sum, n) => sum + n, 0) - 1;
 		for (const upcard of upcards) {
 			const compUpcard = removeCard(comp0, upcard);
-			const dealerBustPercent = this.dealerBustProb(compUpcard, upcard) * 100;
+			const dealerBustPercent =
+				this.dealerBustProb(compUpcard, upcard, totCardsAfterUpcard) * 100;
 			for (const rank of pairRanks) {
 				const [total, soft] = pairTotal(rank);
-				const evStand = this.standEv(compUpcard, total, upcard);
-				const evHit = this.hitEv(compUpcard, total, soft, upcard);
-				const evDouble = this.doubleEv(compUpcard, total, soft, upcard);
-				const evSplit = this.splitEv(compUpcard, rank, upcard);
+				const evStand = this.standEv(compUpcard, total, upcard, totCardsAfterUpcard);
+				const evHit = this.hitEv(compUpcard, total, soft, upcard, totCardsAfterUpcard);
+				const evDouble = this.doubleEv(
+					compUpcard,
+					total,
+					soft,
+					upcard,
+					totCardsAfterUpcard
+				);
+				const evSplit = this.splitEv(compUpcard, rank, upcard, totCardsAfterUpcard);
 
 				let optimalAction: PlayerAction = 'S';
 				let best = evStand;
@@ -443,7 +501,8 @@ class ShoeEv {
 				out.set(splitGridKey(rank, upcard), {
 					evPercent: best * 100,
 					optimalAction,
-					playerBustOnHitPercent: this.playerBustOnHitProb(compUpcard, total, soft) * 100,
+					playerBustOnHitPercent:
+						this.playerBustOnHitProb(compUpcard, total, soft, totCardsAfterUpcard) * 100,
 					dealerBustPercent,
 				});
 			}
