@@ -11,6 +11,12 @@ interface EvCellPopoverProps {
 	row: EvCellData;
 }
 
+function signClass(value: number): string | undefined {
+	if (value > 0) return 'ev-table__popover-value--positive';
+	if (value < 0) return 'ev-table__popover-value--negative';
+	return undefined;
+}
+
 const EvCellPopover: Component<EvCellPopoverProps> = (props) => (
 	<Portal>
 		<HoverCard.Positioner>
@@ -18,10 +24,20 @@ const EvCellPopover: Component<EvCellPopoverProps> = (props) => (
 				<HoverCard.Arrow class="ev-table__popover-arrow">
 					<HoverCard.ArrowTip class="ev-table__popover-arrow-tip" />
 				</HoverCard.Arrow>
-				<p>Optimal-action EV: {formatEvPercent(props.row.countEvPercent)}%</p>
-				<p>Δ vs. baseline: {formatEvPercent(props.row.deltaPercentPoints)} pts</p>
-				<p>Player bust% on hit: {formatPercent(props.row.playerBustOnHitPercent)}</p>
-				<p>Dealer bust%: {formatPercent(props.row.dealerBustPercent)}</p>
+				<div class="ev-table__popover-grid">
+					<span>EV</span>
+					<span class={signClass(props.row.countEvPercent)}>
+						{formatEvPercent(props.row.countEvPercent)}%
+					</span>
+					<span>Δ</span>
+					<span class={signClass(props.row.deltaPercentPoints)}>
+						{formatEvPercent(props.row.deltaPercentPoints)} pts
+					</span>
+					<span>Hit bust%</span>
+					<span>{formatPercent(props.row.playerBustOnHitPercent)}</span>
+					<span>Dealer bust%</span>
+					<span>{formatPercent(props.row.dealerBustPercent)}</span>
+				</div>
 			</HoverCard.Content>
 		</HoverCard.Positioner>
 	</Portal>

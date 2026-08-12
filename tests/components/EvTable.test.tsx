@@ -79,11 +79,11 @@ describe('EvTable', () => {
 			expect(popover.hidden).toBe(false);
 		});
 
-		expect(popover.textContent).toMatch(/Optimal-action EV:/);
-		expect(popover.textContent).toMatch(/Δ vs\. baseline:/);
+		expect(popover.textContent).toMatch(/EV/);
+		expect(popover.textContent).toMatch(/Δ/);
 		expect(popover.textContent).not.toMatch(/Optimal play:/);
-		expect(popover.textContent).toMatch(/Player bust% on hit: \d+\.\d%/);
-		expect(popover.textContent).toMatch(/Dealer bust%: \d+\.\d%/);
+		expect(popover.textContent).toMatch(/Hit bust%\d+\.\d%/);
+		expect(popover.textContent).toMatch(/Dealer bust%\d+\.\d%/);
 	});
 
 	it('keeps the popover open when the pointer moves onto it, and hides it once the pointer leaves both', async () => {

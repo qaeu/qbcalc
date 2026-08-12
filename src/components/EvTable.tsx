@@ -333,7 +333,7 @@ const EvTable: Component = () => {
 					loading={isComputing()}
 				/>
 				<SplitEvGrid
-					title="Splits"
+					title="Pairs"
 					pairRanks={PAIR_RANKS}
 					upcards={RANKS}
 					rowsByKey={splitRowsByKey()}
