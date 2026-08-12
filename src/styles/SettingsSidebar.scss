@@ -2,7 +2,9 @@
 
 @layer screen {
 	.settings-sidebar {
-		@include card;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
 		flex: 0 0 260px;
 		position: sticky;
 		top: 20px;
@@ -10,6 +12,11 @@
 		@media (max-width: $breakpoint-tablet) {
 			flex-basis: auto;
 			position: static;
+		}
+
+		&__card {
+			@include card;
+			margin-bottom: 0;
 		}
 
 		&__controls {
@@ -43,6 +50,7 @@
 		}
 
 		input[type='number'] {
+			box-sizing: border-box;
 			width: 100%;
 			padding: 6px 8px;
 			border: 1px solid get($neutrals, 'sep');

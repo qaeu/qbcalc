@@ -182,12 +182,9 @@ const EvTable: Component<EvTableProps> = (props) => {
 
 	return (
 		<section class="ev-table">
-			<div class="ev-table__header">
-				<h2>Ace-Five Count EV Table</h2>
-				<Show when={props.error()}>
-					{(message) => <p class="ev-table__error">{message()}</p>}
-				</Show>
-			</div>
+			<Show when={props.error()}>
+				{(message) => <p class="ev-table__error">{message()}</p>}
+			</Show>
 
 			<Show when={!props.error()}>
 				<EvGrid

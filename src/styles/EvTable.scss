@@ -2,12 +2,8 @@
 
 @layer screen {
 	.ev-table {
-		&__header {
-			@include card;
-		}
-
 		&__error {
-			margin-top: 12px;
+			margin: 0 0 20px;
 			color: get($errors, 'fg');
 		}
 
