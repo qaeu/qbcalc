@@ -13,7 +13,11 @@ import {
 } from '#utils/blackjackEv';
 import { formatDuration, formatPairLabel, formatSoftTotalLabel } from '#utils/format';
 import { loadCalculatorConfig, saveCalculatorConfig } from '#utils/storage';
-import type { EvWorkerRequest, EvWorkerResponse, EvWorkerResult } from '#utils/evWorkerProtocol';
+import type {
+	EvWorkerRequest,
+	EvWorkerResponse,
+	EvWorkerResult,
+} from '#utils/evWorkerProtocol';
 
 import EvCellPopover from '#c/EvCellPopover';
 

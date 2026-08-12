@@ -52,6 +52,7 @@
 
 		&__grid {
 			@include card;
+			max-width: 1000px;
 
 			h3 {
 				margin-bottom: 8px;
@@ -64,6 +65,7 @@
 
 		table {
 			border-collapse: collapse;
+			table-layout: fixed;
 			width: 100%;
 			font-size: 13px;
 			user-select: none;
@@ -71,9 +73,13 @@
 
 		th,
 		td {
+			width: calc(100% / 11);
 			padding: 12px 10px;
 			text-align: right;
 			border-bottom: 1px solid get($neutrals, 'sep-light');
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
 		}
 
 		th[scope='col'],

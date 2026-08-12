@@ -44,24 +44,20 @@ describe('EvTable', () => {
 		expect(within(tables[2]).getAllByRole('row')).toHaveLength(11);
 	});
 
-	it(
-		'shows an error instead of a table when the count is too extreme',
-		async () => {
-			render(() => <EvTable />);
+	it('shows an error instead of a table when the count is too extreme', async () => {
+		render(() => <EvTable />);
 
-			const countInput = screen.getByLabelText('Ace-Five count');
-			fireEvent.input(countInput, { target: { value: '10000' } });
-			fireEvent.submit(countInput.closest('form')!);
+		const countInput = screen.getByLabelText('Ace-Five count');
+		fireEvent.input(countInput, { target: { value: '10000' } });
+		fireEvent.submit(countInput.closest('form')!);
 
-			// The initial mount's own (valid) calculation is still in flight on
-			// the worker stub's microtask queue ahead of this one and must finish
-			// first (~5-6s under jsdom), so this needs more than findByText's 1s
-			// default -- and the test itself needs more than the file's default
-			// 20s budget to have room for that wait.
-			expect(await screen.findByText(/too extreme/i, {}, { timeout: 25000 })).toBeDefined();
-		},
-		30000
-	);
+		// The initial mount's own (valid) calculation is still in flight on
+		// the worker stub's microtask queue ahead of this one and must finish
+		// first (~5-6s under jsdom), so this needs more than findByText's 1s
+		// default -- and the test itself needs more than the file's default
+		// 20s budget to have room for that wait.
+		expect(await screen.findByText(/too extreme/i, {}, { timeout: 25000 })).toBeDefined();
+	}, 30000);
 
 	it('shows a loading placeholder in cells while computing, then the optimal play as a single letter, and EV, delta, and bust odds when hovered', async () => {
 		render(() => <EvTable />);
