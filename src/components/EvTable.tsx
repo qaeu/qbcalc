@@ -94,7 +94,7 @@ const EvGrid: Component<EvGridProps> = (props) => (
 			<table>
 				<thead>
 					<tr>
-						<th scope="col">{props.rowHeading}</th>
+						<th scope="col" aria-label={props.rowHeading} />
 						<For each={props.upcards}>{(upcard) => <th scope="col">{upcard}</th>}</For>
 					</tr>
 				</thead>
@@ -139,7 +139,7 @@ const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
 			<table>
 				<thead>
 					<tr>
-						<th scope="col">Pair</th>
+						<th scope="col" aria-label="Pair" />
 						<For each={props.upcards}>{(upcard) => <th scope="col">{upcard}</th>}</For>
 					</tr>
 				</thead>
