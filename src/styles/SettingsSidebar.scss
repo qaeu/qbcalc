@@ -1,0 +1,54 @@
+@use 'base' as *;
+
+@layer screen {
+	.settings-sidebar {
+		@include card;
+		flex: 0 0 260px;
+		position: sticky;
+		top: 20px;
+
+		@media (max-width: $breakpoint-tablet) {
+			flex-basis: auto;
+			position: static;
+		}
+
+		&__controls {
+			display: flex;
+			flex-direction: column;
+			align-items: stretch;
+			gap: 16px;
+
+			label {
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+				font-size: 13px;
+				color: get($neutrals, 'fg-light');
+			}
+		}
+
+		&__checkbox {
+			flex-direction: row !important;
+			align-items: center;
+			gap: 8px !important;
+
+			input[type='checkbox'] {
+				width: auto;
+			}
+		}
+
+		&__calc-time {
+			font-size: 13px;
+			color: get($neutrals, 'fg-light');
+		}
+
+		input[type='number'] {
+			width: 100%;
+			padding: 6px 8px;
+			border: 1px solid get($neutrals, 'sep');
+			border-radius: 4px;
+			background-color: get($neutrals, 'bg');
+			color: $foreground;
+		}
+	}
+}

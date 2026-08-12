@@ -1,20 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
-import {
-	cleanup,
-	fireEvent,
-	render,
-	screen,
-	waitFor,
-	within,
-} from '@solidjs/testing-library';
+import { describe, it, expect } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 
 import EvTable from '#c/EvTable';
+import { DEFAULT_RULE_SET, computeAllEvTables } from '#utils/blackjackEv';
+import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 
-// Rendering runs three exact-enumeration tables (hard totals, soft totals,
-// splits) per mount (~5-6s under jsdom, computed via a shared engine); tests
-// that mount and/or recompute more than once need headroom above the
-// default 5s.
-vi.setConfig({ testTimeout: 20000 });
+// Real (not mocked) exact-enumeration result, computed once and reused as a
+// fixture -- deterministic, and keeps these tests independent of the worker.
+const SAMPLE_RESULT: EvWorkerResult = computeAllEvTables(DEFAULT_RULE_SET, 1);
 
 // The HoverCard content isn't unmounted while closed (it's hidden via the
 // `hidden` attribute instead), so look it up by the id HoverCard pairs with
@@ -27,12 +20,18 @@ function popoverFor(trigger: Element): HTMLElement {
 }
 
 describe('EvTable', () => {
-	it('renders hard totals, soft totals, and splits grids for the default rule set', () => {
-		render(() => <EvTable />);
+	it('renders hard totals, soft totals, and splits grids for the given result', () => {
+		render(() => (
+			<EvTable
+				result={() => SAMPLE_RESULT}
+				isComputing={() => false}
+				error={() => null}
+			/>
+		));
 
 		expect(screen.getByText('Hard totals')).toBeDefined();
 		expect(screen.getByText('Soft totals')).toBeDefined();
-		expect(screen.getByText('Splits')).toBeDefined();
+		expect(screen.getByText('Pairs')).toBeDefined();
 
 		const tables = screen.getAllByRole('table');
 		expect(tables).toHaveLength(3);
@@ -44,33 +43,46 @@ describe('EvTable', () => {
 		expect(within(tables[2]).getAllByRole('row')).toHaveLength(11);
 	});
 
-	it('shows an error instead of a table when the count is too extreme', async () => {
-		render(() => <EvTable />);
+	it('shows an error instead of a table when given an error', () => {
+		render(() => (
+			<EvTable
+				result={() => null}
+				isComputing={() => false}
+				error={() => 'Count too extreme for this shoe'}
+			/>
+		));
 
-		const countInput = screen.getByLabelText('Ace-Five count');
-		fireEvent.input(countInput, { target: { value: '10000' } });
-		fireEvent.submit(countInput.closest('form')!);
+		expect(screen.getByText(/too extreme/i)).toBeDefined();
+		expect(screen.queryAllByRole('table')).toHaveLength(0);
+	});
 
-		// The initial mount's own (valid) calculation is still in flight on
-		// the worker stub's microtask queue ahead of this one and must finish
-		// first (~5-6s under jsdom), so this needs more than findByText's 1s
-		// default -- and the test itself needs more than the file's default
-		// 20s budget to have room for that wait.
-		expect(await screen.findByText(/too extreme/i, {}, { timeout: 25000 })).toBeDefined();
-	}, 30000);
+	it('shows a loading placeholder in cells while computing', () => {
+		render(() => (
+			<EvTable result={() => null} isComputing={() => true} error={() => null} />
+		));
 
-	it('shows a loading placeholder in cells while computing, then the optimal play as a single letter, and EV, delta, and bust odds when hovered', async () => {
-		render(() => <EvTable />);
+		const tables = screen.getAllByRole('table');
+		const firstDataCell = within(tables[0])
+			.getAllByRole('row')[1]
+			.querySelectorAll('td')[0];
+
+		expect(firstDataCell.classList.contains('is-loading')).toBe(true);
+	});
+
+	it('shows the optimal play as a single letter, and EV, delta, and bust odds when hovered', async () => {
+		render(() => (
+			<EvTable
+				result={() => SAMPLE_RESULT}
+				isComputing={() => false}
+				error={() => null}
+			/>
+		));
 
 		const tables = screen.getAllByRole('table');
 		const firstDataCell = () =>
 			within(tables[0]).getAllByRole('row')[1].querySelectorAll('td')[0];
 
-		expect(firstDataCell().classList.contains('is-loading')).toBe(true);
-
-		await waitFor(() => {
-			expect(firstDataCell().textContent).toMatch(/^[HSD]$/);
-		});
+		expect(firstDataCell().textContent).toMatch(/^[HSD]$/);
 
 		fireEvent.pointerEnter(firstDataCell());
 
@@ -87,14 +99,17 @@ describe('EvTable', () => {
 	});
 
 	it('keeps the popover open when the pointer moves onto it, and hides it once the pointer leaves both', async () => {
-		render(() => <EvTable />);
+		render(() => (
+			<EvTable
+				result={() => SAMPLE_RESULT}
+				isComputing={() => false}
+				error={() => null}
+			/>
+		));
 
 		const tables = screen.getAllByRole('table');
 		const firstDataCell = () =>
 			within(tables[0]).getAllByRole('row')[1].querySelectorAll('td')[0];
-		await waitFor(() => {
-			expect(firstDataCell().textContent).toMatch(/^[HSD]$/);
-		});
 
 		fireEvent.pointerEnter(firstDataCell());
 
@@ -112,65 +127,6 @@ describe('EvTable', () => {
 
 		await waitFor(() => {
 			expect(popover.hidden).toBe(true);
-		});
-	});
-
-	it('shows the calculation duration next to the Calculate button', async () => {
-		render(() => <EvTable />);
-
-		const form = screen.getByLabelText('Ace-Five count').closest('form')!;
-		fireEvent.submit(form);
-
-		expect(await screen.findByText(/\(took \d+\.\d+s\)/)).toBeDefined();
-	});
-
-	it('persists the config to localStorage on Calculate, and restores it on the next mount', async () => {
-		render(() => <EvTable />);
-
-		const decksInput = screen.getByLabelText('Decks');
-		fireEvent.input(decksInput, { target: { value: '6' } });
-		const countInput = screen.getByLabelText('Ace-Five count');
-		fireEvent.input(countInput, { target: { value: '-2' } });
-		const checkbox = screen.getByLabelText('S17') as HTMLInputElement;
-		fireEvent.click(checkbox);
-		fireEvent.submit(decksInput.closest('form')!);
-
-		expect(await screen.findByText('Hard totals')).toBeDefined();
-
-		cleanup();
-		render(() => <EvTable />);
-
-		expect((screen.getByLabelText('Decks') as HTMLInputElement).value).toBe('6');
-		expect((screen.getByLabelText('Ace-Five count') as HTMLInputElement).value).toBe(
-			'-2'
-		);
-		expect((screen.getByLabelText('S17') as HTMLInputElement).checked).toBe(true);
-		expect(screen.getByText('Hard totals')).toBeDefined();
-	});
-
-	it('recomputes cell values when the S17 checkbox is toggled', async () => {
-		render(() => <EvTable />);
-
-		const cell = () =>
-			within(screen.getAllByRole('table')[0])
-				.getAllByRole('row')[10]
-				.querySelectorAll('td')[0];
-
-		await waitFor(() => {
-			expect(cell().textContent).toMatch(/^[HSD]$/);
-		});
-
-		fireEvent.pointerEnter(cell());
-		const popoverBefore = popoverFor(cell());
-		await waitFor(() => expect(popoverBefore.hidden).toBe(false));
-		const textBefore = popoverBefore.textContent;
-
-		const checkbox = screen.getByLabelText('S17') as HTMLInputElement;
-		fireEvent.click(checkbox);
-		fireEvent.submit(checkbox.closest('form')!);
-
-		await waitFor(() => {
-			expect(popoverFor(cell()).textContent).not.toEqual(textBefore);
 		});
 	});
 });

@@ -6,45 +6,6 @@
 			@include card;
 		}
 
-		&__controls {
-			display: flex;
-			flex-wrap: wrap;
-			align-items: flex-end;
-			gap: 16px;
-
-			label {
-				display: flex;
-				flex-direction: column;
-				gap: 4px;
-				font-size: 13px;
-				color: get($neutrals, 'fg-light');
-			}
-		}
-
-		&__checkbox {
-			flex-direction: row !important;
-			align-items: center;
-			gap: 8px !important;
-
-			input[type='checkbox'] {
-				width: auto;
-			}
-		}
-
-		&__calc-time {
-			font-size: 13px;
-			color: get($neutrals, 'fg-light');
-		}
-
-		input[type='number'] {
-			width: 80px;
-			padding: 6px 8px;
-			border: 1px solid get($neutrals, 'sep');
-			border-radius: 4px;
-			background-color: get($neutrals, 'bg');
-			color: $foreground;
-		}
-
 		&__error {
 			margin-top: 12px;
 			color: get($errors, 'fg');

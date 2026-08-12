@@ -96,6 +96,18 @@ export const SOFT_TOTALS: readonly number[] = [13, 14, 15, 16, 17, 18, 19, 20];
 export const PAIR_RANKS: readonly Rank[] = RANKS;
 export const DEFAULT_RULE_SET: RuleSet = { decks: 4, dealerHitsSoft17: true };
 
+export interface CalculatorParams {
+	decks: number;
+	count: number;
+	dealerHitsSoft17: boolean;
+}
+
+export const DEFAULT_PARAMS: CalculatorParams = {
+	decks: DEFAULT_RULE_SET.decks,
+	count: 1,
+	dealerHitsSoft17: DEFAULT_RULE_SET.dealerHitsSoft17,
+};
+
 type DealerDist = Record<string, number>;
 
 const RANK_INDEX: Record<Rank, number> = Object.fromEntries(

@@ -4,4 +4,15 @@
 	.app {
 		@include container;
 	}
+
+	.app__layout {
+		display: flex;
+		flex-direction: row;
+		gap: 20px;
+		align-items: flex-start;
+
+		@media (max-width: $breakpoint-tablet) {
+			flex-direction: column;
+		}
+	}
 }

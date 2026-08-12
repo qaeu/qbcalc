@@ -1,8 +1,7 @@
 import { HoverCard } from '@ark-ui/solid/hover-card';
-import { createMemo, createSignal, For, onCleanup, Show, type Component } from 'solid-js';
+import { createMemo, For, Show, type Accessor, type Component } from 'solid-js';
 
 import {
-	DEFAULT_RULE_SET,
 	HARD_TOTALS,
 	PAIR_RANKS,
 	RANKS,
@@ -11,31 +10,12 @@ import {
 	type PlayerAction,
 	type Rank,
 } from '#utils/blackjackEv';
-import { formatDuration, formatPairLabel, formatSoftTotalLabel } from '#utils/format';
-import { loadCalculatorConfig, saveCalculatorConfig } from '#utils/storage';
-import type {
-	EvWorkerRequest,
-	EvWorkerResponse,
-	EvWorkerResult,
-} from '#utils/evWorkerProtocol';
+import { formatPairLabel, formatSoftTotalLabel } from '#utils/format';
+import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 
 import EvCellPopover from '#c/EvCellPopover';
 
 import '#styles/EvTable';
-
-interface CalculatorParams {
-	decks: number;
-	count: number;
-	dealerHitsSoft17: boolean;
-}
-
-type ComparisonBundle = EvWorkerResult;
-
-const DEFAULT_PARAMS: CalculatorParams = {
-	decks: DEFAULT_RULE_SET.decks,
-	count: 1,
-	dealerHitsSoft17: DEFAULT_RULE_SET.dealerHitsSoft17,
-};
 
 function cellKey(rowId: number | Rank, upcard: Rank): string {
 	return `${rowId}-${upcard}`;
@@ -169,73 +149,16 @@ const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
 	</div>
 );
 
-const EvTable: Component = () => {
-	const initialParams = loadCalculatorConfig() ?? DEFAULT_PARAMS;
+interface EvTableProps {
+	result: Accessor<EvWorkerResult | null>;
+	isComputing: Accessor<boolean>;
+	error: Accessor<string | null>;
+}
 
-	const [decksInput, setDecksInput] = createSignal(initialParams.decks);
-	const [countInput, setCountInput] = createSignal(initialParams.count);
-	const [standsSoft17Input, setStandsSoft17Input] = createSignal(
-		!initialParams.dealerHitsSoft17
-	);
-	const [result, setResult] = createSignal<ComparisonBundle | null>(null);
-	const [isComputing, setIsComputing] = createSignal(false);
-	const [error, setError] = createSignal<string | null>(null);
-	const [calcTimeMs, setCalcTimeMs] = createSignal<number | null>(null);
-
-	// Exact enumeration over the full shoe takes seconds; offload it to a
-	// worker so the main thread stays responsive and the grids can show a
-	// loading state instead of freezing the tab.
-	let worker: Worker | undefined;
-	let latestRequestId = 0;
-	let latestRequestStart = 0;
-
-	const getWorker = (): Worker => {
-		if (!worker) {
-			worker = new Worker(new URL('../utils/blackjackEv.worker.ts', import.meta.url), {
-				type: 'module',
-			});
-			// A single persistent handler, not one added per request: every
-			// listener on a worker sees every message, so routing by comparing
-			// each message's own requestId against the latest one is what keeps
-			// a superseded request's (still in-flight) response from landing.
-			worker.addEventListener('message', (event: MessageEvent<EvWorkerResponse>) => {
-				if (event.data.requestId !== latestRequestId) return;
-				setIsComputing(false);
-				if (event.data.status === 'success') {
-					setCalcTimeMs(performance.now() - latestRequestStart);
-					setResult(event.data.result);
-				} else {
-					setCalcTimeMs(null);
-					setError(event.data.message);
-				}
-			});
-		}
-		return worker;
-	};
-
-	onCleanup(() => worker?.terminate());
-
-	const runCalculation = (nextParams: CalculatorParams) => {
-		const w = getWorker();
-		latestRequestId += 1;
-		latestRequestStart = performance.now();
-		setIsComputing(true);
-		setError(null);
-
-		const { decks, count, dealerHitsSoft17 } = nextParams;
-		const request: EvWorkerRequest = {
-			requestId: latestRequestId,
-			ruleSet: { decks, dealerHitsSoft17 },
-			count,
-		};
-		w.postMessage(request);
-	};
-
-	runCalculation(initialParams);
-
+const EvTable: Component<EvTableProps> = (props) => {
 	const hardRowsByKey = createMemo(() => {
 		const map = new Map<string, EvCellData>();
-		for (const row of result()?.hard.rows ?? []) {
+		for (const row of props.result()?.hard.rows ?? []) {
 			map.set(cellKey(row.total, row.upcard), row);
 		}
 		return map;
@@ -243,7 +166,7 @@ const EvTable: Component = () => {
 
 	const softRowsByKey = createMemo(() => {
 		const map = new Map<string, EvCellData>();
-		for (const row of result()?.soft.rows ?? []) {
+		for (const row of props.result()?.soft.rows ?? []) {
 			map.set(cellKey(row.total, row.upcard), row);
 		}
 		return map;
@@ -251,77 +174,29 @@ const EvTable: Component = () => {
 
 	const splitRowsByKey = createMemo(() => {
 		const map = new Map<string, EvCellData>();
-		for (const row of result()?.split.rows ?? []) {
+		for (const row of props.result()?.split.rows ?? []) {
 			map.set(cellKey(row.pairRank, row.upcard), row);
 		}
 		return map;
 	});
 
-	const handleSubmit = (event: SubmitEvent) => {
-		event.preventDefault();
-		const nextParams: CalculatorParams = {
-			decks: decksInput(),
-			count: countInput(),
-			dealerHitsSoft17: !standsSoft17Input(),
-		};
-		saveCalculatorConfig(nextParams);
-		runCalculation(nextParams);
-	};
-
 	return (
 		<section class="ev-table">
 			<div class="ev-table__header">
 				<h2>Ace-Five Count EV Table</h2>
-				<form class="ev-table__controls" onSubmit={handleSubmit}>
-					<label>
-						Decks
-						<input
-							type="number"
-							min="1"
-							max="8"
-							value={decksInput()}
-							onInput={(event) => setDecksInput(Number(event.currentTarget.value))}
-						/>
-					</label>
-					<label>
-						Ace-Five count
-						<input
-							type="number"
-							step="1"
-							value={countInput()}
-							onInput={(event) => setCountInput(Number(event.currentTarget.value))}
-						/>
-					</label>
-					<label class="ev-table__checkbox">
-						<input
-							type="checkbox"
-							title="Dealer stands on soft 17"
-							checked={standsSoft17Input()}
-							onInput={(event) => setStandsSoft17Input(event.currentTarget.checked)}
-						/>
-						S17
-					</label>
-					<button type="submit">Calculate</button>
-					<Show when={calcTimeMs() !== null}>
-						<span class="ev-table__calc-time">
-							(took {formatDuration(calcTimeMs()!)})
-						</span>
-					</Show>
-				</form>
-
-				<Show when={error()}>
+				<Show when={props.error()}>
 					{(message) => <p class="ev-table__error">{message()}</p>}
 				</Show>
 			</div>
 
-			<Show when={!error()}>
+			<Show when={!props.error()}>
 				<EvGrid
 					title="Hard totals"
 					rowHeading="Hard total"
 					totals={HARD_TOTALS}
 					upcards={RANKS}
 					rowsByKey={hardRowsByKey()}
-					loading={isComputing()}
+					loading={props.isComputing()}
 				/>
 				<EvGrid
 					title="Soft totals"
@@ -330,14 +205,14 @@ const EvTable: Component = () => {
 					upcards={RANKS}
 					rowsByKey={softRowsByKey()}
 					rowLabel={formatSoftTotalLabel}
-					loading={isComputing()}
+					loading={props.isComputing()}
 				/>
 				<SplitEvGrid
 					title="Pairs"
 					pairRanks={PAIR_RANKS}
 					upcards={RANKS}
 					rowsByKey={splitRowsByKey()}
-					loading={isComputing()}
+					loading={props.isComputing()}
 				/>
 			</Show>
 		</section>
