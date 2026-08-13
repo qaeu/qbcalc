@@ -30,6 +30,7 @@ const ACTION_CLASS: Record<PlayerAction, string> = {
 	S: 'is-stand',
 	D: 'is-double',
 	P: 'is-split',
+	R: 'is-surrender',
 };
 
 const EvCell: Component<EvCellProps> = (props) => {

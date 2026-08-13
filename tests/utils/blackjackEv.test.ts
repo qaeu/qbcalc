@@ -5,8 +5,8 @@ import {
 	DEFAULT_RULE_SET,
 	RANKS,
 	SOFT_TOTALS,
-	PAIR_RANKS,
 	type RuleSet,
+	type Surrender,
 	type TagValues,
 	baseComposition,
 	applyCountToComposition,
@@ -14,7 +14,18 @@ import {
 	computeSplitEvComparison,
 } from '#utils/blackjackEv';
 
-const RULE_SET: RuleSet = { ...DEFAULT_RULE_SET, decks: 4, dealerHitsSoft17: true };
+/**
+ * The baseline the reference Python implementation was written against, and
+ * so the one the golden EV values below belong to: no peek (a dealer natural
+ * is an ordinary dealer 21 that beats the player) and no surrender.
+ */
+const RULE_SET: RuleSet = {
+	...DEFAULT_RULE_SET,
+	decks: 4,
+	dealerHitsSoft17: true,
+	dealerPeek: false,
+	surrender: 'none',
+};
 
 describe('baseComposition', () => {
 	it('builds a fresh shoe in half-card units', () => {
@@ -280,16 +291,176 @@ describe('splits', () => {
 	});
 
 	it('gives the dealer a higher bust chance showing a 6 than showing a T', () => {
+		const result = computeSplitEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, ['8'], RANKS);
+		const six = result.rows.find((r) => r.upcard === '6')!;
+		const ten = result.rows.find((r) => r.upcard === 'T')!;
+		expect(six.dealerBustPercent).toBeGreaterThan(ten.dealerBustPercent);
+	});
+});
+
+describe('dealer peek', () => {
+	const totals = [16, 20];
+	const upcards = (['6', 'T', 'A'] as const).slice();
+	const byKey = (dealerPeek: boolean) =>
+		new Map(
+			computeEvComparison(
+				{ ...RULE_SET, dealerPeek },
+				0,
+				ACE_FIVE_TAGS,
+				totals,
+				upcards
+			).rows.map((row) => [`${row.total}-${row.upcard}`, row])
+		);
+
+	const noPeek = byKey(false);
+	const peek = byKey(true);
+
+	it('lifts EV against a ten or an ace, where a natural is no longer possible', () => {
+		for (const key of ['16-T', '20-T', '16-A', '20-A']) {
+			expect(peek.get(key)!.baseEvPercent).toBeGreaterThan(
+				noPeek.get(key)!.baseEvPercent
+			);
+		}
+	});
+
+	it('raises the dealer bust chance against a ten or an ace', () => {
+		// Conditioning away the dealer's naturals takes made 21s out of the
+		// distribution, so what is left busts more often.
+		expect(peek.get('16-T')!.dealerBustPercent).toBeGreaterThan(
+			noPeek.get('16-T')!.dealerBustPercent
+		);
+		expect(peek.get('16-A')!.dealerBustPercent).toBeGreaterThan(
+			noPeek.get('16-A')!.dealerBustPercent
+		);
+	});
+
+	it('leaves an upcard that cannot make a natural untouched', () => {
+		expect(peek.get('16-6')!.baseEvPercent).toBeCloseTo(
+			noPeek.get('16-6')!.baseEvPercent,
+			9
+		);
+		expect(peek.get('20-6')!.dealerBustPercent).toBeCloseTo(
+			noPeek.get('20-6')!.dealerBustPercent,
+			9
+		);
+	});
+});
+
+describe('surrender', () => {
+	const totals = [12, 15, 16, 17];
+	const upcards = (['6', 'T', 'A'] as const).slice();
+	const actions = (surrender: Surrender) =>
+		new Map(
+			computeEvComparison(
+				{ ...RULE_SET, surrender, dealerPeek: true },
+				0,
+				ACE_FIVE_TAGS,
+				totals,
+				upcards
+			).rows.map((row) => [`${row.total}-${row.upcard}`, row.optimalAction])
+		);
+
+	const none = actions('none');
+	const late = actions('late');
+	const early = actions('early');
+
+	it('is never offered at a table without it', () => {
+		for (const action of none.values()) {
+			expect(action).not.toBe('R');
+		}
+	});
+
+	it('gives up hard 16 against a ten but plays it out against a six', () => {
+		expect(late.get('16-T')).toBe('R');
+		expect(late.get('16-6')).toBe('S');
+	});
+
+	it('never gives up a hand that is already strong enough to stand on', () => {
+		expect(late.get('17-T')).toBe('S');
+		expect(late.get('17-6')).toBe('S');
+	});
+
+	it('gives up more hands early than late, since the dealer has yet to peek', () => {
+		// Early surrender is taken before the dealer checks for a natural, so
+		// it also buys the player out of losing outright to one -- worth doing
+		// on hands that are playable once that risk has been peeked away.
+		expect(late.get('12-A')).toBe('H');
+		expect(early.get('12-A')).toBe('R');
+		expect(early.get('17-A')).toBe('R');
+
+		for (const [key, action] of late) {
+			if (action === 'R') expect(early.get(key)).toBe('R');
+		}
+	});
+
+	it('reports surrender as a flat half-bet loss on the splits table', () => {
 		const result = computeSplitEvComparison(
-			RULE_SET,
+			{ ...RULE_SET, surrender: 'late', dealerPeek: true },
 			0,
 			ACE_FIVE_TAGS,
-			PAIR_RANKS,
-			RANKS
+			['T'],
+			['A']
 		);
-		const six = result.rows.find((r) => r.upcard === '6' && r.pairRank === '8')!;
-		const ten = result.rows.find((r) => r.upcard === 'T' && r.pairRank === '8')!;
-		expect(six.dealerBustPercent).toBeGreaterThan(ten.dealerBustPercent);
+		const row = result.rows[0];
+		if (row.optimalAction === 'R') expect(row.countEvPercent).toBeCloseTo(-50, 9);
+	});
+});
+
+describe('split rules', () => {
+	const pairRanks = (['A', '4', '8'] as const).slice();
+	const upcards = (['5', '6', 'T'] as const).slice();
+	const splitRows = (rules: Partial<RuleSet>) =>
+		new Map(
+			computeSplitEvComparison(
+				{ ...RULE_SET, ...rules },
+				0,
+				ACE_FIVE_TAGS,
+				pairRanks,
+				upcards
+			).rows.map((row) => [`${row.pairRank}-${row.upcard}`, row])
+		);
+
+	it('never splits at a table that allows only one hand', () => {
+		for (const row of splitRows({ splitLimit: 1 }).values()) {
+			expect(row.optimalAction).not.toBe('P');
+		}
+	});
+
+	it('splits 4,4 against a weak upcard only when doubling after a split is allowed', () => {
+		expect(splitRows({ doubleAfterSplit: true }).get('4-6')!.optimalAction).toBe('P');
+		expect(splitRows({ doubleAfterSplit: false }).get('4-6')!.optimalAction).toBe('H');
+	});
+
+	it('is worth more with doubling after a split allowed', () => {
+		const withDas = splitRows({ doubleAfterSplit: true });
+		const withoutDas = splitRows({ doubleAfterSplit: false });
+		for (const key of ['8-5', '8-6']) {
+			expect(withDas.get(key)!.countEvPercent).toBeGreaterThan(
+				withoutDas.get(key)!.countEvPercent
+			);
+		}
+	});
+
+	it('is worth more the more hands the split limit allows', () => {
+		const twoHands = splitRows({ splitLimit: 2 });
+		const fourHands = splitRows({ splitLimit: 4 });
+		expect(fourHands.get('8-5')!.countEvPercent).toBeGreaterThan(
+			twoHands.get('8-5')!.countEvPercent
+		);
+	});
+
+	it('raises the split limit for aces only when resplitting them is allowed', () => {
+		const noRsa = splitRows({ splitLimit: 4, resplitAces: false });
+		const rsa = splitRows({ splitLimit: 4, resplitAces: true });
+		const twoHands = splitRows({ splitLimit: 2, resplitAces: false });
+
+		expect(noRsa.get('A-6')!.countEvPercent).toBeCloseTo(
+			twoHands.get('A-6')!.countEvPercent,
+			9
+		);
+		expect(rsa.get('A-6')!.countEvPercent).toBeGreaterThan(
+			noRsa.get('A-6')!.countEvPercent
+		);
 	});
 });
 

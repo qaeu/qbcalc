@@ -34,15 +34,22 @@
  *    reasonable way to collapse a count value into a composition -- it is
  *    NOT the only possible shoe that produces a given running count, since
  *    the same count can arise from many different actual removal histories.
- * 4. Split hands follow the common one-card-per-hand, must-stand rule for
- *    split aces, and no resplitting is modelled (a second pair after a
- *    split cannot be split again).
+ * 4. Resplitting is modelled per hand rather than per round: `splitLimit`
+ *    caps how many times *one* post-split hand may split again, and each
+ *    hand spends that budget independently, since simplification #1 already
+ *    keeps sibling split hands from seeing each other's cards.
+ * 5. At a no-peek table a dealer natural takes the player's whole wager,
+ *    doubles and splits included ("all bets lost", not the
+ *    "original bets only" variant some no-peek tables use).
  */
 
 export type Rank = '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | 'T' | 'A';
 
-/** Optimal first action: hit, stand, double, or (pairs only) split. */
-export type PlayerAction = 'H' | 'S' | 'D' | 'P';
+/**
+ * Optimal first action: hit, stand, double, surrender, or (pairs only)
+ * split.
+ */
+export type PlayerAction = 'H' | 'S' | 'D' | 'P' | 'R';
 
 /** What a natural pays, written as it appears on the felt. */
 export type BlackjackPayout = '3:2' | '6:5' | '1:1';
@@ -54,10 +61,16 @@ export type BlackjackPayout = '3:2' | '6:5' | '1:1';
 export type Surrender = 'early' | 'late' | 'none';
 
 /**
- * The table variations the calculator knows about. Only `decks` and
- * `dealerHitsSoft17` reach the EV maths so far -- the rest are carried
- * through config and storage so the UI can hold them, and are wired into
- * the engine as it grows to cover the hands they affect.
+ * The table variations the calculator knows about. All of them reach the EV
+ * maths except two, which cannot move a hit/stand/double/split table:
+ *
+ * - `penetrationPercent` sets how deep the shoe is dealt, which governs how
+ *   often a given count occurs, not what a hand is worth once it has. It
+ *   belongs to bet sizing and risk of ruin rather than to playing decisions.
+ * - `blackjackPayout` only prices a two-card natural, and these tables start
+ *   after that has been settled (simplification #2). Note that 21 made by
+ *   drawing to a split ace is not a natural, and is already paid as an
+ *   ordinary 21 here.
  */
 export interface RuleSet {
 	decks: number;
@@ -222,13 +235,37 @@ function pairTotal(rank: Rank): [number, boolean] {
 	return addValue(afterFirst, softAfterFirst, rank);
 }
 
+/** The EV of surrendering: half the wager back, whatever the hand. */
+const SURRENDER_EV = -0.5;
+
+/**
+ * The hole card that would complete a dealer blackjack, or null for an
+ * upcard that cannot make one.
+ */
+function blackjackHoleRank(upcard: Rank): Rank | null {
+	if (upcard === 'A') return 'T';
+	if (upcard === 'T') return 'A';
+	return null;
+}
+
 class ShoeEv {
 	private readonly h17: boolean;
+	private readonly peek: boolean;
+	private readonly das: boolean;
+	private readonly splitLimit: number;
+	private readonly resplitAces: boolean;
+	private readonly surrender: Surrender;
 	private readonly memoDealer = new Map<string, DealerDist>();
+	private readonly memoDealerUpcard = new Map<string, DealerDist>();
 	private readonly memoPlayer = new Map<string, number>();
 
 	constructor(ruleSet: RuleSet) {
 		this.h17 = ruleSet.dealerHitsSoft17;
+		this.peek = ruleSet.dealerPeek;
+		this.das = ruleSet.doubleAfterSplit;
+		this.splitLimit = ruleSet.splitLimit;
+		this.resplitAces = ruleSet.resplitAces;
+		this.surrender = ruleSet.surrender;
 	}
 
 	/**
@@ -283,14 +320,77 @@ class ShoeEv {
 		return res;
 	}
 
+	/**
+	 * The dealer's final-hand distribution from an upcard alone.
+	 *
+	 * At a peeking table the dealer has already checked a ten or ace upcard
+	 * for a natural, so any hand that is still being played is one where the
+	 * hole card did *not* make blackjack -- the distribution is conditioned
+	 * on that by enumerating the hole card explicitly, skipping the rank that
+	 * would have ended the hand, and renormalising over what is left. Without
+	 * the peek the dealer's natural is still live and shows up as an ordinary
+	 * dealer 21 that beats every player total, which is what a no-peek table
+	 * charges the player.
+	 */
+	private dealerUpcardDist(
+		comp: Composition,
+		upcard: Rank,
+		totCards: number
+	): DealerDist {
+		const startTotal = upcard === 'A' ? 11 : RANK_VALUE[upcard];
+		const startSoft = upcard === 'A';
+		const holeRank = blackjackHoleRank(upcard);
+		if (!this.peek || holeRank === null) {
+			return this.dealerDist(comp, startTotal, startSoft, totCards);
+		}
+
+		const key = compKey(comp) + upcard;
+		const cached = this.memoDealerUpcard.get(key);
+		if (cached) return cached;
+
+		// A shoe holding nothing but the blackjack-completing rank leaves no
+		// hand to condition on; fall back to the unconditioned distribution.
+		const nonBlackjackCards = totCards - comp[RANK_INDEX[holeRank]];
+		if (nonBlackjackCards <= 0) {
+			return this.dealerDist(comp, startTotal, startSoft, totCards);
+		}
+
+		const res: DealerDist = {};
+		for (const rank of RANKS) {
+			if (rank === holeRank) continue;
+			const n = comp[RANK_INDEX[rank]];
+			if (n <= 0) continue;
+			const p = n / nonBlackjackCards;
+			const [newTotal, newSoft] = addValue(startTotal, startSoft, rank);
+			const sub = this.dealerDist(
+				removeCard(comp, rank),
+				newTotal,
+				newSoft,
+				totCards - 1
+			);
+			for (const k in sub) {
+				res[k] = (res[k] ?? 0) + p * sub[k];
+			}
+		}
+
+		this.memoDealerUpcard.set(key, res);
+		return res;
+	}
+
+	/** Chance the hole card makes a dealer natural, before any peek. */
+	private dealerBlackjackProb(comp: Composition, upcard: Rank, totCards: number): number {
+		const holeRank = blackjackHoleRank(upcard);
+		if (holeRank === null || totCards === 0) return 0;
+		return comp[RANK_INDEX[holeRank]] / totCards;
+	}
+
 	private standEv(
 		comp: Composition,
 		playerTotal: number,
 		upcard: Rank,
 		totCards: number
 	): number {
-		const startTotal = upcard === 'A' ? 11 : RANK_VALUE[upcard];
-		const dist = this.dealerDist(comp, startTotal, upcard === 'A', totCards);
+		const dist = this.dealerUpcardDist(comp, upcard, totCards);
 		let ev = 0.0;
 		for (const key in dist) {
 			const p = dist[key];
@@ -396,9 +496,32 @@ class ShoeEv {
 	}
 
 	private dealerBustProb(comp: Composition, upcard: Rank, totCards: number): number {
-		const startTotal = upcard === 'A' ? 11 : RANK_VALUE[upcard];
-		const dist = this.dealerDist(comp, startTotal, upcard === 'A', totCards);
-		return dist['bust'] ?? 0;
+		return this.dealerUpcardDist(comp, upcard, totCards)['bust'] ?? 0;
+	}
+
+	/**
+	 * Whether giving the hand up beats playing it out for `bestPlayEv`.
+	 *
+	 * Late surrender is taken after the dealer has peeked, so both sides of
+	 * the comparison already live in the same no-dealer-blackjack world.
+	 * Early surrender is taken before the peek, so the hand it is being
+	 * weighed against still carries the chance of running into a dealer
+	 * natural and losing outright -- which is exactly what makes it worth
+	 * taking against a ten or an ace. Without a peek there is no earlier
+	 * moment to surrender at, so both settings behave as the late one.
+	 */
+	private surrenderIsBest(
+		bestPlayEv: number,
+		comp: Composition,
+		upcard: Rank,
+		totCards: number
+	): boolean {
+		if (this.surrender === 'none') return false;
+		if (this.surrender === 'early' && this.peek) {
+			const pBlackjack = this.dealerBlackjackProb(comp, upcard, totCards);
+			return SURRENDER_EV > pBlackjack * -1 + (1 - pBlackjack) * bestPlayEv;
+		}
+		return SURRENDER_EV > bestPlayEv;
 	}
 
 	grid(
@@ -424,7 +547,10 @@ class ShoeEv {
 		return out;
 	}
 
-	/** Optimal action (incl. doubling) and bust odds, independent of the hit/stand-only `grid()` EV. */
+	/**
+	 * Optimal action (incl. doubling and surrender) and bust odds,
+	 * independent of the hit/stand-only `grid()` EV.
+	 */
 	analyzeGrid(
 		comp0: Composition,
 		totals: readonly number[],
@@ -467,7 +593,11 @@ class ShoeEv {
 					optimalAction = 'D';
 				}
 				if (evHit > best) {
+					best = evHit;
 					optimalAction = 'H';
+				}
+				if (this.surrenderIsBest(best, compUpcard, upcard, totCardsAfterUpcard)) {
+					optimalAction = 'R';
 				}
 
 				out.set(gridKey(total, upcard), {
@@ -482,47 +612,84 @@ class ShoeEv {
 	}
 
 	/**
-	 * EV of splitting a pair into two independent hands, each starting from
-	 * one card of `rank` plus a mandatory second card, then played optimally
-	 * (hit/stand/double). Split aces follow the common one-card-per-hand,
-	 * must-stand rule. Both hands draw against the same shoe composition --
-	 * the second hand's draws are not conditioned on the first hand's actual
-	 * draws, extending simplification #1 (own cards not removed) to sibling
-	 * split hands. No resplitting is modelled.
+	 * EV of one hand of a split, starting from a single card of `rank` plus a
+	 * mandatory second card, then played optimally. Doubling is offered only
+	 * when the table allows it after a split; split aces otherwise follow the
+	 * common one-card-per-hand, must-stand rule.
+	 *
+	 * `resplitsLeft` is how many further splits this hand may make if the
+	 * card it draws pairs it up again -- 0 once the table's split limit is
+	 * used up, and always 0 for aces at a table that doesn't allow resplitting
+	 * them. Both hands draw against the same shoe composition: the second
+	 * hand's draws are not conditioned on the first hand's actual draws,
+	 * extending simplification #1 (own cards not removed) to sibling split
+	 * hands, and the resplit budget is likewise spent per hand rather than
+	 * shared across the round (simplification #4).
+	 *
+	 * That independence is what makes the resplit ladder cheap. A hand with
+	 * `k` resplits left is worth the same draw-by-draw play EVs as one with
+	 * none -- the only difference is that a paired-up draw may instead be
+	 * traded for two hands with `k - 1` left. So the play EVs are computed
+	 * once and the budget is climbed iteratively, rather than re-entering the
+	 * whole draw enumeration (and its stand/hit/double recursions) per level.
 	 */
 	private splitHandEv(
 		comp: Composition,
 		rank: Rank,
 		upcard: Rank,
-		totCards: number
+		totCards: number,
+		resplitsLeft: number
 	): number {
 		const isAce = rank === 'A';
 		const startTotal = RANK_VALUE[rank];
 		if (totCards === 0) return this.standEv(comp, startTotal, upcard, totCards);
 
-		let ev = 0.0;
+		const draws: { p: number; playEv: number; pairsUp: boolean }[] = [];
 		for (const drawRank of RANKS) {
 			const n = comp[RANK_INDEX[drawRank]];
 			if (n <= 0) continue;
-			const p = n / totCards;
 			const newComp = removeCard(comp, drawRank);
 			const newTotCards = totCards - 1;
 			const [newTotal, newSoft] = addValue(startTotal, isAce, drawRank);
 
-			if (isAce) {
-				ev += p * this.standEv(newComp, newTotal, upcard, newTotCards);
-				continue;
-			}
 			const evStand = this.standEv(newComp, newTotal, upcard, newTotCards);
-			const evHit = this.hitEv(newComp, newTotal, newSoft, upcard, newTotCards);
-			const evDouble = this.doubleEv(newComp, newTotal, newSoft, upcard, newTotCards);
-			ev += p * Math.max(evStand, evHit, evDouble);
+			// A split ace takes exactly one card and must stand on it.
+			const playEv =
+				isAce ? evStand : (
+					Math.max(
+						evStand,
+						this.hitEv(newComp, newTotal, newSoft, upcard, newTotCards),
+						this.das ?
+							this.doubleEv(newComp, newTotal, newSoft, upcard, newTotCards)
+						:	-Infinity
+					)
+				);
+			draws.push({ p: n / totCards, playEv, pairsUp: drawRank === rank });
+		}
+
+		let ev = draws.reduce((sum, draw) => sum + draw.p * draw.playEv, 0);
+
+		const levels = !isAce || this.resplitAces ? resplitsLeft : 0;
+		for (let level = 1; level <= levels; level += 1) {
+			// Splitting again trades this one hand for two hands that each
+			// still have `level - 1` resplits of their own, i.e. twice `ev`.
+			const evResplit = 2 * ev;
+			ev = draws.reduce(
+				(sum, draw) =>
+					sum + draw.p * (draw.pairsUp ? Math.max(draw.playEv, evResplit) : draw.playEv),
+				0
+			);
 		}
 		return ev;
 	}
 
+	/**
+	 * EV of splitting a pair, i.e. two hands at one unit each. `splitLimit`
+	 * counts the hands one starting hand may end up as, so the first split
+	 * accounts for two of them and the rest are the resplit budget.
+	 */
 	private splitEv(comp: Composition, rank: Rank, upcard: Rank, totCards: number): number {
-		return 2 * this.splitHandEv(comp, rank, upcard, totCards);
+		return 2 * this.splitHandEv(comp, rank, upcard, totCards, this.splitLimit - 2);
 	}
 
 	/** Optimal action (incl. splitting) and EV/bust odds for each pair vs. upcard. */
@@ -548,7 +715,11 @@ class ShoeEv {
 					upcard,
 					totCardsAfterUpcard
 				);
-				const evSplit = this.splitEv(compUpcard, rank, upcard, totCardsAfterUpcard);
+				// A split limit of one hand is a table that doesn't split at all.
+				const evSplit =
+					this.splitLimit >= 2 ?
+						this.splitEv(compUpcard, rank, upcard, totCardsAfterUpcard)
+					:	-Infinity;
 
 				let optimalAction: PlayerAction = 'S';
 				let best = evStand;
@@ -563,6 +734,10 @@ class ShoeEv {
 				if (evSplit > best) {
 					best = evSplit;
 					optimalAction = 'P';
+				}
+				if (this.surrenderIsBest(best, compUpcard, upcard, totCardsAfterUpcard)) {
+					best = SURRENDER_EV;
+					optimalAction = 'R';
 				}
 
 				out.set(splitGridKey(rank, upcard), {

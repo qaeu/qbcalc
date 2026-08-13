@@ -50,7 +50,8 @@
 		td.is-hit,
 		td.is-stand,
 		td.is-double,
-		td.is-split {
+		td.is-split,
+		td.is-surrender {
 			transition: background-color 0.15s ease;
 		}
 
@@ -87,6 +88,15 @@
 
 			&:hover {
 				background-color: get($warnings, 'fade-less');
+			}
+		}
+
+		td.is-surrender {
+			color: get($neutrals, 'fg-light');
+			background-color: get($neutrals, 'fade');
+
+			&:hover {
+				background-color: get($neutrals, 'fade-less');
 			}
 		}
 
