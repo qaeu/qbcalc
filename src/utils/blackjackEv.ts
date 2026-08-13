@@ -856,7 +856,9 @@ function roundPreservingSum(deltas: readonly number[]): number[] {
  * For the Ace-Five tags this reduces exactly to the original special case:
  * `N/2` fewer real fives and `N/2` more real aces, whatever the deck count.
  *
- * Deltas are computed in half-card units and rounded to integers with
+ * `count` need not be a whole number -- a fractional running count (or a true
+ * count) is a perfectly meaningful input and is carried straight into `λ`.
+ * Only the resulting per-rank deltas are rounded, in half-card units and with
  * `roundPreservingSum` (rank counts index a char-code memo key, so they must
  * stay whole); the residual is under half a half-card per rank.
  */
@@ -948,7 +950,7 @@ export function computeEvComparison(
 	soft = false
 ): EvComparisonResult {
 	const base = baseComposition(ruleSet);
-	const modified = applyCountToComposition(base, tags, Math.round(count));
+	const modified = applyCountToComposition(base, tags, count);
 	return buildEvComparison(
 		new ShoeEv(ruleSet),
 		new ShoeEv(ruleSet),
@@ -1008,7 +1010,7 @@ export function computeSplitEvComparison(
 	upcards: readonly Rank[] = RANKS
 ): SplitEvComparisonResult {
 	const base = baseComposition(ruleSet);
-	const modified = applyCountToComposition(base, tags, Math.round(count));
+	const modified = applyCountToComposition(base, tags, count);
 	return buildSplitEvComparison(
 		new ShoeEv(ruleSet),
 		new ShoeEv(ruleSet),
@@ -1040,7 +1042,7 @@ export function computeAllEvTables(
 	split: SplitEvComparisonResult;
 } {
 	const base = baseComposition(ruleSet);
-	const modified = applyCountToComposition(base, tags, Math.round(count));
+	const modified = applyCountToComposition(base, tags, count);
 	const baseEngine = new ShoeEv(ruleSet);
 	const countEngine = new ShoeEv(ruleSet);
 
