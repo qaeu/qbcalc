@@ -17,6 +17,17 @@ import SettingsSidebar from '#c/SettingsSidebar';
 
 import '#styles/App';
 
+// Scaffolding for eyeballing the loading skeletons: the calculation finishes in
+// well under a second, so add `?slowLoading=2000` (milliseconds) to the URL to
+// hold the loading state open for at least that long. Dev builds only — the
+// check compiles away in production, so the delay can never ship.
+function artificialLoadingMs(): number {
+	if (!import.meta.env.DEV) return 0;
+	const raw = new URLSearchParams(window.location.search).get('slowLoading');
+	const parsed = Number(raw);
+	return raw !== null && Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
 const App: Component = () => {
 	const initialConfig = loadCalculatorConfig() ?? DEFAULT_CONFIG;
 
@@ -31,6 +42,7 @@ const App: Component = () => {
 	let worker: Worker | undefined;
 	let latestRequestId = 0;
 	let latestRequestStart = 0;
+	let holdTimer: number | undefined;
 
 	const getWorker = (): Worker => {
 		if (!worker) {
@@ -43,23 +55,44 @@ const App: Component = () => {
 			// a superseded request's (still in-flight) response from landing.
 			worker.addEventListener('message', (event: MessageEvent<EvWorkerResponse>) => {
 				if (event.data.requestId !== latestRequestId) return;
-				setIsComputing(false);
-				if (event.data.status === 'success') {
-					setCalcTimeMs(performance.now() - latestRequestStart);
-					setResult(event.data.result);
+				const response = event.data;
+				// Measured here rather than in `apply` so the reported time stays the
+				// real compute time, unpadded by any artificial hold.
+				const elapsed = performance.now() - latestRequestStart;
+
+				const apply = () => {
+					// Re-checked because a newer request can be dispatched during the
+					// hold, and this response must not overwrite it.
+					if (response.requestId !== latestRequestId) return;
+					setIsComputing(false);
+					if (response.status === 'success') {
+						setCalcTimeMs(elapsed);
+						setResult(response.result);
+					} else {
+						setCalcTimeMs(null);
+						setError(response.message);
+					}
+				};
+
+				const hold = artificialLoadingMs() - elapsed;
+				if (hold > 0) {
+					holdTimer = window.setTimeout(apply, hold);
 				} else {
-					setCalcTimeMs(null);
-					setError(event.data.message);
+					apply();
 				}
 			});
 		}
 		return worker;
 	};
 
-	onCleanup(() => worker?.terminate());
+	onCleanup(() => {
+		clearTimeout(holdTimer);
+		worker?.terminate();
+	});
 
 	const runCalculation = (nextConfig: CalculatorConfig) => {
 		const w = getWorker();
+		clearTimeout(holdTimer);
 		latestRequestId += 1;
 		latestRequestStart = performance.now();
 		setIsComputing(true);
