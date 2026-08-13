@@ -116,6 +116,73 @@ describe('SettingsSidebar', () => {
 		} satisfies CalculatorConfig);
 	});
 
+	it('offers only early surrender while ENHC is on', async () => {
+		cleanup();
+		render(() => (
+			<SettingsSidebar
+				initialConfig={DEFAULT_CONFIG}
+				calcTimeMs={null}
+				onSubmit={vi.fn()}
+			/>
+		));
+
+		// A no-hole-card table has no dealer check to be late to, so the two
+		// settings that wait for one are not choices it can make.
+		expect((screen.getByLabelText('ENHC') as HTMLInputElement).checked).toBe(true);
+		fireEvent.click(screen.getByRole('combobox', { name: 'Surrender' }));
+		for (const name of ['Late', 'ES10']) {
+			const option = await screen.findByRole('option', { name });
+			expect(option.hasAttribute('data-disabled')).toBe(true);
+		}
+		for (const name of ['Early', 'None']) {
+			const option = await screen.findByRole('option', { name });
+			expect(option.hasAttribute('data-disabled')).toBe(false);
+		}
+	});
+
+	it('moves a late-surrender table to early surrender when ENHC is turned on', async () => {
+		cleanup();
+		const onSubmit = vi.fn();
+		render(() => (
+			<SettingsSidebar
+				initialConfig={{ ...DEFAULT_CONFIG, dealerPeek: true, surrender: 'late' }}
+				calcTimeMs={null}
+				onSubmit={onSubmit}
+			/>
+		));
+
+		const trigger = screen.getByRole('combobox', { name: 'Surrender' });
+		expect(trigger.textContent).toBe('Late');
+
+		fireEvent.click(screen.getByLabelText('ENHC'));
+		await waitFor(() => expect(trigger.textContent).toBe('Early'));
+
+		fireEvent.submit(screen.getByLabelText('Decks').closest('form')!);
+		expect(onSubmit).toHaveBeenCalledWith(
+			expect.objectContaining({ dealerPeek: false, surrender: 'early' })
+		);
+	});
+
+	it('submits the hit-split-aces rule', () => {
+		cleanup();
+		const onSubmit = vi.fn();
+		render(() => (
+			<SettingsSidebar
+				initialConfig={DEFAULT_CONFIG}
+				calcTimeMs={null}
+				onSubmit={onSubmit}
+			/>
+		));
+
+		expect((screen.getByLabelText('HSA') as HTMLInputElement).checked).toBe(false);
+		fireEvent.click(screen.getByLabelText('HSA'));
+		fireEvent.submit(screen.getByLabelText('Decks').closest('form')!);
+
+		expect(onSubmit).toHaveBeenCalledWith(
+			expect.objectContaining({ hitSplitAces: true })
+		);
+	});
+
 	it('restores the saved game rules into their controls', () => {
 		cleanup();
 		render(() => (

@@ -60,8 +60,14 @@ export type BlackjackPayout = '3:2' | '6:5' | '1:1';
 /**
  * Surrender availability: 'early' before the dealer checks for blackjack,
  * 'late' only after the check, 'none' at tables that don't offer it.
+ *
+ * 'es10' is the common half-measure: early against a ten, late against
+ * everything else. It exists because early surrender against an ace is worth
+ * so much that few tables ever offered both. Against any upcard that cannot
+ * make a natural the two are the same thing, so the distinction only bites on
+ * the ten and ace columns.
  */
-export type Surrender = 'early' | 'late' | 'none';
+export type Surrender = 'early' | 'es10' | 'late' | 'none';
 
 /**
  * The table variations the calculator knows about. All of them reach the EV
@@ -88,6 +94,11 @@ export interface RuleSet {
 	doubleAfterSplit: boolean;
 	/** Split aces may be split again. */
 	resplitAces: boolean;
+	/**
+	 * Split aces may be drawn to normally instead of taking exactly one card.
+	 * Rare, but standard in UK casinos.
+	 */
+	hitSplitAces: boolean;
 	/** Dealer checks for blackjack against a ten or ace upcard. */
 	dealerPeek: boolean;
 }
@@ -141,16 +152,20 @@ export const SOFT_TOTALS: readonly number[] = [13, 14, 15, 16, 17, 18, 19, 20];
 /** Splittable pairs 2,2 through T,T and A,A -- one entry per rank. */
 export const PAIR_RANKS: readonly Rank[] = RANKS;
 export const BLACKJACK_PAYOUTS: readonly BlackjackPayout[] = ['3:2', '6:5', '1:1'];
-export const SURRENDERS: readonly Surrender[] = ['early', 'late', 'none'];
+export const SURRENDERS: readonly Surrender[] = ['early', 'es10', 'late', 'none'];
 export const DEFAULT_RULE_SET: RuleSet = {
 	decks: 4,
 	dealerHitsSoft17: false,
 	penetrationPercent: 75,
 	blackjackPayout: '3:2',
-	surrender: 'late',
+	// ENHC is on by default, and a no-hole-card table's surrender is
+	// necessarily the early one -- 'late' would start the app on a combination
+	// the Rules tab greys out.
+	surrender: 'early',
 	splitLimit: 4,
 	doubleAfterSplit: true,
 	resplitAces: false,
+	hitSplitAces: false,
 	dealerPeek: false,
 };
 
@@ -280,6 +295,7 @@ class ShoeEv {
 	private readonly das: boolean;
 	private readonly splitLimit: number;
 	private readonly resplitAces: boolean;
+	private readonly hitSplitAces: boolean;
 	private readonly surrender: Surrender;
 	private readonly memoDealer = new Map<string, DealerDist>();
 	private readonly memoDealerUpcard = new Map<string, DealerDist>();
@@ -291,6 +307,7 @@ class ShoeEv {
 		this.das = ruleSet.doubleAfterSplit;
 		this.splitLimit = ruleSet.splitLimit;
 		this.resplitAces = ruleSet.resplitAces;
+		this.hitSplitAces = ruleSet.hitSplitAces;
 		this.surrender = ruleSet.surrender;
 	}
 
@@ -563,12 +580,6 @@ class ShoeEv {
 	 * - **Late surrender, dealer peeks.** The peek has already happened, so
 	 *   both sides live in the same no-dealer-blackjack world and the hand is
 	 *   simply worth half the wager back.
-	 * - **No peek** (either surrender setting -- with no hole-card check there
-	 *   is no earlier moment to surrender at, so both behave as the late one).
-	 *   The player cannot buy their way out of a dealer natural: it is still
-	 *   live, and under the "all bets lost" convention it takes the whole
-	 *   wager. The hand is worth `-pBJ + (1 - pBJ) * -0.5`, not a flat -0.5,
-	 *   and every neighbouring cell is likewise unconditional.
 	 * - **Early surrender, dealer peeks.** Here surrender genuinely does dodge
 	 *   the natural -- which is exactly what makes it worth taking against a
 	 *   ten or an ace -- so its true value is -0.5 in the *pre-peek* world.
@@ -577,13 +588,33 @@ class ShoeEv {
 	 *   `(-0.5 + pBJ) / (1 - pBJ)`. That rebasing is monotonic, so the action
 	 *   chosen is identical to comparing both sides pre-peek, and the number
 	 *   displayed no longer sits in a different frame from its neighbours.
+	 * - **No peek.** The dealer takes no hole card at all, so a surrender is
+	 *   settled and the stake is off the table before the dealer draws their
+	 *   second card. A natural that arrives later has nothing left to collect,
+	 *   which makes every no-hole-card surrender an early one worth a flat
+	 *   -0.5 -- and cells at a no-peek table are already unconditional, so
+	 *   that is directly comparable to its neighbours. (The "all bets lost"
+	 *   convention still applies to doubles and splits, whose stakes *are*
+	 *   still live when the dealer draws.) A no-peek table therefore has no
+	 *   late surrender to offer; the UI does not present the combination, and
+	 *   the engine treats it as the early one it necessarily is.
 	 */
 	private surrenderEv(comp: Composition, upcard: Rank, totCards: number): number | null {
 		if (this.surrender === 'none') return null;
-		if (this.peek && this.surrender === 'late') return SURRENDER_EV;
+		// No hole card to be late to: half the stake, in the unconditional
+		// frame every other no-peek cell is already reported in.
+		if (!this.peek) return SURRENDER_EV;
+		// 'es10' buys the early treatment against a ten only. Against an
+		// upcard that cannot make a natural the two coincide anyway, so this
+		// is what separates them on the ten and ace columns.
+		const early =
+			this.surrender === 'early' || (this.surrender === 'es10' && upcard === 'T');
+		// Late surrender behind a peek: the check has happened, so both sides
+		// live in the same no-dealer-blackjack world and half the stake is
+		// half the stake.
+		if (!early) return SURRENDER_EV;
 
 		const pBlackjack = this.dealerBlackjackProb(comp, upcard, totCards);
-		if (!this.peek) return -pBlackjack + (1 - pBlackjack) * SURRENDER_EV;
 		// A shoe that can only make a natural leaves no conditional world to
 		// rebase into; the pre-peek value is all there is.
 		if (pBlackjack >= 1) return SURRENDER_EV;
@@ -659,8 +690,8 @@ class ShoeEv {
 	 * EV of splitting a pair: two hands at one unit each, each starting from a
 	 * single card of `rank` plus a mandatory second card, then played
 	 * optimally. Doubling is offered only when the table allows it after a
-	 * split; split aces otherwise follow the common one-card-per-hand,
-	 * must-stand rule.
+	 * split; split aces follow the common one-card-per-hand, must-stand rule
+	 * unless `hitSplitAces` lets them be drawn to like any other hand.
 	 *
 	 * `splitLimit` is a budget belonging to the *round*, not to either hand:
 	 * it caps how many hands this one starting hand may end up as in total.
@@ -698,9 +729,11 @@ class ShoeEv {
 			const [newTotal, newSoft] = addValue(startTotal, isAce, drawRank);
 
 			const evStand = this.standEv(newComp, newTotal, upcard, newTotCards);
-			// A split ace takes exactly one card and must stand on it.
+			// A split ace takes exactly one card and must stand on it, unless
+			// the table lets it be drawn to like any other hand.
+			const oneCardOnly = isAce && !this.hitSplitAces;
 			const playEv =
-				isAce ? evStand : (
+				oneCardOnly ? evStand : (
 					Math.max(
 						evStand,
 						this.hitEv(newComp, newTotal, newSoft, upcard, newTotCards),

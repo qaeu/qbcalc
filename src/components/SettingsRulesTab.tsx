@@ -25,15 +25,42 @@ const PAYOUT_OPTIONS: readonly SettingOption<BlackjackPayout>[] = BLACKJACK_PAYO
 
 const SURRENDER_LABELS: Record<Surrender, string> = {
 	early: 'Early',
+	es10: 'ES10',
 	late: 'Late',
 	none: 'None',
 };
 
-const SURRENDER_OPTIONS: readonly SettingOption<Surrender>[] = SURRENDERS.map(
-	(surrender) => ({ value: surrender, label: SURRENDER_LABELS[surrender] })
-);
+/**
+ * A no-hole-card table has no peek to be late to: the stake is off the table
+ * before the dealer draws, so every surrender it offers is an early one.
+ * 'Late' and 'ES10' (late against everything but a ten) are therefore not
+ * choices such a table can make, and are disabled rather than silently
+ * reinterpreted.
+ */
+const surrenderDisabledUnderEnhc = (surrender: Surrender): boolean =>
+	surrender === 'late' || surrender === 'es10';
+
+const surrenderOptions = (enhc: boolean): readonly SettingOption<Surrender>[] =>
+	SURRENDERS.map((surrender) => ({
+		value: surrender,
+		label: SURRENDER_LABELS[surrender],
+		disabled: enhc && surrenderDisabledUnderEnhc(surrender),
+	}));
 
 const SettingsRulesTab: Component<SettingsRulesTabProps> = (props) => {
+	/**
+	 * Turning ENHC on can invalidate the current surrender setting, so it
+	 * moves to the one a no-hole-card table would actually be offering:
+	 * 'early'. Leaving it on a disabled value would show the select stuck on
+	 * an option the list greys out.
+	 */
+	const setEnhc = (enhc: boolean) => {
+		props.setConfig('dealerPeek', !enhc);
+		if (enhc && surrenderDisabledUnderEnhc(props.config.surrender)) {
+			props.setConfig('surrender', 'early');
+		}
+	};
+
 	return (
 		<div class="settings-rules-tab">
 			<h3>Game Rules</h3>
@@ -92,10 +119,14 @@ const SettingsRulesTab: Component<SettingsRulesTabProps> = (props) => {
 			</SettingsItem>
 			<SettingsItem
 				label="Surrender"
-				helptext="Whether, and when, the player may surrender a hand"
+				helptext={
+					props.config.dealerPeek ?
+						'Whether, and when, the player may surrender a hand'
+					:	'Whether the player may surrender a hand. With no hole card there is no dealer check to be late to, so only early surrender is available'
+				}
 			>
 				<SettingSelect
-					options={SURRENDER_OPTIONS}
+					options={surrenderOptions(!props.config.dealerPeek)}
 					value={props.config.surrender}
 					onChange={(surrender) => props.setConfig('surrender', surrender)}
 				/>
@@ -129,6 +160,19 @@ const SettingsRulesTab: Component<SettingsRulesTabProps> = (props) => {
 					/>
 				</SettingsItem>
 				<SettingsItem
+					label="HSA"
+					helptext="Split aces may be drawn to, instead of taking one card and standing"
+					layout="row"
+				>
+					<input
+						type="checkbox"
+						checked={props.config.hitSplitAces}
+						onInput={(event) =>
+							props.setConfig('hitSplitAces', event.currentTarget.checked)
+						}
+					/>
+				</SettingsItem>
+				<SettingsItem
 					label="ENHC"
 					helptext="No dealer peek; a dealer natural takes all bets, doubles and splits included"
 					layout="row"
@@ -136,9 +180,7 @@ const SettingsRulesTab: Component<SettingsRulesTabProps> = (props) => {
 					<input
 						type="checkbox"
 						checked={!props.config.dealerPeek}
-						onInput={(event) =>
-							props.setConfig('dealerPeek', !event.currentTarget.checked)
-						}
+						onInput={(event) => setEnhc(event.currentTarget.checked)}
 					/>
 				</SettingsItem>
 			</div>

@@ -17,6 +17,8 @@ import '#styles/SettingSelect';
 export interface SettingOption<T extends string> {
 	value: T;
 	label: string;
+	/** Shown greyed out and not selectable -- for a rule the rest of the table forbids. */
+	disabled?: boolean;
 }
 
 interface SettingSelectProps<T extends string> {
@@ -27,7 +29,10 @@ interface SettingSelectProps<T extends string> {
 
 function SettingSelect<T extends string>(props: SettingSelectProps<T>): JSX.Element {
 	const collection = createMemo(() =>
-		createListCollection({ items: [...props.options] })
+		createListCollection({
+			items: [...props.options],
+			isItemDisabled: (item) => item.disabled === true,
+		})
 	);
 
 	return (

@@ -9,6 +9,8 @@ import {
 } from '#utils/storage';
 
 const STORAGE_KEY = 'qbcalc:calculator-config';
+/** Mirrors the module's own constant: the schema `saveCalculatorConfig` writes. */
+const STORAGE_VERSION = 4;
 
 const CUSTOM_TAGS: TagValues = {
 	'2': 1,
@@ -44,6 +46,7 @@ describe('loadCalculatorConfig', () => {
 			splitLimit: 2,
 			doubleAfterSplit: false,
 			resplitAces: true,
+			hitSplitAces: true,
 			dealerPeek: false,
 			system: 'custom',
 			tags: CUSTOM_TAGS,
@@ -92,8 +95,28 @@ describe('loadCalculatorConfig', () => {
 		});
 	});
 
-	it('returns null when a v3 rule field is missing or the wrong type', () => {
-		const stored = { ...DEFAULT_CONFIG, version: 3 };
+	it('migrates a v3 config by defaulting the hit-split-aces rule it predates', () => {
+		const v3: Record<string, unknown> = {
+			...DEFAULT_CONFIG,
+			version: 3,
+			decks: 6,
+			splitLimit: 2,
+			resplitAces: true,
+		};
+		delete v3.hitSplitAces;
+		localStorage.setItem(STORAGE_KEY, JSON.stringify(v3));
+
+		expect(loadCalculatorConfig()).toEqual({
+			...DEFAULT_CONFIG,
+			decks: 6,
+			splitLimit: 2,
+			resplitAces: true,
+			hitSplitAces: false,
+		});
+	});
+
+	it('returns null when a table rule is missing or the wrong type', () => {
+		const stored = { ...DEFAULT_CONFIG, version: STORAGE_VERSION };
 		localStorage.setItem(
 			STORAGE_KEY,
 			JSON.stringify({ ...stored, blackjackPayout: '7:5' })
@@ -104,6 +127,12 @@ describe('loadCalculatorConfig', () => {
 		expect(loadCalculatorConfig()).toBeNull();
 
 		localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...stored, dealerPeek: 'yes' }));
+		expect(loadCalculatorConfig()).toBeNull();
+
+		localStorage.setItem(
+			STORAGE_KEY,
+			JSON.stringify({ ...stored, hitSplitAces: 'sometimes' })
+		);
 		expect(loadCalculatorConfig()).toBeNull();
 	});
 
@@ -116,14 +145,14 @@ describe('loadCalculatorConfig', () => {
 	it('returns null when a required field is missing or the wrong type', () => {
 		localStorage.setItem(
 			STORAGE_KEY,
-			JSON.stringify({ ...DEFAULT_CONFIG, version: 3, decks: '6' })
+			JSON.stringify({ ...DEFAULT_CONFIG, version: STORAGE_VERSION, decks: '6' })
 		);
 
 		expect(loadCalculatorConfig()).toBeNull();
 	});
 
 	it('returns null when the tag values are incomplete or unknown', () => {
-		const base = { ...DEFAULT_CONFIG, version: 3 };
+		const base = { ...DEFAULT_CONFIG, version: STORAGE_VERSION };
 		localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...base, tags: { '2': 0 } }));
 		expect(loadCalculatorConfig()).toBeNull();
 

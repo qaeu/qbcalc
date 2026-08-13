@@ -47,5 +47,11 @@
 		&[data-state='checked'] {
 			color: get($primaries, 'fg-light');
 		}
+
+		&[data-disabled] {
+			color: get($neutrals, 'fg-light');
+			opacity: 0.45;
+			cursor: not-allowed;
+		}
 	}
 }

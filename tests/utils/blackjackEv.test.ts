@@ -491,39 +491,65 @@ describe('surrender', () => {
 		if (row.optimalAction === 'R') expect(row.countEvPercent).toBeCloseTo(-50, 9);
 	});
 
-	it('charges surrender for the dealer natural it cannot dodge at a no-peek table', () => {
-		// With no hole-card check there is nothing to surrender out of: the
-		// natural is still live and, under the "all bets lost" convention,
-		// takes the whole wager. Surrender is worth -pBJ + (1 - pBJ) * -0.5,
-		// not a flat -0.5. Six decks in half-card units: 624 total, minus 2
-		// for the removed ace upcard leaves 622, 192 of them tens.
-		const pNatural = 192 / 622;
-		const surrenderEv = -pNatural + (1 - pNatural) * -0.5;
-
-		const rows = new Map(
-			computeEvComparison(
-				{
-					...RULE_SET,
-					decks: 6,
-					dealerHitsSoft17: false,
-					surrender: 'late',
-					dealerPeek: false,
-				},
+	it('never prices surrender below half the stake at a no-peek table', () => {
+		// A surrendered stake is off the table before the dealer draws their
+		// second card, so a natural that arrives later has nothing left to
+		// collect: every no-hole-card surrender is an early one worth a flat
+		// -0.5. ("All bets lost" still applies to doubles and splits, whose
+		// stakes are live at the draw.) Briefly modelled the other way, which
+		// showed R cells at -53% against a ten and -65% against an ace.
+		for (const surrender of ['late', 'es10', 'early'] as const) {
+			const rows = computeEvComparison(
+				{ ...RULE_SET, decks: 6, dealerHitsSoft17: false, surrender, dealerPeek: false },
 				0,
 				ACE_FIVE_TAGS,
-				[15, 16, 17],
-				['A']
-			).rows.map((row) => [row.total, row])
-		);
-
-		// Overstated as a flat -50% this used to look better than standing on
-		// 17, and better than playing 15 out.
-		expect(rows.get(16)!.optimalAction).toBe('R');
-		expect(rows.get(16)!.baseEvPercent).toBeCloseTo(surrenderEv * 100, 9);
-		expect(rows.get(17)!.optimalAction).toBe('S');
-		expect(rows.get(17)!.baseEvPercent).toBeGreaterThan(surrenderEv * 100);
-		expect(rows.get(15)!.optimalAction).not.toBe('R');
+				[12, 15, 16, 17],
+				['6', 'T', 'A']
+			).rows;
+			for (const row of rows) {
+				if (row.optimalAction !== 'R') continue;
+				expect(row.baseEvPercent).toBeCloseTo(-50, 9);
+			}
+			// Against an ace, where playing on is exposed to the natural, that
+			// makes surrender the right answer even on a made 17 -- the
+			// well-known early-surrender pattern.
+			expect(rows.find((r) => r.total === 17 && r.upcard === 'A')!.optimalAction).toBe(
+				'R'
+			);
+		}
 	});
+
+	it(
+		'gives ES10 the early treatment against a ten and the late one against an ace',
+		() => {
+			// ES10 is early surrender against a ten only. Against an ace it is
+			// late, so it is worth a flat -0.5 there and dodges nothing; against a
+			// ten it buys the player out of the natural and is reported in the
+			// same conditional frame as its neighbours.
+			const grid = (surrender: Surrender) =>
+				new Map(
+					computeEvComparison(
+						{ ...RULE_SET, surrender, dealerPeek: true },
+						0,
+						ACE_FIVE_TAGS,
+						[16],
+						['T', 'A']
+					).rows.map((row) => [row.upcard, row])
+				);
+			const es10 = grid('es10');
+			const late = grid('late');
+			const early = grid('early');
+
+			expect(es10.get('T')!.baseEvPercent).toBeCloseTo(early.get('T')!.baseEvPercent, 9);
+			expect(es10.get('A')!.baseEvPercent).toBeCloseTo(late.get('A')!.baseEvPercent, 9);
+			// The ten column is strictly better than late surrender, and the ace
+			// column strictly worse than early -- otherwise ES10 would just be one
+			// of the two under another name.
+			expect(es10.get('T')!.baseEvPercent).toBeGreaterThan(late.get('T')!.baseEvPercent);
+			expect(es10.get('A')!.baseEvPercent).toBeLessThan(early.get('A')!.baseEvPercent);
+		},
+		GRID_TIMEOUT_MS
+	);
 
 	it('reports early surrender in the same conditional frame as its neighbours', () => {
 		// Early surrender really is worth -0.5 before the peek, but every
@@ -576,6 +602,7 @@ describe('split rules', () => {
 	let fourHandsRsa: SplitRows;
 	let eightHands: SplitRows;
 	let withoutDas: SplitRows;
+	let withHsa: SplitRows;
 
 	beforeAll(() => {
 		oneHand = splitRows({ splitLimit: 1 });
@@ -585,6 +612,7 @@ describe('split rules', () => {
 		fourHandsRsa = splitRows({ splitLimit: 4, resplitAces: true });
 		eightHands = splitRows({ splitLimit: 8 });
 		withoutDas = splitRows({ doubleAfterSplit: false });
+		withHsa = splitRows({ hitSplitAces: true });
 	}, GRID_TIMEOUT_MS);
 
 	it('never splits at a table that allows only one hand', () => {
@@ -628,6 +656,21 @@ describe('split rules', () => {
 		// doubling ladder.
 		expect(ev(eightHands)).toBeGreaterThan(ev(fourHands));
 		expect(ev(eightHands) - ev(fourHands)).toBeLessThan(gainFromThird);
+	});
+
+	it('is worth more when split aces may be drawn to', () => {
+		// A split ace normally takes one card and stands, so A,7 or A,2 is
+		// stuck where it lands. Hitting them is a large gain, and one that
+		// belongs to the ace row alone -- no other pair is affected.
+		expect(withHsa.get('A-6')!.countEvPercent).toBeGreaterThan(
+			fourHands.get('A-6')!.countEvPercent
+		);
+		for (const key of ['4-5', '4-6', '8-5', '8-6', '8-T']) {
+			expect(withHsa.get(key)!.countEvPercent).toBeCloseTo(
+				fourHands.get(key)!.countEvPercent,
+				9
+			);
+		}
 	});
 
 	it('raises the split limit for aces only when resplitting them is allowed', () => {
