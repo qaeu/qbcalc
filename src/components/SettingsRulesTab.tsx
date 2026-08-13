@@ -142,15 +142,15 @@ const SettingsRulesTab: Component<SettingsRulesTabProps> = (props) => {
 					/>
 				</SettingsItem>
 				<SettingsItem
-					label="Peek"
-					helptext="Dealer peeks for blackjack before play continues"
+					label="ENHC"
+					helptext="No dealer peek; a dealer natural takes all bets, doubles and splits included"
 					layout="row"
 				>
 					<input
 						type="checkbox"
-						checked={props.config.dealerPeek}
+						checked={!props.config.dealerPeek}
 						onInput={(event) =>
-							props.setConfig('dealerPeek', event.currentTarget.checked)
+							props.setConfig('dealerPeek', !event.currentTarget.checked)
 						}
 					/>
 				</SettingsItem>
