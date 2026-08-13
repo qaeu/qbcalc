@@ -32,7 +32,7 @@ describe('SettingsSidebar', () => {
 			...DEFAULT_CONFIG,
 			decks: 6,
 			count: -2,
-			dealerHitsSoft17: false,
+			dealerHitsSoft17: true,
 		} satisfies CalculatorConfig);
 	});
 

@@ -141,10 +141,10 @@ export const BLACKJACK_PAYOUTS: readonly BlackjackPayout[] = ['3:2', '6:5', '1:1
 export const SURRENDERS: readonly Surrender[] = ['early', 'late', 'none'];
 export const DEFAULT_RULE_SET: RuleSet = {
 	decks: 4,
-	dealerHitsSoft17: true,
+	dealerHitsSoft17: false,
 	penetrationPercent: 75,
 	blackjackPayout: '3:2',
-	surrender: 'none',
+	surrender: 'late',
 	splitLimit: 4,
 	doubleAfterSplit: true,
 	resplitAces: false,
@@ -172,7 +172,7 @@ export interface CalculatorParams extends RuleSet {
 
 export const DEFAULT_PARAMS: CalculatorParams = {
 	...DEFAULT_RULE_SET,
-	count: 1,
+	count: 0,
 	tags: ACE_FIVE_TAGS,
 };
 
