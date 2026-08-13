@@ -2,6 +2,10 @@
 
 @layer screen {
 	.ev-table {
+		display: flex;
+		flex-direction: column;
+		gap: 30px;
+
 		&__error {
 			margin: 0 0 20px;
 			color: get($errors, 'fg');
@@ -10,11 +14,12 @@
 		&__grid {
 			@include card;
 			max-width: 1000px;
+			margin-bottom: 0;
 			margin-left: auto;
 			margin-right: auto;
 
 			h3 {
-				margin-bottom: 8px;
+				margin: 4px 0 8px;
 			}
 		}
 
