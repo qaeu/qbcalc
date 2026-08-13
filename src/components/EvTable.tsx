@@ -96,7 +96,9 @@ const EvGrid: Component<EvGridProps> = (props) => (
 									{(upcard, colIndex) => (
 										<Show
 											when={!props.loading}
-											fallback={<LoadingCell phase={loadingPhase(rowIndex(), colIndex())} />}
+											fallback={
+												<LoadingCell phase={loadingPhase(rowIndex(), colIndex())} />
+											}
 										>
 											<Show
 												when={props.rowsByKey.get(cellKey(total, upcard))}
@@ -144,7 +146,9 @@ const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
 									{(upcard, colIndex) => (
 										<Show
 											when={!props.loading}
-											fallback={<LoadingCell phase={loadingPhase(rowIndex(), colIndex())} />}
+											fallback={
+												<LoadingCell phase={loadingPhase(rowIndex(), colIndex())} />
+											}
 										>
 											<Show
 												when={props.rowsByKey.get(cellKey(pairRank, upcard))}
