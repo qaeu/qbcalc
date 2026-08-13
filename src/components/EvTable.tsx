@@ -25,6 +25,10 @@ interface EvCellProps {
 	row: EvCellData;
 }
 
+interface LoadingCellProps {
+	phase: number;
+}
+
 const ACTION_CLASS: Record<PlayerAction, string> = {
 	H: 'is-hit',
 	S: 'is-stand',
@@ -52,11 +56,15 @@ const EvCell: Component<EvCellProps> = (props) => {
 	);
 };
 
-const LoadingCell: Component = () => (
-	<td class="is-loading">
+const LoadingCell: Component<LoadingCellProps> = (props) => (
+	<td class={`is-loading ev-table__loading-phase-${props.phase}`}>
 		<span class="ev-table__cell-skeleton" aria-hidden="true" />
 	</td>
 );
+
+function loadingPhase(rowIndex: number, colIndex: number): number {
+	return rowIndex + colIndex;
+}
 
 interface EvGridProps {
 	title: string;
@@ -81,12 +89,15 @@ const EvGrid: Component<EvGridProps> = (props) => (
 				</thead>
 				<tbody>
 					<For each={props.totals}>
-						{(total) => (
+						{(total, rowIndex) => (
 							<tr>
 								<th scope="row">{props.rowLabel ? props.rowLabel(total) : total}</th>
 								<For each={props.upcards}>
-									{(upcard) => (
-										<Show when={!props.loading} fallback={<LoadingCell />}>
+									{(upcard, colIndex) => (
+										<Show
+											when={!props.loading}
+											fallback={<LoadingCell phase={loadingPhase(rowIndex(), colIndex())} />}
+										>
 											<Show
 												when={props.rowsByKey.get(cellKey(total, upcard))}
 												fallback={<td>—</td>}
@@ -126,12 +137,15 @@ const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
 				</thead>
 				<tbody>
 					<For each={props.pairRanks}>
-						{(pairRank) => (
+						{(pairRank, rowIndex) => (
 							<tr>
 								<th scope="row">{formatPairLabel(pairRank)}</th>
 								<For each={props.upcards}>
-									{(upcard) => (
-										<Show when={!props.loading} fallback={<LoadingCell />}>
+									{(upcard, colIndex) => (
+										<Show
+											when={!props.loading}
+											fallback={<LoadingCell phase={loadingPhase(rowIndex(), colIndex())} />}
+										>
 											<Show
 												when={props.rowsByKey.get(cellKey(pairRank, upcard))}
 												fallback={<td>—</td>}
