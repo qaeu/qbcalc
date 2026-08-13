@@ -1,0 +1,51 @@
+@use 'base' as *;
+
+@layer screen {
+	.setting-select {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		font-size: 13px;
+		color: get($neutrals, 'fg-light');
+
+		&__trigger {
+			@include form-control;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 8px;
+			font-size: 14px;
+			cursor: pointer;
+
+			svg {
+				width: 16px;
+				height: 16px;
+				color: get($neutrals, 'fg-light');
+			}
+		}
+	}
+
+	// Portalled out of the select, so it can't be nested under `.setting-select`.
+	.setting-select__content {
+		@include shadow-short;
+		padding: 4px;
+		border: 1px solid get($neutrals, 'sep');
+		border-radius: 6px;
+		background-color: get($neutrals, 'bg');
+		font-size: 14px;
+	}
+
+	.setting-select__item {
+		padding: 6px 8px;
+		border-radius: 4px;
+		cursor: pointer;
+
+		&[data-highlighted] {
+			background-color: get($neutrals, 'fade');
+		}
+
+		&[data-state='checked'] {
+			color: get($primaries, 'fg-light');
+		}
+	}
+}

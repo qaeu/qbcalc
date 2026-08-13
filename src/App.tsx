@@ -3,6 +3,7 @@ import { createSignal, onCleanup, type Component } from 'solid-js';
 import {
 	DEFAULT_CONFIG,
 	loadCalculatorConfig,
+	ruleSetFromConfig,
 	type CalculatorConfig,
 } from '#utils/storage';
 import type {
@@ -64,10 +65,10 @@ const App: Component = () => {
 		setIsComputing(true);
 		setError(null);
 
-		const { decks, count, dealerHitsSoft17, tags } = nextConfig;
+		const { count, tags } = nextConfig;
 		const request: EvWorkerRequest = {
 			requestId: latestRequestId,
-			ruleSet: { decks, dealerHitsSoft17 },
+			ruleSet: ruleSetFromConfig(nextConfig),
 			count,
 			tags,
 		};

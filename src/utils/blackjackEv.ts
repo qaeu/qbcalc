@@ -44,9 +44,36 @@ export type Rank = '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | 'T' | 'A';
 /** Optimal first action: hit, stand, double, or (pairs only) split. */
 export type PlayerAction = 'H' | 'S' | 'D' | 'P';
 
+/** What a natural pays, written as it appears on the felt. */
+export type BlackjackPayout = '3:2' | '6:5' | '1:1';
+
+/**
+ * Surrender availability: 'early' before the dealer checks for blackjack,
+ * 'late' only after the check, 'none' at tables that don't offer it.
+ */
+export type Surrender = 'early' | 'late' | 'none';
+
+/**
+ * The table variations the calculator knows about. Only `decks` and
+ * `dealerHitsSoft17` reach the EV maths so far -- the rest are carried
+ * through config and storage so the UI can hold them, and are wired into
+ * the engine as it grows to cover the hands they affect.
+ */
 export interface RuleSet {
 	decks: number;
 	dealerHitsSoft17: boolean;
+	/** Percentage of the shoe dealt out before the shuffle. */
+	penetrationPercent: number;
+	blackjackPayout: BlackjackPayout;
+	surrender: Surrender;
+	/** Total hands one starting hand may be split into (1 = no splitting). */
+	splitLimit: number;
+	/** Doubling after a split is allowed. */
+	doubleAfterSplit: boolean;
+	/** Split aces may be split again. */
+	resplitAces: boolean;
+	/** Dealer checks for blackjack against a ten or ace upcard. */
+	dealerPeek: boolean;
 }
 
 /** Shoe composition in half-card units, indexed by RANK_INDEX. */
@@ -97,7 +124,19 @@ export const HARD_TOTALS: readonly number[] = [8, 9, 10, 11, 12, 13, 14, 15, 16,
 export const SOFT_TOTALS: readonly number[] = [13, 14, 15, 16, 17, 18, 19, 20];
 /** Splittable pairs 2,2 through T,T and A,A -- one entry per rank. */
 export const PAIR_RANKS: readonly Rank[] = RANKS;
-export const DEFAULT_RULE_SET: RuleSet = { decks: 4, dealerHitsSoft17: true };
+export const BLACKJACK_PAYOUTS: readonly BlackjackPayout[] = ['3:2', '6:5', '1:1'];
+export const SURRENDERS: readonly Surrender[] = ['early', 'late', 'none'];
+export const DEFAULT_RULE_SET: RuleSet = {
+	decks: 4,
+	dealerHitsSoft17: true,
+	penetrationPercent: 75,
+	blackjackPayout: '3:2',
+	surrender: 'none',
+	splitLimit: 4,
+	doubleAfterSplit: true,
+	resplitAces: false,
+	dealerPeek: true,
+};
 
 /** The Ace-Five count: +1 per five seen, -1 per ace seen, every other rank neutral. */
 export const ACE_FIVE_TAGS: TagValues = {
@@ -113,17 +152,14 @@ export const ACE_FIVE_TAGS: TagValues = {
 	A: -1,
 };
 
-export interface CalculatorParams {
-	decks: number;
+export interface CalculatorParams extends RuleSet {
 	count: number;
-	dealerHitsSoft17: boolean;
 	tags: TagValues;
 }
 
 export const DEFAULT_PARAMS: CalculatorParams = {
-	decks: DEFAULT_RULE_SET.decks,
+	...DEFAULT_RULE_SET,
 	count: 1,
-	dealerHitsSoft17: DEFAULT_RULE_SET.dealerHitsSoft17,
 	tags: ACE_FIVE_TAGS,
 };
 

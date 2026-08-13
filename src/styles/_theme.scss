@@ -199,6 +199,16 @@ $breakpoint-tablet: 800px;
 	color: $foreground;
 }
 
+// Heading for a section within a settings panel or card
+@mixin panel-title {
+	margin: 0;
+	font-weight: 400;
+	font-size: 13px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: get($neutrals, 'fg-light');
+}
+
 // Pre/code block styling
 @mixin code-block($bg: $background) {
 	background-color: $bg;

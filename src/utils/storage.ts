@@ -1,8 +1,14 @@
 import {
 	ACE_FIVE_TAGS,
+	BLACKJACK_PAYOUTS,
 	DEFAULT_PARAMS,
+	DEFAULT_RULE_SET,
 	RANKS,
+	SURRENDERS,
+	type BlackjackPayout,
 	type CalculatorParams,
+	type RuleSet,
+	type Surrender,
 	type TagValues,
 } from './blackjackEv';
 import { isCountingSystemId, type CountingSystemId } from './countingSystems';
@@ -18,7 +24,7 @@ export interface CalculatorConfig extends CalculatorParams {
 export const DEFAULT_CONFIG: CalculatorConfig = { ...DEFAULT_PARAMS, system: 'ace-five' };
 
 const STORAGE_KEY = 'qbcalc:calculator-config';
-const STORAGE_VERSION = 2;
+const STORAGE_VERSION = 3;
 
 interface StoredConfig extends CalculatorConfig {
 	version: number;
@@ -30,6 +36,16 @@ interface StoredConfigV1 {
 	decks: number;
 	count: number;
 	dealerHitsSoft17: boolean;
+}
+
+/** The v2 schema: v1 plus the counting system, but no table rules beyond S17. */
+interface StoredConfigV2 {
+	version: 2;
+	decks: number;
+	count: number;
+	dealerHitsSoft17: boolean;
+	system: CountingSystemId;
+	tags: TagValues;
 }
 
 function isTagValues(value: unknown): value is TagValues {
@@ -46,21 +62,41 @@ function hasV1Fields(config: Record<string, unknown>): boolean {
 	);
 }
 
+function hasV2Fields(config: Record<string, unknown>): boolean {
+	return (
+		hasV1Fields(config) && isCountingSystemId(config.system) && isTagValues(config.tags)
+	);
+}
+
+/** The table rules v3 added on top of v2's deck count and S17 flag. */
+function hasV3Fields(config: Record<string, unknown>): boolean {
+	return (
+		typeof config.penetrationPercent === 'number'
+		&& BLACKJACK_PAYOUTS.includes(config.blackjackPayout as BlackjackPayout)
+		&& SURRENDERS.includes(config.surrender as Surrender)
+		&& typeof config.splitLimit === 'number'
+		&& typeof config.doubleAfterSplit === 'boolean'
+		&& typeof config.resplitAces === 'boolean'
+		&& typeof config.dealerPeek === 'boolean'
+	);
+}
+
 function isStoredConfig(value: unknown): value is StoredConfig {
 	if (typeof value !== 'object' || value === null) return false;
 	const config = value as Record<string, unknown>;
-	return (
-		config.version === STORAGE_VERSION
-		&& hasV1Fields(config)
-		&& isCountingSystemId(config.system)
-		&& isTagValues(config.tags)
-	);
+	return config.version === STORAGE_VERSION && hasV2Fields(config) && hasV3Fields(config);
 }
 
 function isStoredConfigV1(value: unknown): value is StoredConfigV1 {
 	if (typeof value !== 'object' || value === null) return false;
 	const config = value as Record<string, unknown>;
 	return config.version === 1 && hasV1Fields(config);
+}
+
+function isStoredConfigV2(value: unknown): value is StoredConfigV2 {
+	if (typeof value !== 'object' || value === null) return false;
+	const config = value as Record<string, unknown>;
+	return config.version === 2 && hasV2Fields(config);
 }
 
 export function loadCalculatorConfig(): CalculatorConfig | null {
@@ -71,14 +107,27 @@ export function loadCalculatorConfig(): CalculatorConfig | null {
 		const parsed: unknown = JSON.parse(raw);
 
 		// v1 predates counting system config -- it could only ever have been
-		// an Ace-Five count, so migrate it to that system's tags.
+		// an Ace-Five count, so migrate it to that system's tags. Both older
+		// schemas predate the table rules beyond S17, which take the defaults.
 		if (isStoredConfigV1(parsed)) {
 			return {
+				...DEFAULT_RULE_SET,
 				decks: parsed.decks,
 				count: parsed.count,
 				dealerHitsSoft17: parsed.dealerHitsSoft17,
 				system: 'ace-five',
 				tags: ACE_FIVE_TAGS,
+			};
+		}
+
+		if (isStoredConfigV2(parsed)) {
+			return {
+				...DEFAULT_RULE_SET,
+				decks: parsed.decks,
+				count: parsed.count,
+				dealerHitsSoft17: parsed.dealerHitsSoft17,
+				system: parsed.system,
+				tags: parsed.tags,
 			};
 		}
 
@@ -88,12 +137,34 @@ export function loadCalculatorConfig(): CalculatorConfig | null {
 			decks: parsed.decks,
 			count: parsed.count,
 			dealerHitsSoft17: parsed.dealerHitsSoft17,
+			penetrationPercent: parsed.penetrationPercent,
+			blackjackPayout: parsed.blackjackPayout,
+			surrender: parsed.surrender,
+			splitLimit: parsed.splitLimit,
+			doubleAfterSplit: parsed.doubleAfterSplit,
+			resplitAces: parsed.resplitAces,
+			dealerPeek: parsed.dealerPeek,
 			system: parsed.system,
 			tags: parsed.tags,
 		};
 	} catch {
 		return null;
 	}
+}
+
+/** The table rules held in a config, as the EV engine wants them. */
+export function ruleSetFromConfig(config: CalculatorConfig): RuleSet {
+	return {
+		decks: config.decks,
+		dealerHitsSoft17: config.dealerHitsSoft17,
+		penetrationPercent: config.penetrationPercent,
+		blackjackPayout: config.blackjackPayout,
+		surrender: config.surrender,
+		splitLimit: config.splitLimit,
+		doubleAfterSplit: config.doubleAfterSplit,
+		resplitAces: config.resplitAces,
+		dealerPeek: config.dealerPeek,
+	};
 }
 
 export function saveCalculatorConfig(config: CalculatorConfig): void {

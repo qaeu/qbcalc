@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import {
 	ACE_FIVE_TAGS,
+	DEFAULT_RULE_SET,
 	RANKS,
 	SOFT_TOTALS,
 	PAIR_RANKS,
@@ -13,11 +14,11 @@ import {
 	computeSplitEvComparison,
 } from '#utils/blackjackEv';
 
-const RULE_SET: RuleSet = { decks: 4, dealerHitsSoft17: true };
+const RULE_SET: RuleSet = { ...DEFAULT_RULE_SET, decks: 4, dealerHitsSoft17: true };
 
 describe('baseComposition', () => {
 	it('builds a fresh shoe in half-card units', () => {
-		const comp = baseComposition({ decks: 1, dealerHitsSoft17: true });
+		const comp = baseComposition({ ...RULE_SET, decks: 1 });
 		expect(comp).toHaveLength(10);
 		// Non-ten ranks: 4 cards/deck * 1 deck * 2 half-card units = 8.
 		expect(comp[RANKS.indexOf('2')]).toBe(8);
@@ -28,8 +29,8 @@ describe('baseComposition', () => {
 	});
 
 	it('scales linearly with deck count', () => {
-		const oneDeck = baseComposition({ decks: 1, dealerHitsSoft17: true });
-		const fourDecks = baseComposition({ decks: 4, dealerHitsSoft17: true });
+		const oneDeck = baseComposition({ ...RULE_SET, decks: 1 });
+		const fourDecks = baseComposition({ ...RULE_SET, decks: 4 });
 		expect(fourDecks).toEqual(oneDeck.map((n) => n * 4));
 	});
 });
@@ -51,7 +52,7 @@ describe('applyCountToComposition', () => {
 	const totalCards = (comp: readonly number[]) => comp.reduce((sum, n) => sum + n, 0);
 
 	it('shifts half a card of five density into aces per count unit under Ace-Five', () => {
-		const base = baseComposition({ decks: 1, dealerHitsSoft17: true });
+		const base = baseComposition({ ...RULE_SET, decks: 1 });
 		const adjusted = applyCountToComposition(base, ACE_FIVE_TAGS, 2);
 		expect(adjusted[RANKS.indexOf('5')]).toBe(base[RANKS.indexOf('5')] - 2);
 		expect(adjusted[RANKS.indexOf('A')]).toBe(base[RANKS.indexOf('A')] + 2);
@@ -72,7 +73,7 @@ describe('applyCountToComposition', () => {
 	});
 
 	it('depletes low cards and enriches high cards on a positive Hi-Lo count', () => {
-		const base = baseComposition({ decks: 6, dealerHitsSoft17: true });
+		const base = baseComposition({ ...RULE_SET, decks: 6 });
 		const adjusted = applyCountToComposition(base, HI_LO_TAGS, 6);
 
 		expect(adjusted[RANKS.indexOf('2')]).toBeLessThan(base[RANKS.indexOf('2')]);
@@ -83,7 +84,7 @@ describe('applyCountToComposition', () => {
 	});
 
 	it('preserves the shoe size and stays integral', () => {
-		const base = baseComposition({ decks: 6, dealerHitsSoft17: true });
+		const base = baseComposition({ ...RULE_SET, decks: 6 });
 		for (const count of [-9, -4, 1, 5, 13]) {
 			const adjusted = applyCountToComposition(base, HI_LO_TAGS, count);
 			expect(totalCards(adjusted)).toBe(totalCards(base));
@@ -92,7 +93,7 @@ describe('applyCountToComposition', () => {
 	});
 
 	it('reverses the direction of the shift when the count flips sign', () => {
-		const base = baseComposition({ decks: 6, dealerHitsSoft17: true });
+		const base = baseComposition({ ...RULE_SET, decks: 6 });
 		const negative = applyCountToComposition(base, HI_LO_TAGS, -6);
 
 		expect(negative[RANKS.indexOf('2')]).toBeGreaterThan(base[RANKS.indexOf('2')]);
@@ -107,7 +108,7 @@ describe('applyCountToComposition', () => {
 	});
 
 	it('throws once the count removes more cards of a rank than exist', () => {
-		const base = baseComposition({ decks: 1, dealerHitsSoft17: true });
+		const base = baseComposition({ ...RULE_SET, decks: 1 });
 		expect(() => applyCountToComposition(base, ACE_FIVE_TAGS, 100)).toThrow(
 			/too extreme/i
 		);
@@ -142,7 +143,7 @@ describe('computeEvComparison', () => {
 	const totals = [8, 12, 16, 20];
 	const upcards = (['2', '6', 'T', 'A'] as const).slice();
 	const result = computeEvComparison(
-		{ decks: 1, dealerHitsSoft17: true },
+		{ ...RULE_SET, decks: 1 },
 		2,
 		ACE_FIVE_TAGS,
 		totals,

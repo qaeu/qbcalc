@@ -29,11 +29,10 @@ describe('SettingsSidebar', () => {
 		fireEvent.submit(decksInput.closest('form')!);
 
 		expect(onSubmit).toHaveBeenCalledWith({
+			...DEFAULT_CONFIG,
 			decks: 6,
 			count: -2,
 			dealerHitsSoft17: false,
-			system: 'ace-five',
-			tags: ACE_FIVE_TAGS,
 		} satisfies CalculatorConfig);
 	});
 
@@ -62,11 +61,10 @@ describe('SettingsSidebar', () => {
 		render(() => (
 			<SettingsSidebar
 				initialConfig={{
+					...DEFAULT_CONFIG,
 					decks: 6,
 					count: -2,
 					dealerHitsSoft17: false,
-					system: 'ace-five',
-					tags: ACE_FIVE_TAGS,
 				}}
 				calcTimeMs={null}
 				onSubmit={vi.fn()}
@@ -76,6 +74,74 @@ describe('SettingsSidebar', () => {
 		expect((screen.getByLabelText('Decks') as HTMLInputElement).value).toBe('6');
 		expect((screen.getByLabelText('Running count') as HTMLInputElement).value).toBe('-2');
 		expect((screen.getByLabelText('S17') as HTMLInputElement).checked).toBe(true);
+	});
+
+	it('submits the game rules entered on the Rules tab', async () => {
+		const onSubmit = vi.fn();
+		render(() => (
+			<SettingsSidebar
+				initialConfig={DEFAULT_CONFIG}
+				calcTimeMs={null}
+				onSubmit={onSubmit}
+			/>
+		));
+
+		fireEvent.input(screen.getByLabelText('Penetration %'), { target: { value: '60' } });
+		fireEvent.input(screen.getByLabelText('Split limit'), { target: { value: '2' } });
+		fireEvent.click(screen.getByLabelText('DAS'));
+		fireEvent.click(screen.getByLabelText('RSA'));
+		fireEvent.click(screen.getByLabelText('Peek'));
+
+		const payoutTrigger = screen.getByRole('combobox', { name: 'BJ payout' });
+		fireEvent.click(payoutTrigger);
+		fireEvent.click(await screen.findByRole('option', { name: '6:5' }));
+		await waitFor(() => expect(payoutTrigger.textContent).toBe('6:5'));
+
+		const surrenderTrigger = screen.getByRole('combobox', { name: 'Surrender' });
+		fireEvent.click(surrenderTrigger);
+		fireEvent.click(await screen.findByRole('option', { name: 'Late' }));
+		await waitFor(() => expect(surrenderTrigger.textContent).toBe('Late'));
+
+		fireEvent.submit(screen.getByLabelText('Decks').closest('form')!);
+
+		expect(onSubmit).toHaveBeenCalledWith({
+			...DEFAULT_CONFIG,
+			penetrationPercent: 60,
+			splitLimit: 2,
+			doubleAfterSplit: false,
+			resplitAces: true,
+			dealerPeek: false,
+			blackjackPayout: '6:5',
+			surrender: 'late',
+		} satisfies CalculatorConfig);
+	});
+
+	it('restores the saved game rules into their controls', () => {
+		cleanup();
+		render(() => (
+			<SettingsSidebar
+				initialConfig={{
+					...DEFAULT_CONFIG,
+					penetrationPercent: 50,
+					splitLimit: 3,
+					doubleAfterSplit: false,
+					resplitAces: true,
+					dealerPeek: false,
+					blackjackPayout: '1:1',
+					surrender: 'early',
+				}}
+				calcTimeMs={null}
+				onSubmit={vi.fn()}
+			/>
+		));
+
+		expect((screen.getByLabelText('Penetration %') as HTMLInputElement).value).toBe('50');
+		expect((screen.getByLabelText('Split limit') as HTMLInputElement).value).toBe('3');
+		expect((screen.getByLabelText('DAS') as HTMLInputElement).checked).toBe(false);
+		expect((screen.getByLabelText('RSA') as HTMLInputElement).checked).toBe(true);
+		expect((screen.getByLabelText('Peek') as HTMLInputElement).checked).toBe(false);
+		expect(screen.getByRole('combobox', { name: 'BJ payout' }).textContent).toBe('1:1');
+		expect(screen.getByRole('combobox', { name: 'Surrender' }).textContent).toBe('Early');
 	});
 
 	it('shows only the selected tab‘s settings', async () => {
