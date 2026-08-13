@@ -148,7 +148,7 @@ export const DEFAULT_RULE_SET: RuleSet = {
 	splitLimit: 4,
 	doubleAfterSplit: true,
 	resplitAces: false,
-	dealerPeek: true,
+	dealerPeek: false,
 };
 
 /** The Ace-Five count: +1 per five seen, -1 per ace seen, every other rank neutral. */
