@@ -90,7 +90,7 @@ describe('SettingsSidebar', () => {
 		fireEvent.input(screen.getByLabelText('Split limit'), { target: { value: '2' } });
 		fireEvent.click(screen.getByLabelText('DAS'));
 		fireEvent.click(screen.getByLabelText('RSA'));
-		fireEvent.click(screen.getByLabelText('Peek'));
+		fireEvent.click(screen.getByLabelText('ENHC'));
 
 		const payoutTrigger = screen.getByRole('combobox', { name: 'BJ payout' });
 		fireEvent.click(payoutTrigger);
@@ -110,7 +110,7 @@ describe('SettingsSidebar', () => {
 			splitLimit: 2,
 			doubleAfterSplit: false,
 			resplitAces: true,
-			dealerPeek: false,
+			dealerPeek: true,
 			blackjackPayout: '6:5',
 			surrender: 'late',
 		} satisfies CalculatorConfig);
@@ -139,7 +139,7 @@ describe('SettingsSidebar', () => {
 		expect((screen.getByLabelText('Split limit') as HTMLInputElement).value).toBe('3');
 		expect((screen.getByLabelText('DAS') as HTMLInputElement).checked).toBe(false);
 		expect((screen.getByLabelText('RSA') as HTMLInputElement).checked).toBe(true);
-		expect((screen.getByLabelText('Peek') as HTMLInputElement).checked).toBe(false);
+		expect((screen.getByLabelText('ENHC') as HTMLInputElement).checked).toBe(true);
 		expect(screen.getByRole('combobox', { name: 'BJ payout' }).textContent).toBe('1:1');
 		expect(screen.getByRole('combobox', { name: 'Surrender' }).textContent).toBe('Early');
 	});
