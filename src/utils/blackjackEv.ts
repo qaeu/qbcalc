@@ -552,28 +552,39 @@ class ShoeEv {
 	}
 
 	/**
-	 * Whether giving the hand up beats playing it out for `bestPlayEv`.
+	 * What giving the hand up is worth, or null at a table that doesn't offer
+	 * it. The value comes back in the *same frame* as the play EVs it is about
+	 * to be compared against and displayed beside, so a caller can treat it as
+	 * one more candidate action.
 	 *
-	 * Late surrender is taken after the dealer has peeked, so both sides of
-	 * the comparison already live in the same no-dealer-blackjack world.
-	 * Early surrender is taken before the peek, so the hand it is being
-	 * weighed against still carries the chance of running into a dealer
-	 * natural and losing outright -- which is exactly what makes it worth
-	 * taking against a ten or an ace. Without a peek there is no earlier
-	 * moment to surrender at, so both settings behave as the late one.
+	 * - **Late surrender, dealer peeks.** The peek has already happened, so
+	 *   both sides live in the same no-dealer-blackjack world and the hand is
+	 *   simply worth half the wager back.
+	 * - **No peek** (either surrender setting -- with no hole-card check there
+	 *   is no earlier moment to surrender at, so both behave as the late one).
+	 *   The player cannot buy their way out of a dealer natural: it is still
+	 *   live, and under the "all bets lost" convention it takes the whole
+	 *   wager. The hand is worth `-pBJ + (1 - pBJ) * -0.5`, not a flat -0.5,
+	 *   and every neighbouring cell is likewise unconditional.
+	 * - **Early surrender, dealer peeks.** Here surrender genuinely does dodge
+	 *   the natural -- which is exactly what makes it worth taking against a
+	 *   ten or an ace -- so its true value is -0.5 in the *pre-peek* world.
+	 *   Every other cell at a peeking table is reported conditional on no
+	 *   dealer natural, so -0.5 is rebased into that frame as
+	 *   `(-0.5 + pBJ) / (1 - pBJ)`. That rebasing is monotonic, so the action
+	 *   chosen is identical to comparing both sides pre-peek, and the number
+	 *   displayed no longer sits in a different frame from its neighbours.
 	 */
-	private surrenderIsBest(
-		bestPlayEv: number,
-		comp: Composition,
-		upcard: Rank,
-		totCards: number
-	): boolean {
-		if (this.surrender === 'none') return false;
-		if (this.surrender === 'early' && this.peek) {
-			const pBlackjack = this.dealerBlackjackProb(comp, upcard, totCards);
-			return SURRENDER_EV > pBlackjack * -1 + (1 - pBlackjack) * bestPlayEv;
-		}
-		return SURRENDER_EV > bestPlayEv;
+	private surrenderEv(comp: Composition, upcard: Rank, totCards: number): number | null {
+		if (this.surrender === 'none') return null;
+		if (this.peek && this.surrender === 'late') return SURRENDER_EV;
+
+		const pBlackjack = this.dealerBlackjackProb(comp, upcard, totCards);
+		if (!this.peek) return -pBlackjack + (1 - pBlackjack) * SURRENDER_EV;
+		// A shoe that can only make a natural leaves no conditional world to
+		// rebase into; the pre-peek value is all there is.
+		if (pBlackjack >= 1) return SURRENDER_EV;
+		return (SURRENDER_EV + pBlackjack) / (1 - pBlackjack);
 	}
 
 	/** Optimal action (incl. doubling and surrender), EV, and bust odds for each total vs. upcard. */
@@ -623,8 +634,9 @@ class ShoeEv {
 					best = evHit;
 					optimalAction = 'H';
 				}
-				if (this.surrenderIsBest(best, compUpcard, upcard, totCardsAfterUpcard)) {
-					best = SURRENDER_EV;
+				const evSurrender = this.surrenderEv(compUpcard, upcard, totCardsAfterUpcard);
+				if (evSurrender !== null && evSurrender > best) {
+					best = evSurrender;
 					optimalAction = 'R';
 				}
 
@@ -764,8 +776,9 @@ class ShoeEv {
 					best = evSplit;
 					optimalAction = 'P';
 				}
-				if (this.surrenderIsBest(best, compUpcard, upcard, totCardsAfterUpcard)) {
-					best = SURRENDER_EV;
+				const evSurrender = this.surrenderEv(compUpcard, upcard, totCardsAfterUpcard);
+				if (evSurrender !== null && evSurrender > best) {
+					best = evSurrender;
 					optimalAction = 'R';
 				}
 
