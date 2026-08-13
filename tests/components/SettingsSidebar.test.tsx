@@ -245,6 +245,34 @@ describe('SettingsSidebar', () => {
 		);
 	});
 
+	it('disables Calculate until a setting differs from the last calculation', () => {
+		cleanup();
+		const onSubmit = vi.fn();
+		render(() => (
+			<SettingsSidebar
+				initialConfig={DEFAULT_CONFIG}
+				calcTimeMs={null}
+				onSubmit={onSubmit}
+			/>
+		));
+
+		const button = screen.getByRole('button', { name: 'Calculate' }) as HTMLButtonElement;
+		expect(button.disabled).toBe(true);
+
+		const decksInput = screen.getByLabelText('Decks');
+		fireEvent.input(decksInput, { target: { value: '6' } });
+		expect(button.disabled).toBe(false);
+
+		// Back to the calculated value: nothing to recalculate again.
+		fireEvent.input(decksInput, { target: { value: String(DEFAULT_CONFIG.decks) } });
+		expect(button.disabled).toBe(true);
+
+		fireEvent.input(decksInput, { target: { value: '6' } });
+		fireEvent.click(button);
+		expect(onSubmit).toHaveBeenCalledTimes(1);
+		expect(button.disabled).toBe(true);
+	});
+
 	it('shows the calculation duration when calcTimeMs is provided', () => {
 		render(() => (
 			<SettingsSidebar

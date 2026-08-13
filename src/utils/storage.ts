@@ -152,6 +152,31 @@ export function loadCalculatorConfig(): CalculatorConfig | null {
 	}
 }
 
+/**
+ * Whether two configs would produce the same calculation and the same saved
+ * state. Every field is a primitive apart from the tag vector, so a field-wise
+ * comparison is enough -- no structural clone or JSON round-trip needed.
+ */
+export function calculatorConfigsEqual(
+	a: CalculatorConfig,
+	b: CalculatorConfig
+): boolean {
+	return (
+		a.decks === b.decks
+		&& a.count === b.count
+		&& a.dealerHitsSoft17 === b.dealerHitsSoft17
+		&& a.penetrationPercent === b.penetrationPercent
+		&& a.blackjackPayout === b.blackjackPayout
+		&& a.surrender === b.surrender
+		&& a.splitLimit === b.splitLimit
+		&& a.doubleAfterSplit === b.doubleAfterSplit
+		&& a.resplitAces === b.resplitAces
+		&& a.dealerPeek === b.dealerPeek
+		&& a.system === b.system
+		&& RANKS.every((rank) => a.tags[rank] === b.tags[rank])
+	);
+}
+
 /** The table rules held in a config, as the EV engine wants them. */
 export function ruleSetFromConfig(config: CalculatorConfig): RuleSet {
 	return {
