@@ -18,6 +18,12 @@ import {
 /**
  * The baseline the golden EV values below belong to: no peek (a dealer
  * natural is still live and beats the player outright) and no surrender.
+ *
+ * Every rule the cases below care about is pinned here rather than inherited,
+ * so moving a default cannot silently re-baseline the golden values. Split
+ * aces take one card and stand, the near-universal rule the published figures
+ * assume; the cases that exercise the UK variant opt into `hitSplitAces`
+ * themselves.
  */
 const RULE_SET: RuleSet = {
 	...DEFAULT_RULE_SET,
@@ -25,6 +31,10 @@ const RULE_SET: RuleSet = {
 	dealerHitsSoft17: true,
 	dealerPeek: false,
 	surrender: 'none',
+	splitLimit: 4,
+	doubleAfterSplit: true,
+	resplitAces: false,
+	hitSplitAces: false,
 };
 
 /**

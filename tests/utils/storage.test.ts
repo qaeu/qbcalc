@@ -111,7 +111,8 @@ describe('loadCalculatorConfig', () => {
 			decks: 6,
 			splitLimit: 2,
 			resplitAces: true,
-			hitSplitAces: false,
+			// Filled in from the current default, whichever way it points.
+			hitSplitAces: DEFAULT_CONFIG.hitSplitAces,
 		});
 	});
 

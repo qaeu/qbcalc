@@ -46,13 +46,15 @@ describe('SettingsSidebar', () => {
 			/>
 		));
 
+		// Eight decks, not the default six: Calculate stays disabled -- and the
+		// form unsubmittable -- until something actually differs.
 		const decksInput = screen.getByLabelText('Decks');
-		fireEvent.input(decksInput, { target: { value: '6' } });
+		fireEvent.input(decksInput, { target: { value: '8' } });
 		fireEvent.submit(decksInput.closest('form')!);
 
 		expect(loadCalculatorConfig()).toEqual({
 			...DEFAULT_CONFIG,
-			decks: 6,
+			decks: 8,
 		});
 	});
 
@@ -174,12 +176,15 @@ describe('SettingsSidebar', () => {
 			/>
 		));
 
-		expect((screen.getByLabelText('HSA') as HTMLInputElement).checked).toBe(false);
-		fireEvent.click(screen.getByLabelText('HSA'));
+		// Read against the default rather than a literal, so the case keeps
+		// testing the toggle rather than whichever way the default points.
+		const hsa = screen.getByLabelText('HSA') as HTMLInputElement;
+		expect(hsa.checked).toBe(DEFAULT_CONFIG.hitSplitAces);
+		fireEvent.click(hsa);
 		fireEvent.submit(screen.getByLabelText('Decks').closest('form')!);
 
 		expect(onSubmit).toHaveBeenCalledWith(
-			expect.objectContaining({ hitSplitAces: true })
+			expect.objectContaining({ hitSplitAces: !DEFAULT_CONFIG.hitSplitAces })
 		);
 	});
 
@@ -327,14 +332,14 @@ describe('SettingsSidebar', () => {
 		expect(button.disabled).toBe(true);
 
 		const decksInput = screen.getByLabelText('Decks');
-		fireEvent.input(decksInput, { target: { value: '6' } });
+		fireEvent.input(decksInput, { target: { value: '8' } });
 		expect(button.disabled).toBe(false);
 
 		// Back to the calculated value: nothing to recalculate again.
 		fireEvent.input(decksInput, { target: { value: String(DEFAULT_CONFIG.decks) } });
 		expect(button.disabled).toBe(true);
 
-		fireEvent.input(decksInput, { target: { value: '6' } });
+		fireEvent.input(decksInput, { target: { value: '8' } });
 		fireEvent.click(button);
 		expect(onSubmit).toHaveBeenCalledTimes(1);
 		expect(button.disabled).toBe(true);
