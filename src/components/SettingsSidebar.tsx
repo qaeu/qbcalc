@@ -89,8 +89,10 @@ const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
 							<SettingsCountTab
 								system={config.system}
 								tags={config.tags}
+								count={config.count}
 								onSystemChange={handleSystemChange}
 								onTagChange={handleTagChange}
+								onCountChange={(count) => setConfig('count', count)}
 							/>
 						</Tabs.Content>
 					</Tabs.Root>

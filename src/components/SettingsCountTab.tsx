@@ -12,8 +12,10 @@ import '#styles/SettingsCountTab';
 interface SettingsCountTabProps {
 	system: CountingSystemId;
 	tags: TagValues;
+	count: number;
 	onSystemChange: (system: CountingSystemId) => void;
 	onTagChange: (rank: Rank, value: number) => void;
+	onCountChange: (count: number) => void;
 }
 
 const SYSTEM_OPTIONS: readonly SettingOption<CountingSystemId>[] = COUNTING_SYSTEMS.map(
@@ -39,6 +41,17 @@ const SettingsCountTab: Component<SettingsCountTabProps> = (props) => {
 				helptext="The running count added for each rank drawn, by rank"
 			>
 				<TagValueGrid tags={props.tags} onTagChange={props.onTagChange} />
+			</SettingsItem>
+			<SettingsItem
+				label="Running count"
+				helptext="The current running count, before conversion to a true count"
+			>
+				<input
+					type="number"
+					step="1"
+					value={props.count}
+					onInput={(event) => props.onCountChange(Number(event.currentTarget.value))}
+				/>
 			</SettingsItem>
 		</div>
 	);

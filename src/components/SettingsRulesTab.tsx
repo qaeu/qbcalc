@@ -50,19 +50,6 @@ const SettingsRulesTab: Component<SettingsRulesTabProps> = (props) => {
 					/>
 				</SettingsItem>
 				<SettingsItem
-					label="Running count"
-					helptext="The current running count, before conversion to a true count"
-				>
-					<input
-						type="number"
-						step="1"
-						value={props.config.count}
-						onInput={(event) =>
-							props.setConfig('count', Number(event.currentTarget.value))
-						}
-					/>
-				</SettingsItem>
-				<SettingsItem
 					label="Penetration %"
 					helptext="Percent of the shoe dealt before it's shuffled and the count reset"
 				>
