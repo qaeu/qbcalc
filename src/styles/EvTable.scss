@@ -1,6 +1,10 @@
 @use 'base' as *;
 @use 'sass:math';
 
+// Keep in sync with LOADING_PHASE_COUNT in src/components/EvTable.tsx.
+$skeleton-phase-count: 12;
+$skeleton-pulse-duration: 1.2s;
+
 @layer screen {
 	.ev-table {
 		display: flex;
@@ -109,10 +113,13 @@
 		td.is-loading {
 			text-align: center;
 
-			@for $phase from 0 through 18 {
+			// Negative delays start every cell mid-cycle, so the table is already
+			// twinkling on the first frame rather than fading up together.
+			@for $phase from 0 through $skeleton-phase-count - 1 {
 				&.ev-table__loading-phase-#{$phase} {
 					.ev-table__cell-skeleton {
-						animation-delay: math.div($phase, 18) * 1.6s;
+						animation-delay: math.div($phase, $skeleton-phase-count) *
+							-$skeleton-pulse-duration;
 					}
 				}
 			}
@@ -125,7 +132,8 @@
 			border-radius: 3px;
 			background-color: get($neutrals, 'sep');
 			opacity: 0.35;
-			animation: ev-table-skeleton-pulse 1.6s cubic-bezier(0.2, 1, 0, 0.8) infinite;
+			animation: ev-table-skeleton-pulse $skeleton-pulse-duration
+				cubic-bezier(0.2, 1, 0, 0.8) infinite;
 		}
 
 		@keyframes ev-table-skeleton-pulse {
@@ -134,7 +142,7 @@
 				opacity: 0.35;
 			}
 			50% {
-				opacity: 0.9;
+				opacity: 0.8;
 			}
 		}
 
