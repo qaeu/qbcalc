@@ -1,7 +1,10 @@
 import { createSignal, onCleanup, type Component } from 'solid-js';
 
-import { DEFAULT_PARAMS, type CalculatorParams } from '#utils/blackjackEv';
-import { loadCalculatorConfig } from '#utils/storage';
+import {
+	DEFAULT_CONFIG,
+	loadCalculatorConfig,
+	type CalculatorConfig,
+} from '#utils/storage';
 import type {
 	EvWorkerRequest,
 	EvWorkerResponse,
@@ -14,7 +17,7 @@ import SettingsSidebar from '#c/SettingsSidebar';
 import '#styles/App';
 
 const App: Component = () => {
-	const initialParams = loadCalculatorConfig() ?? DEFAULT_PARAMS;
+	const initialConfig = loadCalculatorConfig() ?? DEFAULT_CONFIG;
 
 	const [result, setResult] = createSignal<EvWorkerResult | null>(null);
 	const [isComputing, setIsComputing] = createSignal(false);
@@ -54,30 +57,31 @@ const App: Component = () => {
 
 	onCleanup(() => worker?.terminate());
 
-	const runCalculation = (nextParams: CalculatorParams) => {
+	const runCalculation = (nextConfig: CalculatorConfig) => {
 		const w = getWorker();
 		latestRequestId += 1;
 		latestRequestStart = performance.now();
 		setIsComputing(true);
 		setError(null);
 
-		const { decks, count, dealerHitsSoft17 } = nextParams;
+		const { decks, count, dealerHitsSoft17, tags } = nextConfig;
 		const request: EvWorkerRequest = {
 			requestId: latestRequestId,
 			ruleSet: { decks, dealerHitsSoft17 },
 			count,
+			tags,
 		};
 		w.postMessage(request);
 	};
 
-	runCalculation(initialParams);
+	runCalculation(initialConfig);
 
 	return (
 		<main class="app">
 			<h1>Blackjack EV Calculator</h1>
 			<div class="app__layout">
 				<SettingsSidebar
-					initialParams={initialParams}
+					initialConfig={initialConfig}
 					calcTimeMs={calcTimeMs()}
 					onSubmit={runCalculation}
 				/>

@@ -5,7 +5,7 @@
  * same request/response logic synchronously instead of on a real thread).
  */
 
-import { computeAllEvTables, type RuleSet } from './blackjackEv';
+import { computeAllEvTables, type RuleSet, type TagValues } from './blackjackEv';
 
 export interface EvWorkerRequest {
 	/**
@@ -17,6 +17,8 @@ export interface EvWorkerRequest {
 	requestId: number;
 	ruleSet: RuleSet;
 	count: number;
+	/** The counting system's per-rank point values the count was kept with. */
+	tags: TagValues;
 }
 
 export type EvWorkerResult = ReturnType<typeof computeAllEvTables>;
@@ -30,7 +32,7 @@ export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerRespo
 		return {
 			requestId: request.requestId,
 			status: 'success',
-			result: computeAllEvTables(request.ruleSet, request.count),
+			result: computeAllEvTables(request.ruleSet, request.count, request.tags),
 		};
 	} catch (err) {
 		return {
