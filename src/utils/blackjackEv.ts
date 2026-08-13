@@ -34,10 +34,13 @@
  *    reasonable way to collapse a count value into a composition -- it is
  *    NOT the only possible shoe that produces a given running count, since
  *    the same count can arise from many different actual removal histories.
- * 4. Resplitting is modelled per hand rather than per round: `splitLimit`
- *    caps how many times *one* post-split hand may split again, and each
- *    hand spends that budget independently, since simplification #1 already
- *    keeps sibling split hands from seeing each other's cards.
+ * 4. `splitLimit` is a genuine per-round cap -- the hands a split produces
+ *    share one budget and can never exceed it -- but because simplification
+ *    #1 keeps sibling split hands from seeing each other's cards, there is no
+ *    way to know which sibling will actually need the remaining slots. The
+ *    budget is therefore divided as evenly as an integer allows at each
+ *    split rather than allocated on demand, which slightly understates the
+ *    value of resplitting at odd limits.
  * 5. At a no-peek table a dealer natural takes the player's whole wager,
  *    doubles and splits included ("all bets lost", not the
  *    "original bets only" variant some no-peek tables use).
@@ -653,37 +656,38 @@ class ShoeEv {
 	}
 
 	/**
-	 * EV of one hand of a split, starting from a single card of `rank` plus a
-	 * mandatory second card, then played optimally. Doubling is offered only
-	 * when the table allows it after a split; split aces otherwise follow the
-	 * common one-card-per-hand, must-stand rule.
+	 * EV of splitting a pair: two hands at one unit each, each starting from a
+	 * single card of `rank` plus a mandatory second card, then played
+	 * optimally. Doubling is offered only when the table allows it after a
+	 * split; split aces otherwise follow the common one-card-per-hand,
+	 * must-stand rule.
 	 *
-	 * `resplitsLeft` is how many further splits this hand may make if the
-	 * card it draws pairs it up again -- 0 once the table's split limit is
-	 * used up, and always 0 for aces at a table that doesn't allow resplitting
-	 * them. Both hands draw against the same shoe composition: the second
-	 * hand's draws are not conditioned on the first hand's actual draws,
-	 * extending simplification #1 (own cards not removed) to sibling split
-	 * hands, and the resplit budget is likewise spent per hand rather than
-	 * shared across the round (simplification #4).
+	 * `splitLimit` is a budget belonging to the *round*, not to either hand:
+	 * it caps how many hands this one starting hand may end up as in total.
+	 * The two hands the first split creates therefore share it, and a hand
+	 * that splits again shares its own allowance between its two children in
+	 * turn -- as evenly as an integer allows, since sibling independence
+	 * (below) leaves no way to know which of them will actually need the
+	 * slots. An allowance of one hand is a hand that may not split.
 	 *
-	 * That independence is what makes the resplit ladder cheap. A hand with
-	 * `k` resplits left is worth the same draw-by-draw play EVs as one with
+	 * Both hands draw against the same shoe composition: the second hand's
+	 * draws are not conditioned on the first hand's actual draws, extending
+	 * simplification #1 (own cards not removed) to sibling split hands.
+	 *
+	 * That independence is what makes the resplit ladder cheap. A hand with a
+	 * larger allowance is worth the same draw-by-draw play EVs as one with
 	 * none -- the only difference is that a paired-up draw may instead be
-	 * traded for two hands with `k - 1` left. So the play EVs are computed
-	 * once and the budget is climbed iteratively, rather than re-entering the
-	 * whole draw enumeration (and its stand/hit/double recursions) per level.
+	 * traded for two hands that divide the allowance. So the play EVs are
+	 * computed once and the ladder is climbed over allowances alone, rather
+	 * than re-entering the whole draw enumeration (and its stand/hit/double
+	 * recursions) per level.
 	 */
-	private splitHandEv(
-		comp: Composition,
-		rank: Rank,
-		upcard: Rank,
-		totCards: number,
-		resplitsLeft: number
-	): number {
+	private splitEv(comp: Composition, rank: Rank, upcard: Rank, totCards: number): number {
 		const isAce = rank === 'A';
 		const startTotal = RANK_VALUE[rank];
-		if (totCards < CARD_UNITS) return this.standEv(comp, startTotal, upcard, totCards);
+		if (totCards < CARD_UNITS) {
+			return 2 * this.standEv(comp, startTotal, upcard, totCards);
+		}
 
 		const draws: { p: number; playEv: number; pairsUp: boolean }[] = [];
 		for (const drawRank of RANKS) {
@@ -708,29 +712,31 @@ class ShoeEv {
 			draws.push({ p: n / totCards, playEv, pairsUp: drawRank === rank });
 		}
 
-		let ev = draws.reduce((sum, draw) => sum + draw.p * draw.playEv, 0);
+		const noResplit = draws.reduce((sum, draw) => sum + draw.p * draw.playEv, 0);
+		const canResplit = !isAce || this.resplitAces;
+		const byAllowance = new Map<number, number>();
 
-		const levels = !isAce || this.resplitAces ? resplitsLeft : 0;
-		for (let level = 1; level <= levels; level += 1) {
-			// Splitting again trades this one hand for two hands that each
-			// still have `level - 1` resplits of their own, i.e. twice `ev`.
-			const evResplit = 2 * ev;
-			ev = draws.reduce(
+		/** EV of one post-split hand that may occupy at most `hands` hand slots. */
+		const handEv = (hands: number): number => {
+			if (hands < 2 || !canResplit) return noResplit;
+			const cached = byAllowance.get(hands);
+			if (cached !== undefined) return cached;
+
+			// Splitting again trades this one hand for two, which divide this
+			// hand's own allowance between them.
+			const evResplit = handEv(Math.ceil(hands / 2)) + handEv(Math.floor(hands / 2));
+			const ev = draws.reduce(
 				(sum, draw) =>
 					sum + draw.p * (draw.pairsUp ? Math.max(draw.playEv, evResplit) : draw.playEv),
 				0
 			);
-		}
-		return ev;
-	}
+			byAllowance.set(hands, ev);
+			return ev;
+		};
 
-	/**
-	 * EV of splitting a pair, i.e. two hands at one unit each. `splitLimit`
-	 * counts the hands one starting hand may end up as, so the first split
-	 * accounts for two of them and the rest are the resplit budget.
-	 */
-	private splitEv(comp: Composition, rank: Rank, upcard: Rank, totCards: number): number {
-		return 2 * this.splitHandEv(comp, rank, upcard, totCards, this.splitLimit - 2);
+		return (
+			handEv(Math.ceil(this.splitLimit / 2)) + handEv(Math.floor(this.splitLimit / 2))
+		);
 	}
 
 	/** Optimal action (incl. splitting) and EV/bust odds for each pair vs. upcard. */
