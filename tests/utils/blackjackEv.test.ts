@@ -603,6 +603,7 @@ describe('split rules', () => {
 	let eightHands: SplitRows;
 	let withoutDas: SplitRows;
 	let withHsa: SplitRows;
+	let withHsaNoDas: SplitRows;
 
 	beforeAll(() => {
 		oneHand = splitRows({ splitLimit: 1 });
@@ -613,6 +614,7 @@ describe('split rules', () => {
 		eightHands = splitRows({ splitLimit: 8 });
 		withoutDas = splitRows({ doubleAfterSplit: false });
 		withHsa = splitRows({ hitSplitAces: true });
+		withHsaNoDas = splitRows({ hitSplitAces: true, doubleAfterSplit: false });
 	}, GRID_TIMEOUT_MS);
 
 	it('never splits at a table that allows only one hand', () => {
@@ -671,6 +673,23 @@ describe('split rules', () => {
 				9
 			);
 		}
+	});
+
+	it('lets a drawn-to split ace double when the table allows doubling after a split', () => {
+		// A split ace that may be hit is an ordinary hand, so DAS reaches it
+		// like any other split hand -- worth several points against a weak
+		// upcard. While the one-card rule stands the hand never acts, so DAS
+		// cannot touch it and the two grids agree exactly.
+		expect(withHsa.get('A-5')!.countEvPercent).toBeGreaterThan(
+			withHsaNoDas.get('A-5')!.countEvPercent
+		);
+		expect(withHsa.get('A-6')!.countEvPercent).toBeGreaterThan(
+			withHsaNoDas.get('A-6')!.countEvPercent
+		);
+		expect(fourHands.get('A-6')!.countEvPercent).toBeCloseTo(
+			withoutDas.get('A-6')!.countEvPercent,
+			9
+		);
 	});
 
 	it('raises the split limit for aces only when resplitting them is allowed', () => {
