@@ -191,24 +191,30 @@ export const DEFAULT_PARAMS: CalculatorParams = {
 	tags: ACE_FIVE_TAGS,
 };
 
-type DealerDist = Record<string, number>;
+/**
+ * A dealer's final-outcome distribution: probability by slot, where slot 0 is
+ * a two-card natural, slot 22 is a bust, and slots 4-21 are made totals.
+ * Outcomes below 17 are only reachable by a dealer forced to stand on a stiff
+ * hand because the shoe ran out, but they are represented exactly all the same.
+ */
+type Dist = Float64Array;
+const NATURAL = 0;
+const BUST = 22;
+const DIST_LEN = 23;
+/**
+ * Stand EV indexed by the player's total, with the dealer's bust probability
+ * in the otherwise impossible slot 0. It runs past 21 so that a caller asking
+ * about a total no real hand can hold still gets the comparison it asked for.
+ */
+const TABLE_LEN = 31;
 
 const RANK_INDEX: Record<Rank, number> = Object.fromEntries(
 	RANKS.map((rank, index) => [rank, index])
 ) as Record<Rank, number>;
 
-const RANK_VALUE: Record<Rank, number> = {
-	'2': 2,
-	'3': 3,
-	'4': 4,
-	'5': 5,
-	'6': 6,
-	'7': 7,
-	'8': 8,
-	'9': 9,
-	T: 10,
-	A: 11,
-};
+/** Hard value of each rank, indexed by `RANK_INDEX` (an ace counts as 11). */
+const RANK_VALUE = Int32Array.from([2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+const ACE_INDEX = RANKS.length - 1;
 
 /**
  * Half-card units mean one *card* is two units, so drawing a card subtracts
@@ -218,15 +224,25 @@ const RANK_VALUE: Record<Rank, number> = {
  */
 const CARD_UNITS = 2;
 
-function removeCard(comp: Composition, rank: Rank): Composition {
-	const next = comp.slice();
-	next[RANK_INDEX[rank]] -= CARD_UNITS;
-	return next;
-}
+/**
+ * Place value per rank for the memo key. A node is identified by *which cards
+ * have been removed* from the engine's root composition, packed into a single
+ * exact float: ten ranks at five bits each is 50 bits, inside the 53 a double
+ * carries. A child's key is its parent's plus one place value, so identifying a
+ * node costs one addition instead of rebuilding a string from the whole
+ * composition at every level.
+ *
+ * Five bits caps a rank at 31 removals. A dealer hand and a player hand between
+ * them cannot draw that many of one rank -- twelve aces or eleven twos already
+ * bust a single hand -- so keys stay collision-free.
+ */
+const KEY_MULT = Float64Array.from({ length: 10 }, (_, index) => 32 ** index);
 
 /**
  * Adds one card to a (total, soft) hand state, demoting aces from 11 to 1
- * only as far as is needed to stay at or under 21.
+ * only as far as is needed to stay at or under 21. The result is returned
+ * packed as `(total << 1) | soft` so that a draw -- the innermost operation in
+ * the whole engine -- allocates nothing.
  *
  * `soft` means "exactly one ace in this hand is currently counted as 11" --
  * two aces can never both be 11 (22 busts), so a single flag is enough. A
@@ -236,33 +252,38 @@ function removeCard(comp: Composition, rank: Rank): Composition {
  * the hand keeps: soft 12 + T is hard 12, but A,A stays soft 12, and A,7,A
  * stays soft 19.
  */
-function addValue(total: number, soft: boolean, rank: Rank): [number, boolean] {
-	let newTotal = total + RANK_VALUE[rank];
-	let acesAsEleven = (soft ? 1 : 0) + (rank === 'A' ? 1 : 0);
+function addPacked(total: number, soft: boolean, rankIndex: number): number {
+	let newTotal = total + RANK_VALUE[rankIndex];
+	let acesAsEleven = (soft ? 1 : 0) + (rankIndex === ACE_INDEX ? 1 : 0);
 	while (newTotal > 21 && acesAsEleven > 0) {
 		newTotal -= 10;
 		acesAsEleven -= 1;
 	}
-	return [newTotal, acesAsEleven > 0];
+	return (newTotal << 1) | (acesAsEleven > 0 ? 1 : 0);
 }
 
-/** Fast, collision-free memo key: one char per rank count plus total/soft/upcard. */
-function compKey(comp: Composition): string {
-	return String.fromCharCode(...comp);
+/** `addPacked` unpacked, for the callers that aren't on the hot path. */
+function addValue(total: number, soft: boolean, rank: Rank): [number, boolean] {
+	const packed = addPacked(total, soft, RANK_INDEX[rank]);
+	return [packed >> 1, (packed & 1) === 1];
 }
 
-interface CellAnalysis {
+/** Fields an EV table cell needs, before it is paired with its counterpart. */
+export interface CellAnalysis {
 	evPercent: number;
 	optimalAction: PlayerAction;
 	playerBustOnHitPercent: number;
 	dealerBustPercent: number;
 }
 
-interface SplitCellAnalysis {
-	evPercent: number;
-	optimalAction: PlayerAction;
-	playerBustOnHitPercent: number;
-	dealerBustPercent: number;
+/**
+ * The three analysis grids one shoe composition yields, keyed by `gridKey` /
+ * `splitGridKey`. A comparison table is two of these read side by side.
+ */
+export interface EvGrids {
+	hard: Map<string, CellAnalysis>;
+	soft: Map<string, CellAnalysis>;
+	split: Map<string, CellAnalysis>;
 }
 
 /** The two-card hard/soft total of a pair, e.g. 8,8 -> hard 16; A,A -> soft 12
@@ -286,6 +307,59 @@ function blackjackHoleRank(upcard: Rank): Rank | null {
 	return null;
 }
 
+/**
+ * Dealer distributions live in one growable arena instead of being individual
+ * arrays: a full set of tables memoises on the order of a million of them, and
+ * allocating each one separately made garbage collection the second-largest
+ * cost in the engine after the recursion itself. A distribution is addressed by
+ * an integer id and occupies `DIST_LEN` slots starting at `id * DIST_LEN`.
+ *
+ * `lo[id]` is the lowest slot the distribution has any mass in. For any real
+ * shoe that is 17 -- the dealer cannot stand lower -- so the accumulation loop
+ * touches six slots rather than nineteen, while the exhausted-shoe case that
+ * strands the dealer on a stiff total stays exact.
+ */
+class DistArena {
+	private data = new Float64Array(DIST_LEN * 4096);
+	private lo = new Int32Array(4096);
+	private size = 0;
+
+	get slots(): Float64Array {
+		return this.data;
+	}
+
+	lowest(id: number): number {
+		return this.lo[id];
+	}
+
+	alloc(lowest: number): number {
+		if ((this.size + 1) * DIST_LEN > this.data.length) {
+			const grownData = new Float64Array(this.data.length * 2);
+			grownData.set(this.data);
+			this.data = grownData;
+			const grownLo = new Int32Array(this.lo.length * 2);
+			grownLo.set(this.lo);
+			this.lo = grownLo;
+		}
+		const id = this.size;
+		this.size += 1;
+		this.lo[id] = lowest;
+		return id;
+	}
+
+	reset(): void {
+		this.data.fill(0);
+		this.size = 0;
+	}
+}
+
+/**
+ * One engine walks one shoe composition. Draws are made by decrementing a rank
+ * in `this.comp` and restoring it on the way back out rather than by copying
+ * the composition at every node, so nothing may hold a reference to `this.comp`
+ * across a recursive call and every path out of a draw loop must leave it as it
+ * found it.
+ */
 class ShoeEv {
 	private readonly h17: boolean;
 	private readonly peek: boolean;
@@ -294,9 +368,28 @@ class ShoeEv {
 	private readonly resplitAces: boolean;
 	private readonly hitSplitAces: boolean;
 	private readonly surrender: Surrender;
-	private readonly memoDealer = new Map<string, DealerDist>();
-	private readonly memoDealerUpcard = new Map<string, DealerDist>();
-	private readonly memoPlayer = new Map<string, number>();
+	private readonly arena = new DistArena();
+	/** Distributions for a dealer who is already finished, allocated once. */
+	private readonly terminal = new Int32Array(DIST_LEN);
+	/** memoDealer[total * 2 + soft]: removal key -> distribution id. */
+	private readonly memoDealer: Map<number, number>[] = Array.from(
+		{ length: 64 },
+		() => new Map()
+	);
+	/** memoStand[upcard]: removal key -> stand EV by player total. */
+	private readonly memoStand: Map<number, Float64Array>[] = Array.from(
+		{ length: RANKS.length },
+		() => new Map()
+	);
+	/** memoPlayer[(total * 2 + soft) * 10 + upcard]: removal key -> best EV. */
+	private readonly memoPlayer: Map<number, number>[] = Array.from(
+		{ length: 64 * RANKS.length },
+		() => new Map()
+	);
+	/** Removal keys are relative to the root composition the engine was first
+	 * handed, so a different one invalidates every cache. */
+	private rootKey: string | null = null;
+	private comp = new Int32Array(RANKS.length);
 
 	constructor(ruleSet: RuleSet) {
 		this.h17 = ruleSet.dealerHitsSoft17;
@@ -306,63 +399,134 @@ class ShoeEv {
 		this.resplitAces = ruleSet.resplitAces;
 		this.hitSplitAces = ruleSet.hitSplitAces;
 		this.surrender = ruleSet.surrender;
+		this.allocTerminals();
+	}
+
+	/** A dealer standing on `total`, and (in slot `BUST`) one who has busted. */
+	private allocTerminals(): void {
+		for (let total = 0; total < DIST_LEN; total += 1) {
+			const id = this.arena.alloc(total);
+			this.arena.slots[id * DIST_LEN + total] = 1;
+			this.terminal[total] = id;
+		}
+	}
+
+	private setRoot(comp0: Composition): void {
+		const key = comp0.join(',');
+		if (this.rootKey === key) return;
+		if (this.rootKey !== null) {
+			for (const memo of this.memoDealer) memo.clear();
+			for (const memo of this.memoStand) memo.clear();
+			for (const memo of this.memoPlayer) memo.clear();
+			this.arena.reset();
+			this.allocTerminals();
+		}
+		this.rootKey = key;
+		this.comp = Int32Array.from(comp0);
 	}
 
 	/**
+	 * The dealer's final-outcome distribution, as an arena id.
+	 *
 	 * `totCards` is the caller-supplied count of half-card units remaining in
-	 * `comp`, i.e. it always equals `sum(comp)`. Every recursive step below
+	 * `this.comp`, i.e. it always equals its sum. Every recursive step below
 	 * removes exactly one card (`CARD_UNITS` units), so the count can be
 	 * decremented arithmetically as it's threaded down instead of re-summed
-	 * from `comp` (an O(rank count) scan) at every node.
+	 * from the composition (an O(rank count) scan) at every node. `key` is
+	 * threaded down the same way -- see `KEY_MULT`.
 	 */
 	private dealerDist(
-		comp: Composition,
 		total: number,
 		soft: boolean,
-		totCards: number
-	): DealerDist {
-		const key = compKey(comp) + String.fromCharCode(total, soft ? 1 : 0);
-		const cached = this.memoDealer.get(key);
-		if (cached) return cached;
-
-		if (total > 21) {
-			const res = { bust: 1.0 };
-			this.memoDealer.set(key, res);
-			return res;
-		}
-
+		totCards: number,
+		key: number
+	): number {
+		if (total > 21) return this.terminal[BUST];
 		const stands = total >= 18 || (total === 17 && (!soft || !this.h17));
-		if (stands) {
-			const res = { [total]: 1.0 };
-			this.memoDealer.set(key, res);
-			return res;
-		}
+		if (stands) return this.terminal[total];
+		// Nothing left to draw: the dealer is stuck on a stiff total.
+		if (totCards < CARD_UNITS) return this.terminal[total];
 
-		const res: DealerDist = {};
-		if (totCards < CARD_UNITS) {
-			res[total] = 1.0;
-			this.memoDealer.set(key, res);
-			return res;
-		}
+		const memo = this.memoDealer[total * 2 + (soft ? 1 : 0)];
+		const cached = memo.get(key);
+		if (cached !== undefined) return cached;
 
-		for (const rank of RANKS) {
-			const n = comp[RANK_INDEX[rank]];
+		const comp = this.comp;
+		const subTotCards = totCards - CARD_UNITS;
+		const children: number[] = [];
+		const probabilities: number[] = [];
+		let lowest = BUST;
+		for (let index = 0; index < RANKS.length; index += 1) {
+			const n = comp[index];
 			if (n < CARD_UNITS) continue;
-			const p = n / totCards;
-			const newComp = removeCard(comp, rank);
-			const [newTotal, newSoft] = addValue(total, soft, rank);
-			const sub = this.dealerDist(newComp, newTotal, newSoft, totCards - CARD_UNITS);
-			for (const k in sub) {
-				res[k] = (res[k] ?? 0) + p * sub[k];
+			const packed = addPacked(total, soft, index);
+			comp[index] = n - CARD_UNITS;
+			const child = this.dealerDist(
+				packed >> 1,
+				(packed & 1) === 1,
+				subTotCards,
+				key + KEY_MULT[index]
+			);
+			comp[index] = n;
+			children.push(child);
+			probabilities.push(n / totCards);
+			if (this.arena.lowest(child) < lowest) lowest = this.arena.lowest(child);
+		}
+
+		// Allocated only once the children are in hand: the arena can move its
+		// backing store while they are being computed.
+		const id = this.arena.alloc(lowest);
+		const slots = this.arena.slots;
+		const at = id * DIST_LEN;
+		for (let child = 0; child < children.length; child += 1) {
+			const p = probabilities[child];
+			const from = children[child] * DIST_LEN;
+			for (let slot = lowest; slot < DIST_LEN; slot += 1) {
+				slots[at + slot] += p * slots[from + slot];
 			}
 		}
 
-		this.memoDealer.set(key, res);
-		return res;
+		memo.set(key, id);
+		return id;
 	}
 
 	/**
-	 * The dealer's final-hand distribution from an upcard alone.
+	 * Stand EV against `upcard` for every player total at once, with the
+	 * dealer's bust probability in slot 0.
+	 *
+	 * Collapsing the dealer's distribution into a lookup table here is what
+	 * makes standing free: the loop over dealer outcomes runs once per
+	 * (composition, upcard) instead of once per stand-EV query, and the
+	 * thousands of queries the player recursion makes against that same
+	 * composition become array reads.
+	 */
+	private standTable(upcardIndex: number, totCards: number, key: number): Float64Array {
+		const memo = this.memoStand[upcardIndex];
+		const cached = memo.get(key);
+		if (cached !== undefined) return cached;
+
+		const dist = this.upcardDist(upcardIndex, totCards, key);
+		const table = new Float64Array(TABLE_LEN);
+		table[0] = dist[BUST];
+		let made = 0;
+		for (let total = 4; total <= 21; total += 1) made += dist[total];
+		let below = 0;
+		for (let total = 4; total < TABLE_LEN; total += 1) {
+			const tie = total <= 21 ? dist[total] : 0;
+			// A dealer bust pays; a genuine two-card blackjack beats any hand
+			// these tables can show (simplification #2 keeps player naturals out
+			// of scope), even one that also lands on 21 by drawing.
+			table[total] = dist[BUST] - dist[NATURAL] + below - (made - below - tie);
+			below += tie;
+		}
+		memo.set(key, table);
+		return table;
+	}
+
+	/**
+	 * The dealer's final-hand distribution from an upcard alone, as a standalone
+	 * vector rather than an arena id: it is built once per (composition, upcard)
+	 * and consumed immediately by `standTable`, so it is off the hot path.
 	 *
 	 * At a peeking table the dealer has already checked a ten or ace upcard
 	 * for a natural, so any hand that is still being played is one where the
@@ -371,201 +535,187 @@ class ShoeEv {
 	 * would have ended the hand, and renormalising over what is left.
 	 *
 	 * Without the peek the dealer's natural is still live, but it is tracked
-	 * as its own `natural` outcome rather than folded into an ordinary dealer
+	 * as its own `NATURAL` outcome rather than folded into an ordinary dealer
 	 * 21: a genuine two-card blackjack beats even a player hand that lands on
 	 * a *made* 21 by drawing (e.g. a split ace pulling a ten), the standard
 	 * rule that a natural is never merely tied by a hand built from more than
-	 * two cards. `standEv` charges every `natural` outcome as a loss
+	 * two cards. `standTable` charges every `NATURAL` outcome as a loss
 	 * unconditionally, which is safe because these tables never depict a
 	 * player two-card natural to begin with (simplification #2).
 	 */
-	private dealerUpcardDist(
-		comp: Composition,
-		upcard: Rank,
-		totCards: number
-	): DealerDist {
-		const startTotal = upcard === 'A' ? 11 : RANK_VALUE[upcard];
-		const startSoft = upcard === 'A';
+	private upcardDist(upcardIndex: number, totCards: number, key: number): Dist {
+		const upcard = RANKS[upcardIndex];
+		const startTotal = RANK_VALUE[upcardIndex];
+		const startSoft = upcardIndex === ACE_INDEX;
 		const holeRank = blackjackHoleRank(upcard);
 		if (holeRank === null) {
-			return this.dealerDist(comp, startTotal, startSoft, totCards);
+			const id = this.dealerDist(startTotal, startSoft, totCards, key);
+			return this.arena.slots.slice(id * DIST_LEN, id * DIST_LEN + DIST_LEN);
 		}
 
-		const key = compKey(comp) + upcard;
-		const cached = this.memoDealerUpcard.get(key);
-		if (cached) return cached;
-
-		const naturalCards = comp[RANK_INDEX[holeRank]];
+		const comp = this.comp;
+		const holeIndex = RANK_INDEX[holeRank];
+		const naturalCards = comp[holeIndex];
 		const nonNaturalCards = totCards - naturalCards;
 		// A shoe holding nothing but the blackjack-completing rank leaves no
 		// hand to condition on: the hole card is guaranteed to be it.
 		if (nonNaturalCards < CARD_UNITS) {
-			const res: DealerDist = this.peek ? { 21: 1.0 } : { natural: 1.0 };
-			this.memoDealerUpcard.set(key, res);
+			const res = new Float64Array(DIST_LEN);
+			res[this.peek ? 21 : NATURAL] = 1;
 			return res;
 		}
 
-		const nonNatural: DealerDist = {};
-		for (const rank of RANKS) {
-			if (rank === holeRank) continue;
-			const n = comp[RANK_INDEX[rank]];
+		const nonNatural = new Float64Array(DIST_LEN);
+		const subTotCards = totCards - CARD_UNITS;
+		for (let index = 0; index < RANKS.length; index += 1) {
+			if (index === holeIndex) continue;
+			const n = comp[index];
 			if (n < CARD_UNITS) continue;
 			const p = n / nonNaturalCards;
-			const [newTotal, newSoft] = addValue(startTotal, startSoft, rank);
-			const sub = this.dealerDist(
-				removeCard(comp, rank),
-				newTotal,
-				newSoft,
-				totCards - CARD_UNITS
+			const packed = addPacked(startTotal, startSoft, index);
+			comp[index] = n - CARD_UNITS;
+			const child = this.dealerDist(
+				packed >> 1,
+				(packed & 1) === 1,
+				subTotCards,
+				key + KEY_MULT[index]
 			);
-			for (const k in sub) {
-				nonNatural[k] = (nonNatural[k] ?? 0) + p * sub[k];
+			comp[index] = n;
+			const from = child * DIST_LEN;
+			for (let slot = 4; slot < DIST_LEN; slot += 1) {
+				nonNatural[slot] += p * this.arena.slots[from + slot];
 			}
 		}
 
-		let res: DealerDist;
-		if (this.peek) {
-			// The dealer has already checked and confirmed no natural -- the
-			// hand being played only exists in this natural-free world.
-			res = nonNatural;
-		} else {
-			const pNatural = naturalCards / totCards;
-			res = { natural: pNatural };
-			for (const k in nonNatural) {
-				res[k] = (res[k] ?? 0) + (1 - pNatural) * nonNatural[k];
-			}
-		}
+		// The dealer has already checked and confirmed no natural -- the hand
+		// being played only exists in this natural-free world.
+		if (this.peek) return nonNatural;
 
-		this.memoDealerUpcard.set(key, res);
+		const pNatural = naturalCards / totCards;
+		const res = new Float64Array(DIST_LEN);
+		res[NATURAL] = pNatural;
+		for (let slot = 4; slot < DIST_LEN; slot += 1) {
+			res[slot] = (1 - pNatural) * nonNatural[slot];
+		}
 		return res;
 	}
 
 	/** Chance the hole card makes a dealer natural, before any peek. */
-	private dealerBlackjackProb(comp: Composition, upcard: Rank, totCards: number): number {
+	private dealerBlackjackProb(upcard: Rank, totCards: number): number {
 		const holeRank = blackjackHoleRank(upcard);
 		if (holeRank === null || totCards < CARD_UNITS) return 0;
-		return comp[RANK_INDEX[holeRank]] / totCards;
+		return this.comp[RANK_INDEX[holeRank]] / totCards;
 	}
 
 	private standEv(
-		comp: Composition,
 		playerTotal: number,
-		upcard: Rank,
-		totCards: number
+		upcardIndex: number,
+		totCards: number,
+		key: number
 	): number {
-		const dist = this.dealerUpcardDist(comp, upcard, totCards);
-		let ev = 0.0;
-		for (const key in dist) {
-			const p = dist[key];
-			if (key === 'bust') {
-				ev += p;
-			} else if (key === 'natural') {
-				// A genuine two-card dealer blackjack beats any hand these tables
-				// can show (simplification #2 keeps player naturals out of scope),
-				// even one that also lands on 21 by drawing.
-				ev -= p;
-			} else {
-				const outcome = Number(key);
-				if (outcome < playerTotal) ev += p;
-				else if (outcome > playerTotal) ev -= p;
-			}
-		}
-		return ev;
+		return this.standTable(upcardIndex, totCards, key)[playerTotal];
 	}
 
 	private hitEv(
-		comp: Composition,
 		total: number,
 		soft: boolean,
-		upcard: Rank,
-		totCards: number
+		upcardIndex: number,
+		totCards: number,
+		key: number
 	): number {
+		const comp = this.comp;
+		const subTotCards = totCards - CARD_UNITS;
 		let evHit = 0.0;
-		for (const rank of RANKS) {
-			const n = comp[RANK_INDEX[rank]];
+		for (let index = 0; index < RANKS.length; index += 1) {
+			const n = comp[index];
 			if (n < CARD_UNITS) continue;
 			const p = n / totCards;
-			const newComp = removeCard(comp, rank);
-			const [newTotal, newSoft] = addValue(total, soft, rank);
-			evHit += p * this.bestEv(newComp, newTotal, newSoft, upcard, totCards - CARD_UNITS);
+			const packed = addPacked(total, soft, index);
+			comp[index] = n - CARD_UNITS;
+			evHit +=
+				p
+				* this.bestEv(
+					packed >> 1,
+					(packed & 1) === 1,
+					upcardIndex,
+					subTotCards,
+					key + KEY_MULT[index]
+				);
+			comp[index] = n;
 		}
 		return evHit;
 	}
 
 	private bestEv(
-		comp: Composition,
 		total: number,
 		soft: boolean,
-		upcard: Rank,
-		totCards: number
+		upcardIndex: number,
+		totCards: number,
+		key: number
 	): number {
 		if (total > 21) return -1.0;
 
-		const key = compKey(comp) + String.fromCharCode(total, soft ? 1 : 0) + upcard;
-		const cached = this.memoPlayer.get(key);
+		const memo =
+			this.memoPlayer[(total * 2 + (soft ? 1 : 0)) * RANKS.length + upcardIndex];
+		const cached = memo.get(key);
 		if (cached !== undefined) return cached;
 
-		const evStand = this.standEv(comp, total, upcard, totCards);
+		const evStand = this.standEv(total, upcardIndex, totCards, key);
 		if (total >= 21) {
-			this.memoPlayer.set(key, evStand);
+			memo.set(key, evStand);
 			return evStand;
 		}
 
 		const evHit =
-			totCards >= CARD_UNITS ? this.hitEv(comp, total, soft, upcard, totCards) : 0.0;
+			totCards >= CARD_UNITS ? this.hitEv(total, soft, upcardIndex, totCards, key) : 0.0;
 
 		const best = Math.max(evStand, evHit);
-		this.memoPlayer.set(key, best);
+		memo.set(key, best);
 		return best;
 	}
 
 	/** EV of taking exactly one more card, then being forced to stand, at double the bet. */
 	private doubleEv(
-		comp: Composition,
 		total: number,
 		soft: boolean,
-		upcard: Rank,
-		totCards: number
+		upcardIndex: number,
+		totCards: number,
+		key: number
 	): number {
-		if (totCards < CARD_UNITS) return this.standEv(comp, total, upcard, totCards) * 2;
+		if (totCards < CARD_UNITS) return this.standEv(total, upcardIndex, totCards, key) * 2;
 
+		const comp = this.comp;
+		const subTotCards = totCards - CARD_UNITS;
 		let ev = 0.0;
-		for (const rank of RANKS) {
-			const n = comp[RANK_INDEX[rank]];
+		for (let index = 0; index < RANKS.length; index += 1) {
+			const n = comp[index];
 			if (n < CARD_UNITS) continue;
 			const p = n / totCards;
-			const [newTotal] = addValue(total, soft, rank);
+			const newTotal = addPacked(total, soft, index) >> 1;
 			if (newTotal > 21) {
 				ev += p * -2;
 				continue;
 			}
-			const newComp = removeCard(comp, rank);
-			ev += p * 2 * this.standEv(newComp, newTotal, upcard, totCards - CARD_UNITS);
+			comp[index] = n - CARD_UNITS;
+			ev +=
+				p * 2 * this.standEv(newTotal, upcardIndex, subTotCards, key + KEY_MULT[index]);
+			comp[index] = n;
 		}
 		return ev;
 	}
 
 	/** Probability that a single hit card busts the player's current total. */
-	private playerBustOnHitProb(
-		comp: Composition,
-		total: number,
-		soft: boolean,
-		totCards: number
-	): number {
+	private playerBustOnHitProb(total: number, soft: boolean, totCards: number): number {
 		if (totCards < CARD_UNITS) return 0;
 
+		const comp = this.comp;
 		let bustP = 0.0;
-		for (const rank of RANKS) {
-			const n = comp[RANK_INDEX[rank]];
+		for (let index = 0; index < RANKS.length; index += 1) {
+			const n = comp[index];
 			if (n < CARD_UNITS) continue;
-			const [newTotal] = addValue(total, soft, rank);
-			if (newTotal > 21) bustP += n / totCards;
+			if (addPacked(total, soft, index) >> 1 > 21) bustP += n / totCards;
 		}
 		return bustP;
-	}
-
-	private dealerBustProb(comp: Composition, upcard: Rank, totCards: number): number {
-		return this.dealerUpcardDist(comp, upcard, totCards)['bust'] ?? 0;
 	}
 
 	/**
@@ -599,7 +749,7 @@ class ShoeEv {
 	 *   is priced as the early one wherever it is offered and is `null`
 	 *   against every other upcard.
 	 */
-	private surrenderEv(comp: Composition, upcard: Rank, totCards: number): number | null {
+	private surrenderEv(upcard: Rank, totCards: number): number | null {
 		if (this.surrender === 'none') return null;
 		// 'es10' is offered against a ten and nothing else -- not late against
 		// the rest of the row, simply absent there.
@@ -612,11 +762,18 @@ class ShoeEv {
 		// half the stake.
 		if (this.surrender === 'late') return SURRENDER_EV;
 
-		const pBlackjack = this.dealerBlackjackProb(comp, upcard, totCards);
+		const pBlackjack = this.dealerBlackjackProb(upcard, totCards);
 		// A shoe that can only make a natural leaves no conditional world to
 		// rebase into; the pre-peek value is all there is.
 		if (pBlackjack >= 1) return SURRENDER_EV;
 		return (SURRENDER_EV + pBlackjack) / (1 - pBlackjack);
+	}
+
+	/** Half-card units left once the dealer's upcard is off the shoe. */
+	private totCardsAfterUpcard(): number {
+		let sum = 0;
+		for (let index = 0; index < RANKS.length; index += 1) sum += this.comp[index];
+		return sum - CARD_UNITS;
 	}
 
 	/** Optimal action (incl. doubling and surrender), EV, and bust odds for each total vs. upcard. */
@@ -626,19 +783,23 @@ class ShoeEv {
 		upcards: readonly Rank[],
 		soft = false
 	): Map<string, CellAnalysis> {
+		this.setRoot(comp0);
+		const comp = this.comp;
 		const out = new Map<string, CellAnalysis>();
-		const totCardsAfterUpcard = comp0.reduce((sum, n) => sum + n, 0) - CARD_UNITS;
+		const totCards = this.totCardsAfterUpcard();
+
 		for (const upcard of upcards) {
-			const compUpcard = removeCard(comp0, upcard);
-			const dealerBustPercent =
-				this.dealerBustProb(compUpcard, upcard, totCardsAfterUpcard) * 100;
+			const upcardIndex = RANK_INDEX[upcard];
+			comp[upcardIndex] -= CARD_UNITS;
+			const key = KEY_MULT[upcardIndex];
+			const dealerBustPercent = this.standTable(upcardIndex, totCards, key)[0] * 100;
+
 			for (const total of totals) {
 				// A made 21 (e.g. soft A,T) is always stood on -- hitting it is not a
 				// real decision, so there is no optimal-play comparison to make.
 				if (total >= 21) {
-					const evStand = this.standEv(compUpcard, total, upcard, totCardsAfterUpcard);
 					out.set(gridKey(total, upcard), {
-						evPercent: evStand * 100,
+						evPercent: this.standEv(total, upcardIndex, totCards, key) * 100,
 						optimalAction: 'S',
 						playerBustOnHitPercent: 0,
 						dealerBustPercent,
@@ -646,15 +807,9 @@ class ShoeEv {
 					continue;
 				}
 
-				const evStand = this.standEv(compUpcard, total, upcard, totCardsAfterUpcard);
-				const evHit = this.hitEv(compUpcard, total, soft, upcard, totCardsAfterUpcard);
-				const evDouble = this.doubleEv(
-					compUpcard,
-					total,
-					soft,
-					upcard,
-					totCardsAfterUpcard
-				);
+				const evStand = this.standEv(total, upcardIndex, totCards, key);
+				const evHit = this.hitEv(total, soft, upcardIndex, totCards, key);
+				const evDouble = this.doubleEv(total, soft, upcardIndex, totCards, key);
 
 				let optimalAction: PlayerAction = 'S';
 				let best = evStand;
@@ -666,7 +821,7 @@ class ShoeEv {
 					best = evHit;
 					optimalAction = 'H';
 				}
-				const evSurrender = this.surrenderEv(compUpcard, upcard, totCardsAfterUpcard);
+				const evSurrender = this.surrenderEv(upcard, totCards);
 				if (evSurrender !== null && evSurrender > best) {
 					best = evSurrender;
 					optimalAction = 'R';
@@ -675,11 +830,12 @@ class ShoeEv {
 				out.set(gridKey(total, upcard), {
 					evPercent: best * 100,
 					optimalAction,
-					playerBustOnHitPercent:
-						this.playerBustOnHitProb(compUpcard, total, soft, totCardsAfterUpcard) * 100,
+					playerBustOnHitPercent: this.playerBustOnHitProb(total, soft, totCards) * 100,
 					dealerBustPercent,
 				});
 			}
+
+			comp[upcardIndex] += CARD_UNITS;
 		}
 		return out;
 	}
@@ -711,22 +867,33 @@ class ShoeEv {
 	 * than re-entering the whole draw enumeration (and its stand/hit/double
 	 * recursions) per level.
 	 */
-	private splitEv(comp: Composition, rank: Rank, upcard: Rank, totCards: number): number {
-		const isAce = rank === 'A';
-		const startTotal = RANK_VALUE[rank];
+	private splitEv(
+		rankIndex: number,
+		upcardIndex: number,
+		totCards: number,
+		key: number
+	): number {
+		const isAce = rankIndex === ACE_INDEX;
+		const startTotal = RANK_VALUE[rankIndex];
 		if (totCards < CARD_UNITS) {
-			return 2 * this.standEv(comp, startTotal, upcard, totCards);
+			return 2 * this.standEv(startTotal, upcardIndex, totCards, key);
 		}
 
-		const draws: { p: number; playEv: number; pairsUp: boolean }[] = [];
-		for (const drawRank of RANKS) {
-			const n = comp[RANK_INDEX[drawRank]];
+		const comp = this.comp;
+		const subTotCards = totCards - CARD_UNITS;
+		const drawProbs: number[] = [];
+		const drawPlayEvs: number[] = [];
+		const drawPairsUp: boolean[] = [];
+		for (let index = 0; index < RANKS.length; index += 1) {
+			const n = comp[index];
 			if (n < CARD_UNITS) continue;
-			const newComp = removeCard(comp, drawRank);
-			const newTotCards = totCards - CARD_UNITS;
-			const [newTotal, newSoft] = addValue(startTotal, isAce, drawRank);
+			const packed = addPacked(startTotal, isAce, index);
+			const newTotal = packed >> 1;
+			const newSoft = (packed & 1) === 1;
+			const drawKey = key + KEY_MULT[index];
+			comp[index] = n - CARD_UNITS;
 
-			const evStand = this.standEv(newComp, newTotal, upcard, newTotCards);
+			const evStand = this.standEv(newTotal, upcardIndex, subTotCards, drawKey);
 			// A split ace takes exactly one card and must stand on it, unless
 			// the table lets it be drawn to like any other hand.
 			const oneCardOnly = isAce && !this.hitSplitAces;
@@ -734,16 +901,23 @@ class ShoeEv {
 				oneCardOnly ? evStand : (
 					Math.max(
 						evStand,
-						this.hitEv(newComp, newTotal, newSoft, upcard, newTotCards),
+						this.hitEv(newTotal, newSoft, upcardIndex, subTotCards, drawKey),
 						this.das ?
-							this.doubleEv(newComp, newTotal, newSoft, upcard, newTotCards)
+							this.doubleEv(newTotal, newSoft, upcardIndex, subTotCards, drawKey)
 						:	-Infinity
 					)
 				);
-			draws.push({ p: n / totCards, playEv, pairsUp: drawRank === rank });
+
+			comp[index] = n;
+			drawProbs.push(n / totCards);
+			drawPlayEvs.push(playEv);
+			drawPairsUp.push(index === rankIndex);
 		}
 
-		const noResplit = draws.reduce((sum, draw) => sum + draw.p * draw.playEv, 0);
+		let noResplit = 0;
+		for (let draw = 0; draw < drawProbs.length; draw += 1) {
+			noResplit += drawProbs[draw] * drawPlayEvs[draw];
+		}
 		const canResplit = !isAce || this.resplitAces;
 		const byAllowance = new Map<number, number>();
 
@@ -756,11 +930,12 @@ class ShoeEv {
 			// Splitting again trades this one hand for two, which divide this
 			// hand's own allowance between them.
 			const evResplit = handEv(Math.ceil(hands / 2)) + handEv(Math.floor(hands / 2));
-			const ev = draws.reduce(
-				(sum, draw) =>
-					sum + draw.p * (draw.pairsUp ? Math.max(draw.playEv, evResplit) : draw.playEv),
-				0
-			);
+			let ev = 0;
+			for (let draw = 0; draw < drawProbs.length; draw += 1) {
+				const playEv = drawPlayEvs[draw];
+				ev +=
+					drawProbs[draw] * (drawPairsUp[draw] ? Math.max(playEv, evResplit) : playEv);
+			}
 			byAllowance.set(hands, ev);
 			return ev;
 		};
@@ -775,28 +950,27 @@ class ShoeEv {
 		comp0: Composition,
 		pairRanks: readonly Rank[],
 		upcards: readonly Rank[]
-	): Map<string, SplitCellAnalysis> {
-		const out = new Map<string, SplitCellAnalysis>();
-		const totCardsAfterUpcard = comp0.reduce((sum, n) => sum + n, 0) - CARD_UNITS;
+	): Map<string, CellAnalysis> {
+		this.setRoot(comp0);
+		const comp = this.comp;
+		const out = new Map<string, CellAnalysis>();
+		const totCards = this.totCardsAfterUpcard();
+
 		for (const upcard of upcards) {
-			const compUpcard = removeCard(comp0, upcard);
-			const dealerBustPercent =
-				this.dealerBustProb(compUpcard, upcard, totCardsAfterUpcard) * 100;
+			const upcardIndex = RANK_INDEX[upcard];
+			comp[upcardIndex] -= CARD_UNITS;
+			const key = KEY_MULT[upcardIndex];
+			const dealerBustPercent = this.standTable(upcardIndex, totCards, key)[0] * 100;
+
 			for (const rank of pairRanks) {
 				const [total, soft] = pairTotal(rank);
-				const evStand = this.standEv(compUpcard, total, upcard, totCardsAfterUpcard);
-				const evHit = this.hitEv(compUpcard, total, soft, upcard, totCardsAfterUpcard);
-				const evDouble = this.doubleEv(
-					compUpcard,
-					total,
-					soft,
-					upcard,
-					totCardsAfterUpcard
-				);
+				const evStand = this.standEv(total, upcardIndex, totCards, key);
+				const evHit = this.hitEv(total, soft, upcardIndex, totCards, key);
+				const evDouble = this.doubleEv(total, soft, upcardIndex, totCards, key);
 				// A split limit of one hand is a table that doesn't split at all.
 				const evSplit =
 					this.splitLimit >= 2 ?
-						this.splitEv(compUpcard, rank, upcard, totCardsAfterUpcard)
+						this.splitEv(RANK_INDEX[rank], upcardIndex, totCards, key)
 					:	-Infinity;
 
 				let optimalAction: PlayerAction = 'S';
@@ -813,7 +987,7 @@ class ShoeEv {
 					best = evSplit;
 					optimalAction = 'P';
 				}
-				const evSurrender = this.surrenderEv(compUpcard, upcard, totCardsAfterUpcard);
+				const evSurrender = this.surrenderEv(upcard, totCards);
 				if (evSurrender !== null && evSurrender > best) {
 					best = evSurrender;
 					optimalAction = 'R';
@@ -822,11 +996,12 @@ class ShoeEv {
 				out.set(splitGridKey(rank, upcard), {
 					evPercent: best * 100,
 					optimalAction,
-					playerBustOnHitPercent:
-						this.playerBustOnHitProb(compUpcard, total, soft, totCardsAfterUpcard) * 100,
+					playerBustOnHitPercent: this.playerBustOnHitProb(total, soft, totCards) * 100,
 					dealerBustPercent,
 				});
 			}
+
+			comp[upcardIndex] += CARD_UNITS;
 		}
 		return out;
 	}
@@ -930,31 +1105,19 @@ export function applyCountToComposition(
 	return next;
 }
 
-/**
- * Builds one hard/soft-totals comparison table from a pair of engines the
- * caller already has (one warmed on `base`, one on `modified`). Sharing
- * engines across tables lets their memo caches carry over instead of
- * recomputing identical dealer/player recursion states from scratch --
- * see `computeAllEvTables`.
- */
+/** Pairs a base grid with a count-adjusted one into a hard/soft-totals table. */
 function buildEvComparison(
-	baseEngine: ShoeEv,
-	countEngine: ShoeEv,
-	base: Composition,
-	modified: Composition,
+	baseGrid: Map<string, CellAnalysis>,
+	countGrid: Map<string, CellAnalysis>,
 	totals: readonly number[],
-	upcards: readonly Rank[],
-	soft: boolean
+	upcards: readonly Rank[]
 ): EvComparisonResult {
-	const baseAnalysisGrid = baseEngine.analyzeGrid(base, totals, upcards, soft);
-	const analysisGrid = countEngine.analyzeGrid(modified, totals, upcards, soft);
-
 	const rows: EvComparisonRow[] = [];
 	for (const upcard of upcards) {
 		for (const total of totals) {
 			const key = gridKey(total, upcard);
-			const baseEvPercent = baseAnalysisGrid.get(key)!.evPercent;
-			const analysis = analysisGrid.get(key)!;
+			const baseEvPercent = baseGrid.get(key)!.evPercent;
+			const analysis = countGrid.get(key)!;
 			const countEvPercent = analysis.evPercent;
 			rows.push({
 				total,
@@ -972,51 +1135,24 @@ function buildEvComparison(
 	return { totals, upcards, rows };
 }
 
-export function computeEvComparison(
-	ruleSet: RuleSet,
-	count: number,
-	tags: TagValues = ACE_FIVE_TAGS,
-	totals: readonly number[] = HARD_TOTALS,
-	upcards: readonly Rank[] = RANKS,
-	soft = false
-): EvComparisonResult {
-	const base = baseComposition(ruleSet);
-	const modified = applyCountToComposition(base, tags, count);
-	return buildEvComparison(
-		new ShoeEv(ruleSet),
-		new ShoeEv(ruleSet),
-		base,
-		modified,
-		totals,
-		upcards,
-		soft
-	);
-}
-
 /**
- * Each row's EV here is the fully optimal action's EV -- stand, hit,
- * double, or split -- same as `computeEvComparison`'s hard/soft tables.
+ * Same, for the splits table. Each row's EV is the fully optimal action's EV
+ * -- stand, hit, double, or split -- as in the hard/soft tables, and
  * `optimalAction` is drawn from the same comparison, so the displayed EV
  * always matches the recommended action.
  */
-/** Same sharing idea as `buildEvComparison`, for the splits table. */
 function buildSplitEvComparison(
-	baseEngine: ShoeEv,
-	countEngine: ShoeEv,
-	base: Composition,
-	modified: Composition,
+	baseGrid: Map<string, CellAnalysis>,
+	countGrid: Map<string, CellAnalysis>,
 	pairRanks: readonly Rank[],
 	upcards: readonly Rank[]
 ): SplitEvComparisonResult {
-	const baseAnalysis = baseEngine.analyzeSplitGrid(base, pairRanks, upcards);
-	const countAnalysis = countEngine.analyzeSplitGrid(modified, pairRanks, upcards);
-
 	const rows: SplitEvComparisonRow[] = [];
 	for (const upcard of upcards) {
 		for (const rank of pairRanks) {
 			const key = splitGridKey(rank, upcard);
-			const baseCell = baseAnalysis.get(key)!;
-			const countCell = countAnalysis.get(key)!;
+			const baseCell = baseGrid.get(key)!;
+			const countCell = countGrid.get(key)!;
 			rows.push({
 				pairRank: rank,
 				upcard,
@@ -1033,6 +1169,24 @@ function buildSplitEvComparison(
 	return { pairRanks, upcards, rows };
 }
 
+export function computeEvComparison(
+	ruleSet: RuleSet,
+	count: number,
+	tags: TagValues = ACE_FIVE_TAGS,
+	totals: readonly number[] = HARD_TOTALS,
+	upcards: readonly Rank[] = RANKS,
+	soft = false
+): EvComparisonResult {
+	const base = baseComposition(ruleSet);
+	const modified = applyCountToComposition(base, tags, count);
+	return buildEvComparison(
+		new ShoeEv(ruleSet).analyzeGrid(base, totals, upcards, soft),
+		new ShoeEv(ruleSet).analyzeGrid(modified, totals, upcards, soft),
+		totals,
+		upcards
+	);
+}
+
 export function computeSplitEvComparison(
 	ruleSet: RuleSet,
 	count: number,
@@ -1043,66 +1197,88 @@ export function computeSplitEvComparison(
 	const base = baseComposition(ruleSet);
 	const modified = applyCountToComposition(base, tags, count);
 	return buildSplitEvComparison(
-		new ShoeEv(ruleSet),
-		new ShoeEv(ruleSet),
-		base,
-		modified,
+		new ShoeEv(ruleSet).analyzeSplitGrid(base, pairRanks, upcards),
+		new ShoeEv(ruleSet).analyzeSplitGrid(modified, pairRanks, upcards),
 		pairRanks,
 		upcards
 	);
 }
 
 /**
- * Computes all three tables (hard totals, soft totals, splits) sharing one
- * engine for `base` and one for `modified` across all of them. Dealer
- * outcome distributions -- and, for split, the hit/stand/double sub-EVs --
- * depend only on shoe composition and hand-in-progress state, not on which
- * table triggered the computation, so the memo caches populated by the
- * first table are reused by the other two instead of being rebuilt from
- * scratch. This is the entry point `EvTable` should use; the single-table
- * `computeEvComparison`/`computeSplitEvComparison` functions above remain
- * for standalone/test use and always compute with fresh, unshared engines.
+ * Identifies a rule set for caching purposes: two rule sets sharing a key
+ * produce identical grids from the same composition.
+ *
+ * It covers exactly the fields the engine reads -- everything the `ShoeEv`
+ * constructor keeps, plus the deck count `baseComposition` needs -- so
+ * `penetrationPercent` and `blackjackPayout`, which by design never reach the
+ * EV maths (see `RuleSet`), don't needlessly invalidate a cached grid. Extend
+ * it alongside the constructor if a rule ever starts reaching the maths.
+ */
+export function ruleSetKey(ruleSet: RuleSet): string {
+	return [
+		ruleSet.decks,
+		ruleSet.dealerHitsSoft17 ? 1 : 0,
+		ruleSet.dealerPeek ? 1 : 0,
+		ruleSet.doubleAfterSplit ? 1 : 0,
+		ruleSet.splitLimit,
+		ruleSet.resplitAces ? 1 : 0,
+		ruleSet.hitSplitAces ? 1 : 0,
+		ruleSet.surrender,
+	].join('|');
+}
+
+/**
+ * Analyses one shoe composition across all three tables with a single engine.
+ *
+ * Dealer outcome distributions -- and, for split, the hit/stand/double sub-EVs
+ * -- depend only on shoe composition and hand-in-progress state, not on which
+ * table triggered the computation, so the memo caches populated by the first
+ * grid are reused by the other two instead of being rebuilt from scratch.
+ *
+ * The result depends only on `ruleSet` and `comp`, never on the count that
+ * produced `comp`, so a caller that recomputes as the count moves can hold the
+ * unadjusted grids across calls (keyed by `ruleSetKey`) and pay for one
+ * composition per change instead of two.
+ */
+export function computeEvGrids(ruleSet: RuleSet, comp: Composition): EvGrids {
+	const engine = new ShoeEv(ruleSet);
+	return {
+		hard: engine.analyzeGrid(comp, HARD_TOTALS, RANKS, false),
+		soft: engine.analyzeGrid(comp, SOFT_TOTALS, RANKS, true),
+		split: engine.analyzeSplitGrid(comp, PAIR_RANKS, RANKS),
+	};
+}
+
+export interface EvTables {
+	hard: EvComparisonResult;
+	soft: EvComparisonResult;
+	split: SplitEvComparisonResult;
+}
+
+/** Reads a count-adjusted set of grids against the unadjusted ones. */
+export function combineEvTables(baseGrids: EvGrids, countGrids: EvGrids): EvTables {
+	return {
+		hard: buildEvComparison(baseGrids.hard, countGrids.hard, HARD_TOTALS, RANKS),
+		soft: buildEvComparison(baseGrids.soft, countGrids.soft, SOFT_TOTALS, RANKS),
+		split: buildSplitEvComparison(baseGrids.split, countGrids.split, PAIR_RANKS, RANKS),
+	};
+}
+
+/**
+ * Computes all three tables (hard totals, soft totals, splits) from scratch.
+ * This is the entry point for standalone and test use; `EvTable` reaches the
+ * engine through the worker, which splits the same work into `computeEvGrids`
+ * and `combineEvTables` so it can cache the base composition's grids.
  */
 export function computeAllEvTables(
 	ruleSet: RuleSet,
 	count: number,
 	tags: TagValues = ACE_FIVE_TAGS
-): {
-	hard: EvComparisonResult;
-	soft: EvComparisonResult;
-	split: SplitEvComparisonResult;
-} {
+): EvTables {
 	const base = baseComposition(ruleSet);
 	const modified = applyCountToComposition(base, tags, count);
-	const baseEngine = new ShoeEv(ruleSet);
-	const countEngine = new ShoeEv(ruleSet);
-
-	const hard = buildEvComparison(
-		baseEngine,
-		countEngine,
-		base,
-		modified,
-		HARD_TOTALS,
-		RANKS,
-		false
+	return combineEvTables(
+		computeEvGrids(ruleSet, base),
+		computeEvGrids(ruleSet, modified)
 	);
-	const soft = buildEvComparison(
-		baseEngine,
-		countEngine,
-		base,
-		modified,
-		SOFT_TOTALS,
-		RANKS,
-		true
-	);
-	const split = buildSplitEvComparison(
-		baseEngine,
-		countEngine,
-		base,
-		modified,
-		PAIR_RANKS,
-		RANKS
-	);
-
-	return { hard, soft, split };
 }
