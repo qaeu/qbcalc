@@ -27,13 +27,13 @@
  *    They do NOT include the extra 3:2 payout from more player blackjacks
  *    at the deal -- that only matters at the two-card stage, which is
  *    outside the scope of a hit/stand/double/split table.
- * 3. The Ace-Five running count is translated into a shoe composition by
- *    assuming the count value N was produced by removing exactly N/2 more
- *    fives than aces from a fresh shoe, split evenly: five-count -= N/2,
- *    ace-count += N/2 (real-card units). This is one reasonable way to
- *    collapse a count value into a composition -- it is NOT the only
- *    possible shoe that produces a given running count, since the same
- *    count can arise from many different actual removal histories.
+ * 3. A running count is translated into a shoe composition by spreading the
+ *    implied removals across every rank in proportion to that rank's shoe
+ *    frequency and its tag's deviation from the frequency-weighted mean tag
+ *    (see `applyCountToComposition`). Shoe size is held fixed. This is one
+ *    reasonable way to collapse a count value into a composition -- it is
+ *    NOT the only possible shoe that produces a given running count, since
+ *    the same count can arise from many different actual removal histories.
  * 4. Split hands follow the common one-card-per-hand, must-stand rule for
  *    split aces, and no resplitting is modelled (a second pair after a
  *    split cannot be split again).
@@ -51,6 +51,9 @@ export interface RuleSet {
 
 /** Shoe composition in half-card units, indexed by RANK_INDEX. */
 export type Composition = readonly number[];
+
+/** A counting system's point value ("tag") for each rank. */
+export type TagValues = Record<Rank, number>;
 
 /** Fields an EV table cell (and its popover) needs, shared by every table's row shape. */
 export interface EvCellData {
@@ -96,16 +99,32 @@ export const SOFT_TOTALS: readonly number[] = [13, 14, 15, 16, 17, 18, 19, 20];
 export const PAIR_RANKS: readonly Rank[] = RANKS;
 export const DEFAULT_RULE_SET: RuleSet = { decks: 4, dealerHitsSoft17: true };
 
+/** The Ace-Five count: +1 per five seen, -1 per ace seen, every other rank neutral. */
+export const ACE_FIVE_TAGS: TagValues = {
+	'2': 0,
+	'3': 0,
+	'4': 0,
+	'5': 1,
+	'6': 0,
+	'7': 0,
+	'8': 0,
+	'9': 0,
+	T: 0,
+	A: -1,
+};
+
 export interface CalculatorParams {
 	decks: number;
 	count: number;
 	dealerHitsSoft17: boolean;
+	tags: TagValues;
 }
 
 export const DEFAULT_PARAMS: CalculatorParams = {
 	decks: DEFAULT_RULE_SET.decks,
 	count: 1,
 	dealerHitsSoft17: DEFAULT_RULE_SET.dealerHitsSoft17,
+	tags: ACE_FIVE_TAGS,
 };
 
 type DealerDist = Record<string, number>;
@@ -542,17 +561,79 @@ export function baseComposition(ruleSet: RuleSet): Composition {
 }
 
 /**
- * Adjusts a composition to represent a given Ace-Five running count.
- * count = +N -> N/2 fewer real fives, N/2 more real aces (see module docs).
- * Works in half-card units, so `count` (an integer) maps directly to a
- * `count`-unit shift split across the two ranks.
+ * Rounds a vector of fractional deltas to integers while preserving its sum
+ * (largest-remainder method): floor every entry, then hand the leftover
+ * units to the entries with the largest fractional parts.
  */
-export function applyAceFiveCount(comp: Composition, count: number): Composition {
+function roundPreservingSum(deltas: readonly number[]): number[] {
+	const floors = deltas.map(Math.floor);
+	const total = Math.round(deltas.reduce((sum, d) => sum + d, 0));
+	let remaining = total - floors.reduce((sum, d) => sum + d, 0);
+
+	const byRemainder = deltas
+		.map((delta, index) => ({ index, remainder: delta - Math.floor(delta) }))
+		.sort((a, b) => b.remainder - a.remainder);
+
+	for (const { index } of byRemainder) {
+		if (remaining <= 0) break;
+		floors[index] += 1;
+		remaining -= 1;
+	}
+	return floors;
+}
+
+/**
+ * Adjusts a composition to represent a given running count under an
+ * arbitrary counting system.
+ *
+ * The count value `N` is spread across every rank at once: each rank is
+ * shifted in proportion to how many of it the shoe holds (`w_r`) and to how
+ * far its tag sits from the frequency-weighted mean tag (`t̄`), i.e.
+ * `d_r = -λ · w_r · (t_r - t̄)` in real cards, with `λ` picked so the
+ * removals really do produce a running count of `N`. Subtracting `t̄` keeps
+ * the shoe size fixed (`Σ d_r = 0`) and makes unbalanced systems read their
+ * count relative to the system's own pivot.
+ *
+ * For the Ace-Five tags this reduces exactly to the original special case:
+ * `N/2` fewer real fives and `N/2` more real aces, whatever the deck count.
+ *
+ * Deltas are computed in half-card units and rounded to integers with
+ * `roundPreservingSum` (rank counts index a char-code memo key, so they must
+ * stay whole); the residual is under half a half-card per rank.
+ */
+export function applyCountToComposition(
+	comp: Composition,
+	tags: TagValues,
+	count: number
+): Composition {
+	const weights = comp.map((halfCards) => halfCards / 2);
+	const totalCards = weights.reduce((sum, w) => sum + w, 0);
+	const meanTag =
+		weights.reduce((sum, w, index) => sum + w * tags[RANKS[index]], 0) / totalCards;
+
+	// Σ w_r · t_r · (t_r - t̄) -- the frequency-weighted variance of the tags,
+	// i.e. how much counting information the system carries per shoe.
+	const spread = weights.reduce(
+		(sum, w, index) => sum + w * tags[RANKS[index]] * (tags[RANKS[index]] - meanTag),
+		0
+	);
+	if (Math.abs(spread) < 1e-9) {
+		if (count === 0) return comp.slice();
+		throw new Error('Tag values give the count no effect (all ranks weighted equally).');
+	}
+
+	const lambda = count / spread;
+	const halfCardDeltas = weights.map(
+		(w, index) => -2 * lambda * w * (tags[RANKS[index]] - meanTag)
+	);
+
 	const next = comp.slice();
-	next[RANK_INDEX['5']] -= count;
-	next[RANK_INDEX.A] += count;
-	if (next[RANK_INDEX['5']] < 0 || next[RANK_INDEX.A] < 0) {
-		throw new Error('Count too extreme for this shoe size (negative card count).');
+	const rounded = roundPreservingSum(halfCardDeltas);
+	for (let index = 0; index < next.length; index += 1) {
+		next[index] += rounded[index];
+		if (next[index] < 0) {
+			throw new Error('Count too extreme for this shoe size (negative card count).');
+		}
 	}
 	return next;
 }
@@ -603,12 +684,13 @@ function buildEvComparison(
 export function computeEvComparison(
 	ruleSet: RuleSet,
 	count: number,
+	tags: TagValues = ACE_FIVE_TAGS,
 	totals: readonly number[] = HARD_TOTALS,
 	upcards: readonly Rank[] = RANKS,
 	soft = false
 ): EvComparisonResult {
 	const base = baseComposition(ruleSet);
-	const modified = applyAceFiveCount(base, Math.round(count));
+	const modified = applyCountToComposition(base, tags, Math.round(count));
 	return buildEvComparison(
 		new ShoeEv(ruleSet),
 		new ShoeEv(ruleSet),
@@ -664,11 +746,12 @@ function buildSplitEvComparison(
 export function computeSplitEvComparison(
 	ruleSet: RuleSet,
 	count: number,
+	tags: TagValues = ACE_FIVE_TAGS,
 	pairRanks: readonly Rank[] = PAIR_RANKS,
 	upcards: readonly Rank[] = RANKS
 ): SplitEvComparisonResult {
 	const base = baseComposition(ruleSet);
-	const modified = applyAceFiveCount(base, Math.round(count));
+	const modified = applyCountToComposition(base, tags, Math.round(count));
 	return buildSplitEvComparison(
 		new ShoeEv(ruleSet),
 		new ShoeEv(ruleSet),
@@ -692,14 +775,15 @@ export function computeSplitEvComparison(
  */
 export function computeAllEvTables(
 	ruleSet: RuleSet,
-	count: number
+	count: number,
+	tags: TagValues = ACE_FIVE_TAGS
 ): {
 	hard: EvComparisonResult;
 	soft: EvComparisonResult;
 	split: SplitEvComparisonResult;
 } {
 	const base = baseComposition(ruleSet);
-	const modified = applyAceFiveCount(base, Math.round(count));
+	const modified = applyCountToComposition(base, tags, Math.round(count));
 	const baseEngine = new ShoeEv(ruleSet);
 	const countEngine = new ShoeEv(ruleSet);
 

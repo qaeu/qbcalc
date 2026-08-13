@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest';
 
 import {
+	ACE_FIVE_TAGS,
 	RANKS,
 	SOFT_TOTALS,
 	PAIR_RANKS,
 	type RuleSet,
+	type TagValues,
 	baseComposition,
-	applyAceFiveCount,
+	applyCountToComposition,
 	computeEvComparison,
 	computeSplitEvComparison,
 } from '#utils/blackjackEv';
@@ -32,18 +34,86 @@ describe('baseComposition', () => {
 	});
 });
 
-describe('applyAceFiveCount', () => {
-	it('shifts half a card of five density into aces per count unit', () => {
+describe('applyCountToComposition', () => {
+	const HI_LO_TAGS: TagValues = {
+		'2': 1,
+		'3': 1,
+		'4': 1,
+		'5': 1,
+		'6': 1,
+		'7': 0,
+		'8': 0,
+		'9': 0,
+		T: -1,
+		A: -1,
+	};
+
+	const totalCards = (comp: readonly number[]) => comp.reduce((sum, n) => sum + n, 0);
+
+	it('shifts half a card of five density into aces per count unit under Ace-Five', () => {
 		const base = baseComposition({ decks: 1, dealerHitsSoft17: true });
-		const adjusted = applyAceFiveCount(base, 2);
+		const adjusted = applyCountToComposition(base, ACE_FIVE_TAGS, 2);
 		expect(adjusted[RANKS.indexOf('5')]).toBe(base[RANKS.indexOf('5')] - 2);
 		expect(adjusted[RANKS.indexOf('A')]).toBe(base[RANKS.indexOf('A')] + 2);
+		// Neutral ranks are untouched, whatever the deck count.
+		expect(adjusted[RANKS.indexOf('T')]).toBe(base[RANKS.indexOf('T')]);
+		expect(applyCountToComposition(baseComposition(RULE_SET), ACE_FIVE_TAGS, 2)).toEqual(
+			baseComposition(RULE_SET).map((n, index) =>
+				index === RANKS.indexOf('5') ? n - 2
+				: index === RANKS.indexOf('A') ? n + 2
+				: n
+			)
+		);
 	});
 
-	it('throws once the count removes more fives or aces than exist', () => {
+	it('leaves the composition alone at a count of zero', () => {
+		const base = baseComposition(RULE_SET);
+		expect(applyCountToComposition(base, HI_LO_TAGS, 0)).toEqual(base.slice());
+	});
+
+	it('depletes low cards and enriches high cards on a positive Hi-Lo count', () => {
+		const base = baseComposition({ decks: 6, dealerHitsSoft17: true });
+		const adjusted = applyCountToComposition(base, HI_LO_TAGS, 6);
+
+		expect(adjusted[RANKS.indexOf('2')]).toBeLessThan(base[RANKS.indexOf('2')]);
+		expect(adjusted[RANKS.indexOf('6')]).toBeLessThan(base[RANKS.indexOf('6')]);
+		expect(adjusted[RANKS.indexOf('8')]).toBe(base[RANKS.indexOf('8')]);
+		expect(adjusted[RANKS.indexOf('T')]).toBeGreaterThan(base[RANKS.indexOf('T')]);
+		expect(adjusted[RANKS.indexOf('A')]).toBeGreaterThan(base[RANKS.indexOf('A')]);
+	});
+
+	it('preserves the shoe size and stays integral', () => {
+		const base = baseComposition({ decks: 6, dealerHitsSoft17: true });
+		for (const count of [-9, -4, 1, 5, 13]) {
+			const adjusted = applyCountToComposition(base, HI_LO_TAGS, count);
+			expect(totalCards(adjusted)).toBe(totalCards(base));
+			expect(adjusted.every(Number.isInteger)).toBe(true);
+		}
+	});
+
+	it('reverses the direction of the shift when the count flips sign', () => {
+		const base = baseComposition({ decks: 6, dealerHitsSoft17: true });
+		const negative = applyCountToComposition(base, HI_LO_TAGS, -6);
+
+		expect(negative[RANKS.indexOf('2')]).toBeGreaterThan(base[RANKS.indexOf('2')]);
+		expect(negative[RANKS.indexOf('T')]).toBeLessThan(base[RANKS.indexOf('T')]);
+		expect(negative[RANKS.indexOf('A')]).toBeLessThan(base[RANKS.indexOf('A')]);
+	});
+
+	it('throws when every rank carries the same tag', () => {
+		const base = baseComposition(RULE_SET);
+		const zeroTags = Object.fromEntries(RANKS.map((rank) => [rank, 0])) as TagValues;
+		expect(() => applyCountToComposition(base, zeroTags, 3)).toThrow(/no effect/i);
+	});
+
+	it('throws once the count removes more cards of a rank than exist', () => {
 		const base = baseComposition({ decks: 1, dealerHitsSoft17: true });
-		expect(() => applyAceFiveCount(base, 100)).toThrow(/too extreme/i);
-		expect(() => applyAceFiveCount(base, -100)).toThrow(/too extreme/i);
+		expect(() => applyCountToComposition(base, ACE_FIVE_TAGS, 100)).toThrow(
+			/too extreme/i
+		);
+		expect(() => applyCountToComposition(base, ACE_FIVE_TAGS, -100)).toThrow(
+			/too extreme/i
+		);
 	});
 });
 
@@ -74,6 +144,7 @@ describe('computeEvComparison', () => {
 	const result = computeEvComparison(
 		{ decks: 1, dealerHitsSoft17: true },
 		2,
+		ACE_FIVE_TAGS,
 		totals,
 		upcards
 	);
@@ -102,20 +173,20 @@ describe('computeEvComparison', () => {
 
 describe('optimal play', () => {
 	it('recommends doubling hard 11 against a weak dealer upcard', () => {
-		const result = computeEvComparison(RULE_SET, 0, [11], RANKS);
+		const result = computeEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, [11], RANKS);
 		const row = result.rows.find((r) => r.upcard === '6')!;
 		expect(row.optimalAction).toBe('D');
 	});
 
 	it('recommends standing on a strong hard total regardless of upcard', () => {
-		const result = computeEvComparison(RULE_SET, 0, [20], RANKS);
+		const result = computeEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, [20], RANKS);
 		for (const row of result.rows) {
 			expect(row.optimalAction).toBe('S');
 		}
 	});
 
 	it('recommends hitting a weak hard total against a strong dealer upcard', () => {
-		const result = computeEvComparison(RULE_SET, 0, [16], RANKS);
+		const result = computeEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, [16], RANKS);
 		const row = result.rows.find((r) => r.upcard === 'T')!;
 		expect(row.optimalAction).toBe('H');
 	});
@@ -123,26 +194,26 @@ describe('optimal play', () => {
 
 describe('soft totals', () => {
 	it('recommends standing on soft 20 regardless of upcard', () => {
-		const result = computeEvComparison(RULE_SET, 0, [20], RANKS, true);
+		const result = computeEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, [20], RANKS, true);
 		for (const row of result.rows) {
 			expect(row.optimalAction).toBe('S');
 		}
 	});
 
 	it('recommends doubling soft 18 (A,7) against a weak dealer upcard', () => {
-		const result = computeEvComparison(RULE_SET, 0, [18], RANKS, true);
+		const result = computeEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, [18], RANKS, true);
 		const row = result.rows.find((r) => r.upcard === '6')!;
 		expect(row.optimalAction).toBe('D');
 	});
 
 	it('recommends hitting soft 18 (A,7) against a strong dealer upcard', () => {
-		const result = computeEvComparison(RULE_SET, 0, [18], RANKS, true);
+		const result = computeEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, [18], RANKS, true);
 		const row = result.rows.find((r) => r.upcard === 'T')!;
 		expect(row.optimalAction).toBe('H');
 	});
 
 	it('recommends doubling soft 19 (A,8) only against a dealer 6 (H17)', () => {
-		const result = computeEvComparison(RULE_SET, 0, [19], RANKS, true);
+		const result = computeEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, [19], RANKS, true);
 		const six = result.rows.find((r) => r.upcard === '6')!;
 		const two = result.rows.find((r) => r.upcard === '2')!;
 		expect(six.optimalAction).toBe('D');
@@ -150,7 +221,14 @@ describe('soft totals', () => {
 	});
 
 	it('gives 0% player bust-on-hit for every soft total', () => {
-		const result = computeEvComparison(RULE_SET, 0, SOFT_TOTALS, RANKS, true);
+		const result = computeEvComparison(
+			RULE_SET,
+			0,
+			ACE_FIVE_TAGS,
+			SOFT_TOTALS,
+			RANKS,
+			true
+		);
 		for (const row of result.rows) {
 			expect(row.playerBustOnHitPercent).toBe(0);
 		}
@@ -159,7 +237,7 @@ describe('soft totals', () => {
 
 describe('splits', () => {
 	it('always recommends splitting aces', () => {
-		const result = computeSplitEvComparison(RULE_SET, 0, ['A'], RANKS);
+		const result = computeSplitEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, ['A'], RANKS);
 		for (const row of result.rows) {
 			expect(row.optimalAction).toBe('P');
 		}
@@ -167,21 +245,27 @@ describe('splits', () => {
 
 	it('recommends splitting 8s against every upcard from 2 through 9', () => {
 		const weakToMediumUpcards = RANKS.filter((r) => r !== 'T' && r !== 'A');
-		const result = computeSplitEvComparison(RULE_SET, 0, ['8'], weakToMediumUpcards);
+		const result = computeSplitEvComparison(
+			RULE_SET,
+			0,
+			ACE_FIVE_TAGS,
+			['8'],
+			weakToMediumUpcards
+		);
 		for (const row of result.rows) {
 			expect(row.optimalAction).toBe('P');
 		}
 	});
 
 	it('never recommends splitting 10s', () => {
-		const result = computeSplitEvComparison(RULE_SET, 0, ['T'], RANKS);
+		const result = computeSplitEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, ['T'], RANKS);
 		for (const row of result.rows) {
 			expect(row.optimalAction).not.toBe('P');
 		}
 	});
 
 	it('recommends splitting 9s against a weak upcard but standing against a strong one', () => {
-		const result = computeSplitEvComparison(RULE_SET, 0, ['9'], RANKS);
+		const result = computeSplitEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, ['9'], RANKS);
 		const weak = result.rows.find((r) => r.upcard === '6')!;
 		const strong = result.rows.find((r) => r.upcard === 'T')!;
 		expect(weak.optimalAction).toBe('P');
@@ -189,13 +273,19 @@ describe('splits', () => {
 	});
 
 	it('recommends doubling 5,5 (hard 10) rather than splitting it', () => {
-		const result = computeSplitEvComparison(RULE_SET, 0, ['5'], RANKS);
+		const result = computeSplitEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, ['5'], RANKS);
 		const row = result.rows.find((r) => r.upcard === '6')!;
 		expect(row.optimalAction).toBe('D');
 	});
 
 	it('gives the dealer a higher bust chance showing a 6 than showing a T', () => {
-		const result = computeSplitEvComparison(RULE_SET, 0, PAIR_RANKS, RANKS);
+		const result = computeSplitEvComparison(
+			RULE_SET,
+			0,
+			ACE_FIVE_TAGS,
+			PAIR_RANKS,
+			RANKS
+		);
 		const six = result.rows.find((r) => r.upcard === '6' && r.pairRank === '8')!;
 		const ten = result.rows.find((r) => r.upcard === 'T' && r.pairRank === '8')!;
 		expect(six.dealerBustPercent).toBeGreaterThan(ten.dealerBustPercent);
@@ -204,7 +294,7 @@ describe('splits', () => {
 
 describe('bust percentages', () => {
 	it('gives 0% player bust-on-hit for a total that cannot bust in one card', () => {
-		const result = computeEvComparison(RULE_SET, 0, [8], RANKS);
+		const result = computeEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, [8], RANKS);
 		for (const row of result.rows) {
 			expect(row.playerBustOnHitPercent).toBe(0);
 		}
@@ -213,7 +303,7 @@ describe('bust percentages', () => {
 	it('gives a high player bust-on-hit chance for a near-max hard total', () => {
 		// Every card of value 2+ busts hard 20; only a redrawn ace survives as a
 		// soft-adjusted 21, so the bust chance is high but not exactly 100%.
-		const result = computeEvComparison(RULE_SET, 0, [20], RANKS);
+		const result = computeEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, [20], RANKS);
 		for (const row of result.rows) {
 			expect(row.playerBustOnHitPercent).toBeGreaterThan(85);
 			expect(row.playerBustOnHitPercent).toBeLessThan(100);
@@ -221,7 +311,7 @@ describe('bust percentages', () => {
 	});
 
 	it('gives the dealer a higher bust chance showing a 6 than showing a T', () => {
-		const result = computeEvComparison(RULE_SET, 0, [12], RANKS);
+		const result = computeEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, [12], RANKS);
 		const six = result.rows.find((r) => r.upcard === '6')!;
 		const ten = result.rows.find((r) => r.upcard === 'T')!;
 		expect(six.dealerBustPercent).toBeGreaterThan(ten.dealerBustPercent);
