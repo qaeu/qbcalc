@@ -154,18 +154,15 @@ export const PAIR_RANKS: readonly Rank[] = RANKS;
 export const BLACKJACK_PAYOUTS: readonly BlackjackPayout[] = ['3:2', '6:5', '1:1'];
 export const SURRENDERS: readonly Surrender[] = ['early', 'es10', 'late', 'none'];
 export const DEFAULT_RULE_SET: RuleSet = {
-	decks: 4,
+	decks: 6,
 	dealerHitsSoft17: false,
 	penetrationPercent: 75,
 	blackjackPayout: '3:2',
-	// ENHC is on by default, and a no-hole-card table's surrender is
-	// necessarily the early one -- 'late' would start the app on a combination
-	// the Rules tab greys out.
-	surrender: 'early',
+	surrender: 'none',
 	splitLimit: 4,
 	doubleAfterSplit: true,
 	resplitAces: false,
-	hitSplitAces: false,
+	hitSplitAces: true,
 	dealerPeek: false,
 };
 
