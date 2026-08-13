@@ -498,7 +498,7 @@ describe('surrender', () => {
 		// -0.5. ("All bets lost" still applies to doubles and splits, whose
 		// stakes are live at the draw.) Briefly modelled the other way, which
 		// showed R cells at -53% against a ten and -65% against an ace.
-		for (const surrender of ['late', 'es10', 'early'] as const) {
+		for (const surrender of ['late', 'early'] as const) {
 			const rows = computeEvComparison(
 				{ ...RULE_SET, decks: 6, dealerHitsSoft17: false, surrender, dealerPeek: false },
 				0,
@@ -520,33 +520,45 @@ describe('surrender', () => {
 	});
 
 	it(
-		'gives ES10 the early treatment against a ten and the late one against an ace',
+		'offers ES10 against a ten and nowhere else',
 		() => {
-			// ES10 is early surrender against a ten only. Against an ace it is
-			// late, so it is worth a flat -0.5 there and dodges nothing; against a
-			// ten it buys the player out of the natural and is reported in the
-			// same conditional frame as its neighbours.
-			const grid = (surrender: Surrender) =>
+			// ES10 is not "early against a ten, late against the rest": it is
+			// the only surrender the table offers, and only against a ten.
+			// Being taken before any check makes it the early kind wherever it
+			// appears, so the ten column matches an early-surrender table
+			// exactly and every other column matches a table with no surrender
+			// at all -- at a no-hole-card table as much as behind a peek.
+			const grid = (surrender: Surrender, dealerPeek: boolean) =>
 				new Map(
 					computeEvComparison(
-						{ ...RULE_SET, surrender, dealerPeek: true },
+						{ ...RULE_SET, surrender, dealerPeek },
 						0,
 						ACE_FIVE_TAGS,
-						[16],
-						['T', 'A']
-					).rows.map((row) => [row.upcard, row])
+						[15, 16],
+						['6', 'T', 'A']
+					).rows.map((row) => [`${row.total}-${row.upcard}`, row])
 				);
-			const es10 = grid('es10');
-			const late = grid('late');
-			const early = grid('early');
 
-			expect(es10.get('T')!.baseEvPercent).toBeCloseTo(early.get('T')!.baseEvPercent, 9);
-			expect(es10.get('A')!.baseEvPercent).toBeCloseTo(late.get('A')!.baseEvPercent, 9);
-			// The ten column is strictly better than late surrender, and the ace
-			// column strictly worse than early -- otherwise ES10 would just be one
-			// of the two under another name.
-			expect(es10.get('T')!.baseEvPercent).toBeGreaterThan(late.get('T')!.baseEvPercent);
-			expect(es10.get('A')!.baseEvPercent).toBeLessThan(early.get('A')!.baseEvPercent);
+			for (const dealerPeek of [true, false]) {
+				const es10 = grid('es10', dealerPeek);
+				const early = grid('early', dealerPeek);
+				const none = grid('none', dealerPeek);
+
+				for (const key of ['15-T', '16-T']) {
+					expect(es10.get(key)!.optimalAction).toBe('R');
+					expect(es10.get(key)!.baseEvPercent).toBeCloseTo(
+						early.get(key)!.baseEvPercent,
+						9
+					);
+				}
+				for (const key of ['15-6', '16-6', '15-A', '16-A']) {
+					expect(es10.get(key)!.optimalAction).not.toBe('R');
+					expect(es10.get(key)!.baseEvPercent).toBeCloseTo(
+						none.get(key)!.baseEvPercent,
+						9
+					);
+				}
+			}
 		},
 		GRID_TIMEOUT_MS
 	);

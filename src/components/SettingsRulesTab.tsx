@@ -33,12 +33,13 @@ const SURRENDER_LABELS: Record<Surrender, string> = {
 /**
  * A no-hole-card table has no peek to be late to: the stake is off the table
  * before the dealer draws, so every surrender it offers is an early one.
- * 'Late' and 'ES10' (late against everything but a ten) are therefore not
- * choices such a table can make, and are disabled rather than silently
- * reinterpreted.
+ * 'Late' is therefore not a choice such a table can make, and is disabled
+ * rather than silently reinterpreted. 'ES10' -- surrender against a ten and
+ * nothing else, taken before any check -- is early by construction, so it
+ * stays available.
  */
 const surrenderDisabledUnderEnhc = (surrender: Surrender): boolean =>
-	surrender === 'late' || surrender === 'es10';
+	surrender === 'late';
 
 const surrenderOptions = (enhc: boolean): readonly SettingOption<Surrender>[] =>
 	SURRENDERS.map((surrender) => ({
@@ -122,7 +123,7 @@ const SettingsRulesTab: Component<SettingsRulesTabProps> = (props) => {
 				helptext={
 					props.config.dealerPeek ?
 						'Whether, and when, the player may surrender a hand'
-					:	'Whether the player may surrender a hand. With no hole card there is no dealer check to be late to, so only early surrender is available'
+					:	'Whether the player may surrender a hand. With no hole card there is no dealer check to be late to, so late surrender is unavailable'
 				}
 			>
 				<SettingSelect

@@ -61,11 +61,11 @@ export type BlackjackPayout = '3:2' | '6:5' | '1:1';
  * Surrender availability: 'early' before the dealer checks for blackjack,
  * 'late' only after the check, 'none' at tables that don't offer it.
  *
- * 'es10' is the common half-measure: early against a ten, late against
- * everything else. It exists because early surrender against an ace is worth
- * so much that few tables ever offered both. Against any upcard that cannot
- * make a natural the two are the same thing, so the distinction only bites on
- * the ten and ace columns.
+ * 'es10' is the common half-measure: early surrender against a ten, and no
+ * surrender at all against anything else. It exists because early surrender
+ * against an ace is worth so much that tables offering it did not last. Being
+ * available only before the dealer checks, it is always the early kind, so it
+ * is offered at no-hole-card tables too.
  */
 export type Surrender = 'early' | 'es10' | 'late' | 'none';
 
@@ -598,21 +598,22 @@ class ShoeEv {
 	 *   still live when the dealer draws.) A no-peek table therefore has no
 	 *   late surrender to offer; the UI does not present the combination, and
 	 *   the engine treats it as the early one it necessarily is.
+	 * - **ES10.** Surrender against a ten only, taken before any check, so it
+	 *   is priced as the early one wherever it is offered and is `null`
+	 *   against every other upcard.
 	 */
 	private surrenderEv(comp: Composition, upcard: Rank, totCards: number): number | null {
 		if (this.surrender === 'none') return null;
+		// 'es10' is offered against a ten and nothing else -- not late against
+		// the rest of the row, simply absent there.
+		if (this.surrender === 'es10' && upcard !== 'T') return null;
 		// No hole card to be late to: half the stake, in the unconditional
 		// frame every other no-peek cell is already reported in.
 		if (!this.peek) return SURRENDER_EV;
-		// 'es10' buys the early treatment against a ten only. Against an
-		// upcard that cannot make a natural the two coincide anyway, so this
-		// is what separates them on the ten and ace columns.
-		const early =
-			this.surrender === 'early' || (this.surrender === 'es10' && upcard === 'T');
 		// Late surrender behind a peek: the check has happened, so both sides
 		// live in the same no-dealer-blackjack world and half the stake is
 		// half the stake.
-		if (!early) return SURRENDER_EV;
+		if (this.surrender === 'late') return SURRENDER_EV;
 
 		const pBlackjack = this.dealerBlackjackProb(comp, upcard, totCards);
 		// A shoe that can only make a natural leaves no conditional world to

@@ -116,7 +116,7 @@ describe('SettingsSidebar', () => {
 		} satisfies CalculatorConfig);
 	});
 
-	it('offers only early surrender while ENHC is on', async () => {
+	it('does not offer late surrender while ENHC is on', async () => {
 		cleanup();
 		render(() => (
 			<SettingsSidebar
@@ -126,15 +126,15 @@ describe('SettingsSidebar', () => {
 			/>
 		));
 
-		// A no-hole-card table has no dealer check to be late to, so the two
-		// settings that wait for one are not choices it can make.
+		// A no-hole-card table has no dealer check to be late to. ES10 stays
+		// available: it is offered against a ten only and taken before any
+		// check, so it is early wherever it appears.
 		expect((screen.getByLabelText('ENHC') as HTMLInputElement).checked).toBe(true);
 		fireEvent.click(screen.getByRole('combobox', { name: 'Surrender' }));
-		for (const name of ['Late', 'ES10']) {
-			const option = await screen.findByRole('option', { name });
-			expect(option.hasAttribute('data-disabled')).toBe(true);
-		}
-		for (const name of ['Early', 'None']) {
+		expect(
+			(await screen.findByRole('option', { name: 'Late' })).hasAttribute('data-disabled')
+		).toBe(true);
+		for (const name of ['Early', 'ES10', 'None']) {
 			const option = await screen.findByRole('option', { name });
 			expect(option.hasAttribute('data-disabled')).toBe(false);
 		}
