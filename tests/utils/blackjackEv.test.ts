@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 
 import {
 	ACE_FIVE_TAGS,
 	DEFAULT_RULE_SET,
 	RANKS,
 	SOFT_TOTALS,
+	type Rank,
 	type RuleSet,
 	type Surrender,
 	type TagValues,
@@ -25,6 +26,15 @@ const RULE_SET: RuleSet = {
 	dealerPeek: false,
 	surrender: 'none',
 };
+
+/**
+ * Budget for the cases that need whole EV grids rather than single cells.
+ * Each grid is a few seconds of exact recursion, so the shared ones are built
+ * in `beforeAll` -- never at collection time, which would charge every
+ * filtered run for grids it does not use -- and both those hooks and the
+ * tests that build their own want more than vitest's 5s default.
+ */
+const GRID_TIMEOUT_MS = 120_000;
 
 describe('baseComposition', () => {
 	it('builds a fresh shoe in half-card units', () => {
@@ -256,78 +266,82 @@ describe('soft totals', () => {
 });
 
 describe('splits', () => {
+	// The non-ace cases all read from one grid: a single `computeSplitEvComparison`
+	// shares its memoised shoe across every pair rank in the call, so asking for
+	// four ranks at once costs far less than four calls for one rank each.
+	let pairs: Map<string, ReturnType<typeof computeSplitEvComparison>['rows'][number]>;
+	let peekAces: typeof pairs;
+
+	beforeAll(() => {
+		const byKey = (rules: Partial<RuleSet>, pairRanks: readonly Rank[]) =>
+			new Map(
+				computeSplitEvComparison(
+					{ ...RULE_SET, ...rules },
+					0,
+					ACE_FIVE_TAGS,
+					pairRanks,
+					RANKS
+				).rows.map((row) => [`${row.pairRank}-${row.upcard}`, row])
+			);
+
+		pairs = byKey({}, ['5', '8', '9', 'T']);
+		peekAces = byKey({ dealerPeek: true }, ['A']);
+	}, GRID_TIMEOUT_MS);
+
 	it('always recommends splitting aces at a peeking table', () => {
-		const result = computeSplitEvComparison(
-			{ ...RULE_SET, dealerPeek: true },
-			0,
-			ACE_FIVE_TAGS,
-			['A'],
-			RANKS
-		);
-		for (const row of result.rows) {
+		for (const row of peekAces.values()) {
 			expect(row.optimalAction).toBe('P');
 		}
 	});
 
-	it('hits A,A against an ace at a no-peek table instead of splitting', () => {
-		// A,A is soft 12, so hitting it cannot bust and plays far better than
-		// the hard 12 an earlier `addValue` bug made it. Without a peek, both
-		// split hands are exposed to a dealer natural taking the whole wager,
-		// which is what tips an ENHC table away from splitting here -- the
-		// standard ENHC recommendation, and the reverse of the peeking case
-		// above. Against a ten the split still wins.
-		const result = computeSplitEvComparison(
-			{ ...RULE_SET, dealerPeek: false },
-			0,
-			ACE_FIVE_TAGS,
-			['A'],
-			['A', 'T']
-		);
-		const byUpcard = new Map(result.rows.map((row) => [row.upcard, row]));
-		expect(byUpcard.get('A')!.optimalAction).toBe('H');
-		expect(byUpcard.get('T')!.optimalAction).toBe('P');
-	});
+	it(
+		'hits A,A against an ace at a no-peek table instead of splitting',
+		() => {
+			// A,A is soft 12, so hitting it cannot bust and plays far better than
+			// the hard 12 an earlier `addValue` bug made it. Without a peek, both
+			// split hands are exposed to a dealer natural taking the whole wager,
+			// which is what tips an ENHC table away from splitting here -- the
+			// standard ENHC recommendation, and the reverse of the peeking case
+			// above. Against a ten the split still wins.
+			const result = computeSplitEvComparison(
+				{ ...RULE_SET, dealerPeek: false },
+				0,
+				ACE_FIVE_TAGS,
+				['A'],
+				['A', 'T']
+			);
+			const byUpcard = new Map(result.rows.map((row) => [row.upcard, row]));
+			expect(byUpcard.get('A')!.optimalAction).toBe('H');
+			expect(byUpcard.get('T')!.optimalAction).toBe('P');
+		},
+		GRID_TIMEOUT_MS
+	);
 
 	it('recommends splitting 8s against every upcard from 2 through 9', () => {
-		const weakToMediumUpcards = RANKS.filter((r) => r !== 'T' && r !== 'A');
-		const result = computeSplitEvComparison(
-			RULE_SET,
-			0,
-			ACE_FIVE_TAGS,
-			['8'],
-			weakToMediumUpcards
-		);
-		for (const row of result.rows) {
-			expect(row.optimalAction).toBe('P');
+		for (const upcard of RANKS.filter((r) => r !== 'T' && r !== 'A')) {
+			expect(pairs.get(`8-${upcard}`)!.optimalAction).toBe('P');
 		}
 	});
 
 	it('never recommends splitting 10s', () => {
-		const result = computeSplitEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, ['T'], RANKS);
-		for (const row of result.rows) {
-			expect(row.optimalAction).not.toBe('P');
+		for (const upcard of RANKS) {
+			expect(pairs.get(`T-${upcard}`)!.optimalAction).not.toBe('P');
 		}
 	});
 
 	it('recommends splitting 9s against a weak upcard but standing against a strong one', () => {
-		const result = computeSplitEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, ['9'], RANKS);
-		const weak = result.rows.find((r) => r.upcard === '6')!;
-		const strong = result.rows.find((r) => r.upcard === 'T')!;
-		expect(weak.optimalAction).toBe('P');
-		expect(strong.optimalAction).toBe('S');
+		expect(pairs.get('9-6')!.optimalAction).toBe('P');
+		expect(pairs.get('9-T')!.optimalAction).toBe('S');
 	});
 
 	it('recommends doubling 5,5 (hard 10) rather than splitting it', () => {
-		const result = computeSplitEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, ['5'], RANKS);
-		const row = result.rows.find((r) => r.upcard === '6')!;
-		expect(row.optimalAction).toBe('D');
+		expect(pairs.get('5-6')!.optimalAction).toBe('D');
 	});
 
 	it('gives the dealer a higher bust chance showing a 6 than showing a T', () => {
-		const result = computeSplitEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, ['8'], RANKS);
-		const six = result.rows.find((r) => r.upcard === '6')!;
-		const ten = result.rows.find((r) => r.upcard === 'T')!;
-		expect(six.dealerBustPercent).toBeGreaterThan(ten.dealerBustPercent);
+		expect(pairs.get('8-6')!.dealerBustPercent).toBeGreaterThan(
+			pairs.get('8-T')!.dealerBustPercent
+		);
 	});
 });
 
@@ -345,8 +359,14 @@ describe('dealer peek', () => {
 			).rows.map((row) => [`${row.total}-${row.upcard}`, row])
 		);
 
-	const noPeek = byKey(false);
-	const peek = byKey(true);
+	type Rows = ReturnType<typeof byKey>;
+	let noPeek: Rows;
+	let peek: Rows;
+
+	beforeAll(() => {
+		noPeek = byKey(false);
+		peek = byKey(true);
+	}, GRID_TIMEOUT_MS);
 
 	it('lifts EV against a ten or an ace, where a natural is no longer possible', () => {
 		for (const key of ['16-T', '20-T', '16-A', '20-A']) {
@@ -417,9 +437,16 @@ describe('surrender', () => {
 			).rows.map((row) => [`${row.total}-${row.upcard}`, row.optimalAction])
 		);
 
-	const none = actions('none');
-	const late = actions('late');
-	const early = actions('early');
+	type Actions = ReturnType<typeof actions>;
+	let none: Actions;
+	let late: Actions;
+	let early: Actions;
+
+	beforeAll(() => {
+		none = actions('none');
+		late = actions('late');
+		early = actions('early');
+	}, GRID_TIMEOUT_MS);
 
 	it('is never offered at a table without it', () => {
 		for (const action of none.values()) {
@@ -539,16 +566,26 @@ describe('split rules', () => {
 			).rows.map((row) => [`${row.pairRank}-${row.upcard}`, row])
 		);
 
-	// One grid per distinct rule set, built once at collection time: each is a
-	// few seconds of exact recursion, and several of the cases below want the
-	// same one. `splitLimit: 4, resplitAces: false` is the shared baseline.
-	const oneHand = splitRows({ splitLimit: 1 });
-	const twoHands = splitRows({ splitLimit: 2 });
-	const fourHands = splitRows({ splitLimit: 4 });
-	const fourHandsRsa = splitRows({ splitLimit: 4, resplitAces: true });
-	const withoutDas = splitRows({ doubleAfterSplit: false });
-	const threeHands = splitRows({ splitLimit: 3 });
-	const eightHands = splitRows({ splitLimit: 8 });
+	// One grid per distinct rule set, deduplicated across the cases below.
+	// `splitLimit: 4, resplitAces: false` is the shared baseline.
+	type SplitRows = ReturnType<typeof splitRows>;
+	let oneHand: SplitRows;
+	let twoHands: SplitRows;
+	let threeHands: SplitRows;
+	let fourHands: SplitRows;
+	let fourHandsRsa: SplitRows;
+	let eightHands: SplitRows;
+	let withoutDas: SplitRows;
+
+	beforeAll(() => {
+		oneHand = splitRows({ splitLimit: 1 });
+		twoHands = splitRows({ splitLimit: 2 });
+		threeHands = splitRows({ splitLimit: 3 });
+		fourHands = splitRows({ splitLimit: 4 });
+		fourHandsRsa = splitRows({ splitLimit: 4, resplitAces: true });
+		eightHands = splitRows({ splitLimit: 8 });
+		withoutDas = splitRows({ doubleAfterSplit: false });
+	}, GRID_TIMEOUT_MS);
 
 	it('never splits at a table that allows only one hand', () => {
 		for (const row of oneHand.values()) {
@@ -632,8 +669,14 @@ describe('dealer bust probability', () => {
 			).rows.map((row) => [row.upcard, row.dealerBustPercent])
 		);
 
-	const s17 = bustPercentByUpcard(false);
-	const h17 = bustPercentByUpcard(true);
+	type BustPercents = ReturnType<typeof bustPercentByUpcard>;
+	let s17: BustPercents;
+	let h17: BustPercents;
+
+	beforeAll(() => {
+		s17 = bustPercentByUpcard(false);
+		h17 = bustPercentByUpcard(true);
+	}, GRID_TIMEOUT_MS);
 
 	it.each([
 		['A', 11.5473],
@@ -657,22 +700,26 @@ describe('dealer bust probability', () => {
 });
 
 describe('soft 12 and A,A', () => {
-	it('values hitting A,A the same as hitting the soft 12 it is', () => {
-		// A,A is soft 12, not hard 12. The two tables reach it by different
-		// routes -- `analyzeGrid`'s soft row and `analyzeSplitGrid`'s pair row
-		// -- and used to disagree by ~20pp because `pairTotal('A')` hardened
-		// the hand. Picked at an upcard where hitting is the optimal action in
-		// both tables, so both cells report the hit EV.
-		const rules = { ...RULE_SET, dealerPeek: false };
-		const soft12 = computeEvComparison(rules, 0, ACE_FIVE_TAGS, [12], ['A'], true)
-			.rows[0];
-		const pairOfAces = computeSplitEvComparison(rules, 0, ACE_FIVE_TAGS, ['A'], ['A'])
-			.rows[0];
+	it(
+		'values hitting A,A the same as hitting the soft 12 it is',
+		() => {
+			// A,A is soft 12, not hard 12. The two tables reach it by different
+			// routes -- `analyzeGrid`'s soft row and `analyzeSplitGrid`'s pair row
+			// -- and used to disagree by ~20pp because `pairTotal('A')` hardened
+			// the hand. Picked at an upcard where hitting is the optimal action in
+			// both tables, so both cells report the hit EV.
+			const rules = { ...RULE_SET, dealerPeek: false };
+			const soft12 = computeEvComparison(rules, 0, ACE_FIVE_TAGS, [12], ['A'], true)
+				.rows[0];
+			const pairOfAces = computeSplitEvComparison(rules, 0, ACE_FIVE_TAGS, ['A'], ['A'])
+				.rows[0];
 
-		expect(soft12.optimalAction).toBe('H');
-		expect(pairOfAces.optimalAction).toBe('H');
-		expect(pairOfAces.baseEvPercent).toBeCloseTo(soft12.baseEvPercent, 9);
-	});
+			expect(soft12.optimalAction).toBe('H');
+			expect(pairOfAces.optimalAction).toBe('H');
+			expect(pairOfAces.baseEvPercent).toBeCloseTo(soft12.baseEvPercent, 9);
+		},
+		GRID_TIMEOUT_MS
+	);
 });
 
 describe('bust percentages', () => {
