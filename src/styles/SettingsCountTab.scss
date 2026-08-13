@@ -1,0 +1,13 @@
+@use 'base' as *;
+
+@layer screen {
+	.settings-count-tab {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+
+		h3 {
+			@include panel-title;
+		}
+	}
+}

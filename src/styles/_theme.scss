@@ -209,6 +209,25 @@ $breakpoint-tablet: 800px;
 	color: get($neutrals, 'fg-light');
 }
 
+// A setting's label text plus its optional trailing help icon
+@mixin label-row {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+// The help icon itself, shown with a native tooltip via its `title` attribute
+@mixin hint-icon {
+	display: inline-flex;
+	color: get($neutrals, 'fg-light');
+	cursor: help;
+
+	svg {
+		width: 12px;
+		height: 12px;
+	}
+}
+
 // Pre/code block styling
 @mixin code-block($bg: $background) {
 	background-color: $bg;

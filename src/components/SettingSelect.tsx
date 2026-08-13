@@ -1,6 +1,9 @@
 /**
- * A labelled dropdown for a settings field whose value is one of a small
- * fixed set of strings (rule variations, counting system presets, ...).
+ * A dropdown for a settings field whose value is one of a small fixed set of
+ * strings (rule variations, counting system presets, ...). Expected to be
+ * wrapped in a `SettingsItem`, whose native `<label>` gives the trigger
+ * (rendered as a `<button>`, a labelable element) its accessible name --
+ * the same implicit association a plain `<input>` gets.
  */
 
 import { Select, createListCollection } from '@ark-ui/solid/select';
@@ -17,7 +20,6 @@ export interface SettingOption<T extends string> {
 }
 
 interface SettingSelectProps<T extends string> {
-	label: string;
 	options: readonly SettingOption<T>[];
 	value: T;
 	onChange: (value: T) => void;
@@ -35,7 +37,6 @@ function SettingSelect<T extends string>(props: SettingSelectProps<T>): JSX.Elem
 			value={[props.value]}
 			onValueChange={(details) => props.onChange(details.value[0] as T)}
 		>
-			<Select.Label>{props.label}</Select.Label>
 			<Select.Control>
 				<Select.Trigger class="setting-select__trigger">
 					<Select.ValueText />

@@ -1,0 +1,33 @@
+@use 'base' as *;
+
+@layer screen {
+	.settings-item {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		font-size: 13px;
+		color: get($neutrals, 'fg-light');
+
+		// DOM order is always [label, control]; row-reverse puts the control
+		// first visually (e.g. a checkbox before its label) without changing
+		// that order in the markup.
+		&--row {
+			flex-direction: row-reverse;
+			justify-content: flex-end;
+			align-items: center;
+			gap: 8px;
+
+			input[type='checkbox'] {
+				width: auto;
+			}
+		}
+
+		&__label {
+			@include label-row;
+		}
+
+		&__hint-icon {
+			@include hint-icon;
+		}
+	}
+}

@@ -1,31 +1,10 @@
 @use 'base' as *;
 
 @layer screen {
-	.counting-system {
-		display: flex;
-		flex-direction: column;
-		gap: 16px;
-
-		h3 {
-			@include panel-title;
-		}
-
-		&__tags {
-			display: flex;
-			flex-direction: column;
-			gap: 8px;
-		}
-
-		&__tags-label {
-			font-size: 13px;
-			color: get($neutrals, 'fg-light');
-		}
-
-		&__tag-grid {
-			display: grid;
-			grid-template-columns: repeat(5, 1fr);
-			gap: 8px;
-		}
+	.tag-value-grid {
+		display: grid;
+		grid-template-columns: repeat(5, 1fr);
+		gap: 8px;
 
 		&__tag {
 			display: flex;

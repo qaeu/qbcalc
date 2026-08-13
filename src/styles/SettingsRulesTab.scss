@@ -1,0 +1,31 @@
+@use 'base' as *;
+
+@layer screen {
+	.settings-rules-tab {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+
+		h3 {
+			@include panel-title;
+		}
+
+		// Two fields to a row: the sidebar is too narrow for a single column
+		// of short numeric inputs to be worth the vertical space.
+		&__field-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 12px 8px;
+		}
+
+		&__toggle-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 8px;
+		}
+
+		input[type='number'] {
+			@include form-control;
+		}
+	}
+}
