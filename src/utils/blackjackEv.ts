@@ -201,13 +201,26 @@ function removeCard(comp: Composition, rank: Rank): Composition {
 	return next;
 }
 
+/**
+ * Adds one card to a (total, soft) hand state, demoting aces from 11 to 1
+ * only as far as is needed to stay at or under 21.
+ *
+ * `soft` means "exactly one ace in this hand is currently counted as 11" --
+ * two aces can never both be 11 (22 busts), so a single flag is enough. A
+ * soft hand that draws an ace therefore holds *two* demotable aces for the
+ * duration of this call: the new one is demoted first, and only if the hand
+ * is still over 21 does the original follow it down. That second ace is what
+ * the hand keeps: soft 12 + T is hard 12, but A,A stays soft 12, and A,7,A
+ * stays soft 19.
+ */
 function addValue(total: number, soft: boolean, rank: Rank): [number, boolean] {
-	const newTotalRaw = total + RANK_VALUE[rank];
-	const newSoftRaw = soft || rank === 'A';
-	if (newTotalRaw > 21 && newSoftRaw) {
-		return [newTotalRaw - 10, false];
+	let newTotal = total + RANK_VALUE[rank];
+	let acesAsEleven = (soft ? 1 : 0) + (rank === 'A' ? 1 : 0);
+	while (newTotal > 21 && acesAsEleven > 0) {
+		newTotal -= 10;
+		acesAsEleven -= 1;
 	}
-	return [newTotalRaw, newSoftRaw];
+	return [newTotal, acesAsEleven > 0];
 }
 
 /** Fast, collision-free memo key: one char per rank count plus total/soft/upcard. */
@@ -229,8 +242,9 @@ interface SplitCellAnalysis {
 	dealerBustPercent: number;
 }
 
-/** The two-card hard/soft total of a pair, e.g. 8,8 -> hard 16; A,A -> hard 12
- * (only one ace can count as 11 once both are combined into one hand). */
+/** The two-card hard/soft total of a pair, e.g. 8,8 -> hard 16; A,A -> soft 12
+ * (the second ace drops to 1, but the first still counts as 11, so the hand
+ * cannot bust on the next card). */
 function pairTotal(rank: Rank): [number, boolean] {
 	const [afterFirst, softAfterFirst] = addValue(0, false, rank);
 	return addValue(afterFirst, softAfterFirst, rank);
@@ -567,8 +581,7 @@ class ShoeEv {
 				this.dealerBustProb(compUpcard, upcard, totCardsAfterUpcard) * 100;
 			for (const total of totals) {
 				// A made 21 (e.g. soft A,T) is always stood on -- hitting it is not a
-				// real decision, and addValue's single-ace-demotion adjustment isn't
-				// meant to handle drawing a second ace on top of an already-soft 21.
+				// real decision, so there is no optimal-play comparison to make.
 				if (total >= 21) {
 					const evStand = this.standEv(compUpcard, total, upcard, totCardsAfterUpcard);
 					out.set(gridKey(total, upcard), {
