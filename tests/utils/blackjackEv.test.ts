@@ -15,9 +15,8 @@ import {
 } from '#utils/blackjackEv';
 
 /**
- * The baseline the reference Python implementation was written against, and
- * so the one the golden EV values below belong to: no peek (a dealer natural
- * is an ordinary dealer 21 that beats the player) and no surrender.
+ * The baseline the golden EV values below belong to: no peek (a dealer
+ * natural is still live and beats the player outright) and no surrender.
  */
 const RULE_SET: RuleSet = {
 	...DEFAULT_RULE_SET,
@@ -130,34 +129,34 @@ describe('applyCountToComposition', () => {
 });
 
 describe('computeEvComparison', () => {
-	// Golden values from the reference Python implementation
-	// (1 deck, H17, Ace-Five count +2, half-card units).
+	// Golden values regenerated from this engine after the `addValue`
+	// soft-ace and half-card-removal fixes (1 deck, H17, no peek, no
+	// surrender, Ace-Five count +2, half-card units).
 	//
-	// The six T/A-upcard, no-peek cells below (8-T, 8-A, 12-T, 12-A, 16-T,
-	// 16-A) are overridden from that reference: it shared a bug with this
-	// codebase's original port where a live (unpeeked) dealer natural was
-	// folded into an ordinary dealer 21, so a player hand that also landed
-	// on 21 by drawing (e.g. hitting 16 into a 5) wrongly pushed instead of
-	// losing to the natural, as standard rules require. 20-T/20-A are exempt
-	// since standing on 20 never draws into this case. Recomputed by hand
-	// after the fix (see `dealerUpcardDist`'s `natural` outcome).
+	// The engine they were originally taken from -- a reference Python port --
+	// shared two defects with this codebase's first version, so its values
+	// could not be kept: it turned every soft hand hard as soon as it drew a
+	// second ace, and it removed half a card per draw from a shoe stored in
+	// half-card units. The corrected engine reproduces Wizard of Odds
+	// Appendix 2B's dealer bust probabilities exactly (see the `dealer bust
+	// probability` block below), which is what these values now rest on.
 	const golden: Record<string, { base: number; mod: number }> = {
-		'8-2': { base: -0.022614020102258103, mod: -0.006907015828013355 },
-		'8-6': { base: 0.10595493706475456, mod: 0.13206283501164154 },
-		'8-T': { base: -0.3015941308975191, mod: -0.3120509036619411 },
-		'8-A': { base: -0.4709079493315567, mod: -0.45330916624384554 },
-		'12-2': { base: -0.25064167438251495, mod: -0.2503294793682547 },
-		'12-6': { base: -0.12249146529035816, mod: -0.11926370647221837 },
-		'12-T': { base: -0.4219059556827166, mod: -0.4388588647591659 },
-		'12-A': { base: -0.5643791705463572, mod: -0.5602769913101782 },
-		'16-2': { base: -0.2844464086900959, mod: -0.27203348828830076 },
-		'16-6': { base: -0.12249146529035816, mod: -0.11926370647221837 },
-		'16-T': { base: -0.5703348688642161, mod: -0.5889534675911907 },
-		'16-A': { base: -0.6758638018050835, mod: -0.6708949235551441 },
-		'20-2': { base: 0.6341572502198931, mod: 0.6300076609865916 },
-		'20-6': { base: 0.6776749210619718, mod: 0.6989031461332856 },
-		'20-T': { base: 0.43812639597973013, mod: 0.40797110468981135 },
-		'20-A': { base: 0.12252949764519311, mod: 0.12963394507970194 },
+		'8-2': { base: -0.025966743708865193, mod: -0.012084418651186838 },
+		'8-6': { base: 0.10767029251325697, mod: 0.13398846105074716 },
+		'8-T': { base: -0.2960645623863047, mod: -0.30684881252938523 },
+		'8-A': { base: -0.501428789500461, mod: -0.49223573016939537 },
+		'12-2': { base: -0.25063170382409233, mod: -0.2511329409048318 },
+		'12-6': { base: -0.12448823156282013, mod: -0.12157618707692947 },
+		'12-T': { base: -0.41489005036514065, mod: -0.4322484259465115 },
+		'12-A': { base: -0.5823144319401172, mod: -0.582903226340963 },
+		'16-2': { base: -0.2873098598722572, mod: -0.2762149580130267 },
+		'16-6': { base: -0.12448823156282013, mod: -0.12157618707692947 },
+		'16-T': { base: -0.5653045097163133, mod: -0.5868607621895505 },
+		'16-A': { base: -0.6877491188012591, mod: -0.7052840993302912 },
+		'20-2': { base: 0.6304308995653626, mod: 0.6253101496855284 },
+		'20-6': { base: 0.6770703648487681, mod: 0.6989493736178257 },
+		'20-T': { base: 0.44132588835719294, mod: 0.4108205539385041 },
+		'20-A': { base: 0.10164595083868398, mod: 0.10450003154768445 },
 	};
 
 	const totals = [8, 12, 16, 20];
@@ -257,11 +256,36 @@ describe('soft totals', () => {
 });
 
 describe('splits', () => {
-	it('always recommends splitting aces', () => {
-		const result = computeSplitEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, ['A'], RANKS);
+	it('always recommends splitting aces at a peeking table', () => {
+		const result = computeSplitEvComparison(
+			{ ...RULE_SET, dealerPeek: true },
+			0,
+			ACE_FIVE_TAGS,
+			['A'],
+			RANKS
+		);
 		for (const row of result.rows) {
 			expect(row.optimalAction).toBe('P');
 		}
+	});
+
+	it('hits A,A against an ace at a no-peek table instead of splitting', () => {
+		// A,A is soft 12, so hitting it cannot bust and plays far better than
+		// the hard 12 an earlier `addValue` bug made it. Without a peek, both
+		// split hands are exposed to a dealer natural taking the whole wager,
+		// which is what tips an ENHC table away from splitting here -- the
+		// standard ENHC recommendation, and the reverse of the peeking case
+		// above. Against a ten the split still wins.
+		const result = computeSplitEvComparison(
+			{ ...RULE_SET, dealerPeek: false },
+			0,
+			ACE_FIVE_TAGS,
+			['A'],
+			['A', 'T']
+		);
+		const byUpcard = new Map(result.rows.map((row) => [row.upcard, row]));
+		expect(byUpcard.get('A')!.optimalAction).toBe('H');
+		expect(byUpcard.get('T')!.optimalAction).toBe('P');
 	});
 
 	it('recommends splitting 8s against every upcard from 2 through 9', () => {
@@ -371,9 +395,10 @@ describe('dealer peek', () => {
 			computeEvComparison({ ...rules, dealerPeek: false }, 0, ACE_FIVE_TAGS, [21], ['T'])
 				.rows[0].baseEvPercent / 100;
 
-		// One deck in half-card units: 104 total, minus 1 for the removed
-		// upcard leaves 103, 8 of them the ace that completes the natural.
-		const pNatural = 8 / 103;
+		// One deck in half-card units: 104 total, minus 2 (one whole card) for
+		// the removed upcard leaves 102, 8 of them the ace that completes the
+		// natural -- i.e. 4 aces out of the 51 cards left, as it should be.
+		const pNatural = 8 / 102;
 		expect(noPeekEv).toBeCloseTo((1 - pNatural) * peekEv - pNatural, 9);
 	});
 });
@@ -425,7 +450,9 @@ describe('surrender', () => {
 		}
 	});
 
-	it('reports surrender as a flat half-bet loss on the splits table', () => {
+	it('reports surrender as a flat half-bet loss behind a peek', () => {
+		// Late surrender is taken after the dealer has checked, so the natural
+		// is already out of the world both sides of the comparison live in.
 		const result = computeSplitEvComparison(
 			{ ...RULE_SET, surrender: 'late', dealerPeek: true },
 			0,
@@ -435,6 +462,66 @@ describe('surrender', () => {
 		);
 		const row = result.rows[0];
 		if (row.optimalAction === 'R') expect(row.countEvPercent).toBeCloseTo(-50, 9);
+	});
+
+	it('charges surrender for the dealer natural it cannot dodge at a no-peek table', () => {
+		// With no hole-card check there is nothing to surrender out of: the
+		// natural is still live and, under the "all bets lost" convention,
+		// takes the whole wager. Surrender is worth -pBJ + (1 - pBJ) * -0.5,
+		// not a flat -0.5. Six decks in half-card units: 624 total, minus 2
+		// for the removed ace upcard leaves 622, 192 of them tens.
+		const pNatural = 192 / 622;
+		const surrenderEv = -pNatural + (1 - pNatural) * -0.5;
+
+		const rows = new Map(
+			computeEvComparison(
+				{
+					...RULE_SET,
+					decks: 6,
+					dealerHitsSoft17: false,
+					surrender: 'late',
+					dealerPeek: false,
+				},
+				0,
+				ACE_FIVE_TAGS,
+				[15, 16, 17],
+				['A']
+			).rows.map((row) => [row.total, row])
+		);
+
+		// Overstated as a flat -50% this used to look better than standing on
+		// 17, and better than playing 15 out.
+		expect(rows.get(16)!.optimalAction).toBe('R');
+		expect(rows.get(16)!.baseEvPercent).toBeCloseTo(surrenderEv * 100, 9);
+		expect(rows.get(17)!.optimalAction).toBe('S');
+		expect(rows.get(17)!.baseEvPercent).toBeGreaterThan(surrenderEv * 100);
+		expect(rows.get(15)!.optimalAction).not.toBe('R');
+	});
+
+	it('reports early surrender in the same conditional frame as its neighbours', () => {
+		// Early surrender really is worth -0.5 before the peek, but every
+		// other cell at a peeking table is reported conditional on no dealer
+		// natural. Displaying the flat -0.5 put the chosen action's number
+		// below the stand value it had just beaten.
+		const rules = { ...RULE_SET, surrender: 'early' as Surrender, dealerPeek: true };
+		const pNatural = 128 / 414;
+		const conditional = (-0.5 + pNatural) / (1 - pNatural);
+
+		const row = computeEvComparison(rules, 0, ACE_FIVE_TAGS, [17], ['A']).rows[0];
+		expect(row.optimalAction).toBe('R');
+		expect(row.baseEvPercent).toBeCloseTo(conditional * 100, 9);
+		expect(row.baseEvPercent).toBeGreaterThan(-50);
+
+		// ...and above the stand EV it was chosen over, which is the whole
+		// point of reporting the two in one frame.
+		const stand = computeEvComparison(
+			{ ...rules, surrender: 'none' },
+			0,
+			ACE_FIVE_TAGS,
+			[17],
+			['A']
+		).rows[0];
+		expect(row.baseEvPercent).toBeGreaterThan(stand.baseEvPercent);
 	});
 });
 
@@ -452,47 +539,139 @@ describe('split rules', () => {
 			).rows.map((row) => [`${row.pairRank}-${row.upcard}`, row])
 		);
 
+	// One grid per distinct rule set, built once at collection time: each is a
+	// few seconds of exact recursion, and several of the cases below want the
+	// same one. `splitLimit: 4, resplitAces: false` is the shared baseline.
+	const oneHand = splitRows({ splitLimit: 1 });
+	const twoHands = splitRows({ splitLimit: 2 });
+	const fourHands = splitRows({ splitLimit: 4 });
+	const fourHandsRsa = splitRows({ splitLimit: 4, resplitAces: true });
+	const withoutDas = splitRows({ doubleAfterSplit: false });
+	const threeHands = splitRows({ splitLimit: 3 });
+	const eightHands = splitRows({ splitLimit: 8 });
+
 	it('never splits at a table that allows only one hand', () => {
-		for (const row of splitRows({ splitLimit: 1 }).values()) {
+		for (const row of oneHand.values()) {
 			expect(row.optimalAction).not.toBe('P');
 		}
 	});
 
 	it('splits 4,4 against a weak upcard only when doubling after a split is allowed', () => {
-		expect(splitRows({ doubleAfterSplit: true }).get('4-6')!.optimalAction).toBe('P');
-		expect(splitRows({ doubleAfterSplit: false }).get('4-6')!.optimalAction).toBe('H');
+		expect(fourHands.get('4-6')!.optimalAction).toBe('P');
+		expect(withoutDas.get('4-6')!.optimalAction).toBe('H');
 	});
 
 	it('is worth more with doubling after a split allowed', () => {
-		const withDas = splitRows({ doubleAfterSplit: true });
-		const withoutDas = splitRows({ doubleAfterSplit: false });
 		for (const key of ['8-5', '8-6']) {
-			expect(withDas.get(key)!.countEvPercent).toBeGreaterThan(
+			expect(fourHands.get(key)!.countEvPercent).toBeGreaterThan(
 				withoutDas.get(key)!.countEvPercent
 			);
 		}
 	});
 
 	it('is worth more the more hands the split limit allows', () => {
-		const twoHands = splitRows({ splitLimit: 2 });
-		const fourHands = splitRows({ splitLimit: 4 });
 		expect(fourHands.get('8-5')!.countEvPercent).toBeGreaterThan(
 			twoHands.get('8-5')!.countEvPercent
 		);
 	});
 
-	it('raises the split limit for aces only when resplitting them is allowed', () => {
-		const noRsa = splitRows({ splitLimit: 4, resplitAces: false });
-		const rsa = splitRows({ splitLimit: 4, resplitAces: true });
-		const twoHands = splitRows({ splitLimit: 2, resplitAces: false });
+	it('spends one shared hand budget rather than one per hand', () => {
+		// The budget belongs to the round, so the third and fourth permitted
+		// hands are worth the same thing: one hand that may split once, in
+		// place of one that may not. When each hand carried its own budget,
+		// "limit 3" was already modelling four hands and the 2->3 step came
+		// out several times larger than the 3->4 step.
+		const ev = (rows: typeof twoHands) => rows.get('8-5')!.countEvPercent;
+		const gainFromThird = ev(threeHands) - ev(twoHands);
+		const gainFromFourth = ev(fourHands) - ev(threeHands);
 
-		expect(noRsa.get('A-6')!.countEvPercent).toBeCloseTo(
+		expect(gainFromThird).toBeGreaterThan(0);
+		expect(gainFromFourth).toBeCloseTo(gainFromThird, 9);
+		// More slots still help, with diminishing returns rather than a
+		// doubling ladder.
+		expect(ev(eightHands)).toBeGreaterThan(ev(fourHands));
+		expect(ev(eightHands) - ev(fourHands)).toBeLessThan(gainFromThird);
+	});
+
+	it('raises the split limit for aces only when resplitting them is allowed', () => {
+		expect(fourHands.get('A-6')!.countEvPercent).toBeCloseTo(
 			twoHands.get('A-6')!.countEvPercent,
 			9
 		);
-		expect(rsa.get('A-6')!.countEvPercent).toBeGreaterThan(
-			noRsa.get('A-6')!.countEvPercent
+		expect(fourHandsRsa.get('A-6')!.countEvPercent).toBeGreaterThan(
+			fourHands.get('A-6')!.countEvPercent
 		);
+	});
+});
+
+describe('dealer bust probability', () => {
+	/**
+	 * Unconditional dealer bust chance per upcard, 6 decks, from Wizard of
+	 * Odds Appendix 2B. Independent of anything this codebase computes, and
+	 * sensitive to both the soft-ace handling in `addValue` and the size of a
+	 * card removal -- either defect moves the ace column by roughly 2pp.
+	 *
+	 * Only the upcards the published table is quoted at to four decimals are
+	 * asserted; the rest of the column is covered by the golden EV fixtures.
+	 */
+	const bustPercentByUpcard = (dealerHitsSoft17: boolean) =>
+		new Map(
+			computeEvComparison(
+				{
+					...RULE_SET,
+					decks: 6,
+					dealerHitsSoft17,
+					// No peek keeps naturals in the distribution, which is the
+					// frame the published table is in.
+					dealerPeek: false,
+				},
+				0,
+				ACE_FIVE_TAGS,
+				[20],
+				RANKS
+			).rows.map((row) => [row.upcard, row.dealerBustPercent])
+		);
+
+	const s17 = bustPercentByUpcard(false);
+	const h17 = bustPercentByUpcard(true);
+
+	it.each([
+		['A', 11.5473],
+		['2', 35.3504],
+		['3', 37.4194],
+		['4', 39.5805],
+		['5', 41.8406],
+	] as const)('matches the published S17 value for a dealer %s', (upcard, expected) => {
+		expect(s17.get(upcard)!).toBeCloseTo(expected, 3);
+	});
+
+	it('matches the published H17 value for a dealer ace', () => {
+		expect(h17.get('A')!).toBeCloseTo(13.9149, 3);
+	});
+
+	it('busts more often on every low upcard when the dealer hits soft 17', () => {
+		for (const upcard of ['2', '3', '4', '5', '6', 'A'] as const) {
+			expect(h17.get(upcard)!).toBeGreaterThan(s17.get(upcard)!);
+		}
+	});
+});
+
+describe('soft 12 and A,A', () => {
+	it('values hitting A,A the same as hitting the soft 12 it is', () => {
+		// A,A is soft 12, not hard 12. The two tables reach it by different
+		// routes -- `analyzeGrid`'s soft row and `analyzeSplitGrid`'s pair row
+		// -- and used to disagree by ~20pp because `pairTotal('A')` hardened
+		// the hand. Picked at an upcard where hitting is the optimal action in
+		// both tables, so both cells report the hit EV.
+		const rules = { ...RULE_SET, dealerPeek: false };
+		const soft12 = computeEvComparison(rules, 0, ACE_FIVE_TAGS, [12], ['A'], true)
+			.rows[0];
+		const pairOfAces = computeSplitEvComparison(rules, 0, ACE_FIVE_TAGS, ['A'], ['A'])
+			.rows[0];
+
+		expect(soft12.optimalAction).toBe('H');
+		expect(pairOfAces.optimalAction).toBe('H');
+		expect(pairOfAces.baseEvPercent).toBeCloseTo(soft12.baseEvPercent, 9);
 	});
 });
 
