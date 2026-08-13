@@ -132,19 +132,28 @@ describe('applyCountToComposition', () => {
 describe('computeEvComparison', () => {
 	// Golden values from the reference Python implementation
 	// (1 deck, H17, Ace-Five count +2, half-card units).
+	//
+	// The six T/A-upcard, no-peek cells below (8-T, 8-A, 12-T, 12-A, 16-T,
+	// 16-A) are overridden from that reference: it shared a bug with this
+	// codebase's original port where a live (unpeeked) dealer natural was
+	// folded into an ordinary dealer 21, so a player hand that also landed
+	// on 21 by drawing (e.g. hitting 16 into a 5) wrongly pushed instead of
+	// losing to the natural, as standard rules require. 20-T/20-A are exempt
+	// since standing on 20 never draws into this case. Recomputed by hand
+	// after the fix (see `dealerUpcardDist`'s `natural` outcome).
 	const golden: Record<string, { base: number; mod: number }> = {
 		'8-2': { base: -0.022614020102258103, mod: -0.006907015828013355 },
 		'8-6': { base: 0.10595493706475456, mod: 0.13206283501164154 },
-		'8-T': { base: -0.29623968142730495, mod: -0.30606471403988766 },
-		'8-A': { base: -0.44905265427079005, mod: -0.43415487880245657 },
+		'8-T': { base: -0.3015941308975191, mod: -0.3120509036619411 },
+		'8-A': { base: -0.4709079493315567, mod: -0.45330916624384554 },
 		'12-2': { base: -0.25064167438251495, mod: -0.2503294793682547 },
 		'12-6': { base: -0.12249146529035816, mod: -0.11926370647221837 },
-		'12-T': { base: -0.41416494851930863, mod: -0.42919265541978535 },
-		'12-A': { base: -0.5317264125725097, mod: -0.5293405004203375 },
+		'12-T': { base: -0.4219059556827166, mod: -0.4388588647591659 },
+		'12-A': { base: -0.5643791705463572, mod: -0.5602769913101782 },
 		'16-2': { base: -0.2844464086900959, mod: -0.27203348828830076 },
 		'16-6': { base: -0.12249146529035816, mod: -0.11926370647221837 },
-		'16-T': { base: -0.5642431117730301, mod: -0.5889534675911907 },
-		'16-A': { base: -0.6514967734403396, mod: -0.6708949235551439 },
+		'16-T': { base: -0.5703348688642161, mod: -0.5889534675911907 },
+		'16-A': { base: -0.6758638018050835, mod: -0.6708949235551441 },
 		'20-2': { base: 0.6341572502198931, mod: 0.6300076609865916 },
 		'20-6': { base: 0.6776749210619718, mod: 0.6989031461332856 },
 		'20-T': { base: 0.43812639597973013, mod: 0.40797110468981135 },
@@ -343,6 +352,29 @@ describe('dealer peek', () => {
 			noPeek.get('20-6')!.dealerBustPercent,
 			9
 		);
+	});
+
+	it('costs a player hand that also lands on 21 the full bet against a live, unpeeked natural', () => {
+		// Standing on a made 21 (never a natural here, per simplification #2)
+		// against a dealer upcard that could hide one: at a peeking table the
+		// natural is filtered out of the world entirely, so the player only
+		// ever wins or pushes. Without the peek that same natural is still
+		// live and, being a genuine two-card blackjack, beats the player's
+		// made 21 outright instead of tying it -- so the no-peek EV should be
+		// exactly `(1 - pNatural) * peekEv - pNatural`, not the more generous
+		// `(1 - pNatural) * peekEv` a push-on-tie treatment would give.
+		const rules = { ...RULE_SET, decks: 1 };
+		const peekEv =
+			computeEvComparison({ ...rules, dealerPeek: true }, 0, ACE_FIVE_TAGS, [21], ['T'])
+				.rows[0].baseEvPercent / 100;
+		const noPeekEv =
+			computeEvComparison({ ...rules, dealerPeek: false }, 0, ACE_FIVE_TAGS, [21], ['T'])
+				.rows[0].baseEvPercent / 100;
+
+		// One deck in half-card units: 104 total, minus 1 for the removed
+		// upcard leaves 103, 8 of them the ace that completes the natural.
+		const pNatural = 8 / 103;
+		expect(noPeekEv).toBeCloseTo((1 - pNatural) * peekEv - pNatural, 9);
 	});
 });
 

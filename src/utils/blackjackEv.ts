@@ -216,6 +216,7 @@ function compKey(comp: Composition): string {
 }
 
 interface CellAnalysis {
+	evPercent: number;
 	optimalAction: PlayerAction;
 	playerBustOnHitPercent: number;
 	dealerBustPercent: number;
@@ -327,10 +328,16 @@ class ShoeEv {
 	 * for a natural, so any hand that is still being played is one where the
 	 * hole card did *not* make blackjack -- the distribution is conditioned
 	 * on that by enumerating the hole card explicitly, skipping the rank that
-	 * would have ended the hand, and renormalising over what is left. Without
-	 * the peek the dealer's natural is still live and shows up as an ordinary
-	 * dealer 21 that beats every player total, which is what a no-peek table
-	 * charges the player.
+	 * would have ended the hand, and renormalising over what is left.
+	 *
+	 * Without the peek the dealer's natural is still live, but it is tracked
+	 * as its own `natural` outcome rather than folded into an ordinary dealer
+	 * 21: a genuine two-card blackjack beats even a player hand that lands on
+	 * a *made* 21 by drawing (e.g. a split ace pulling a ten), the standard
+	 * rule that a natural is never merely tied by a hand built from more than
+	 * two cards. `standEv` charges every `natural` outcome as a loss
+	 * unconditionally, which is safe because these tables never depict a
+	 * player two-card natural to begin with (simplification #2).
 	 */
 	private dealerUpcardDist(
 		comp: Composition,
@@ -340,7 +347,7 @@ class ShoeEv {
 		const startTotal = upcard === 'A' ? 11 : RANK_VALUE[upcard];
 		const startSoft = upcard === 'A';
 		const holeRank = blackjackHoleRank(upcard);
-		if (!this.peek || holeRank === null) {
+		if (holeRank === null) {
 			return this.dealerDist(comp, startTotal, startSoft, totCards);
 		}
 
@@ -348,19 +355,22 @@ class ShoeEv {
 		const cached = this.memoDealerUpcard.get(key);
 		if (cached) return cached;
 
+		const naturalCards = comp[RANK_INDEX[holeRank]];
+		const nonNaturalCards = totCards - naturalCards;
 		// A shoe holding nothing but the blackjack-completing rank leaves no
-		// hand to condition on; fall back to the unconditioned distribution.
-		const nonBlackjackCards = totCards - comp[RANK_INDEX[holeRank]];
-		if (nonBlackjackCards <= 0) {
-			return this.dealerDist(comp, startTotal, startSoft, totCards);
+		// hand to condition on: the hole card is guaranteed to be it.
+		if (nonNaturalCards <= 0) {
+			const res: DealerDist = this.peek ? { 21: 1.0 } : { natural: 1.0 };
+			this.memoDealerUpcard.set(key, res);
+			return res;
 		}
 
-		const res: DealerDist = {};
+		const nonNatural: DealerDist = {};
 		for (const rank of RANKS) {
 			if (rank === holeRank) continue;
 			const n = comp[RANK_INDEX[rank]];
 			if (n <= 0) continue;
-			const p = n / nonBlackjackCards;
+			const p = n / nonNaturalCards;
 			const [newTotal, newSoft] = addValue(startTotal, startSoft, rank);
 			const sub = this.dealerDist(
 				removeCard(comp, rank),
@@ -369,7 +379,20 @@ class ShoeEv {
 				totCards - 1
 			);
 			for (const k in sub) {
-				res[k] = (res[k] ?? 0) + p * sub[k];
+				nonNatural[k] = (nonNatural[k] ?? 0) + p * sub[k];
+			}
+		}
+
+		let res: DealerDist;
+		if (this.peek) {
+			// The dealer has already checked and confirmed no natural -- the
+			// hand being played only exists in this natural-free world.
+			res = nonNatural;
+		} else {
+			const pNatural = naturalCards / totCards;
+			res = { natural: pNatural };
+			for (const k in nonNatural) {
+				res[k] = (res[k] ?? 0) + (1 - pNatural) * nonNatural[k];
 			}
 		}
 
@@ -396,6 +419,11 @@ class ShoeEv {
 			const p = dist[key];
 			if (key === 'bust') {
 				ev += p;
+			} else if (key === 'natural') {
+				// A genuine two-card dealer blackjack beats any hand these tables
+				// can show (simplification #2 keeps player naturals out of scope),
+				// even one that also lands on 21 by drawing.
+				ev -= p;
 			} else {
 				const outcome = Number(key);
 				if (outcome < playerTotal) ev += p;
@@ -524,33 +552,7 @@ class ShoeEv {
 		return SURRENDER_EV > bestPlayEv;
 	}
 
-	grid(
-		comp0: Composition,
-		totals: readonly number[],
-		upcards: readonly Rank[],
-		soft = false
-	): Map<string, number> {
-		const out = new Map<string, number>();
-		// Every upcard removes exactly one card from the same comp0, so the
-		// remaining count after removal is the same for every upcard -- compute
-		// it once instead of re-summing per upcard/recursion node.
-		const totCardsAfterUpcard = comp0.reduce((sum, n) => sum + n, 0) - 1;
-		for (const upcard of upcards) {
-			const compUpcard = removeCard(comp0, upcard);
-			for (const total of totals) {
-				out.set(
-					gridKey(total, upcard),
-					this.bestEv(compUpcard, total, soft, upcard, totCardsAfterUpcard)
-				);
-			}
-		}
-		return out;
-	}
-
-	/**
-	 * Optimal action (incl. doubling and surrender) and bust odds,
-	 * independent of the hit/stand-only `grid()` EV.
-	 */
+	/** Optimal action (incl. doubling and surrender), EV, and bust odds for each total vs. upcard. */
 	analyzeGrid(
 		comp0: Composition,
 		totals: readonly number[],
@@ -568,7 +570,9 @@ class ShoeEv {
 				// real decision, and addValue's single-ace-demotion adjustment isn't
 				// meant to handle drawing a second ace on top of an already-soft 21.
 				if (total >= 21) {
+					const evStand = this.standEv(compUpcard, total, upcard, totCardsAfterUpcard);
 					out.set(gridKey(total, upcard), {
+						evPercent: evStand * 100,
 						optimalAction: 'S',
 						playerBustOnHitPercent: 0,
 						dealerBustPercent,
@@ -597,10 +601,12 @@ class ShoeEv {
 					optimalAction = 'H';
 				}
 				if (this.surrenderIsBest(best, compUpcard, upcard, totCardsAfterUpcard)) {
+					best = SURRENDER_EV;
 					optimalAction = 'R';
 				}
 
 				out.set(gridKey(total, upcard), {
+					evPercent: best * 100,
 					optimalAction,
 					playerBustOnHitPercent:
 						this.playerBustOnHitProb(compUpcard, total, soft, totCardsAfterUpcard) * 100,
@@ -865,17 +871,16 @@ function buildEvComparison(
 	upcards: readonly Rank[],
 	soft: boolean
 ): EvComparisonResult {
-	const baseGrid = baseEngine.grid(base, totals, upcards, soft);
-	const modGrid = countEngine.grid(modified, totals, upcards, soft);
+	const baseAnalysisGrid = baseEngine.analyzeGrid(base, totals, upcards, soft);
 	const analysisGrid = countEngine.analyzeGrid(modified, totals, upcards, soft);
 
 	const rows: EvComparisonRow[] = [];
 	for (const upcard of upcards) {
 		for (const total of totals) {
 			const key = gridKey(total, upcard);
-			const baseEvPercent = (baseGrid.get(key) ?? 0) * 100;
-			const countEvPercent = (modGrid.get(key) ?? 0) * 100;
+			const baseEvPercent = baseAnalysisGrid.get(key)!.evPercent;
 			const analysis = analysisGrid.get(key)!;
+			const countEvPercent = analysis.evPercent;
 			rows.push({
 				total,
 				upcard,
@@ -914,11 +919,10 @@ export function computeEvComparison(
 }
 
 /**
- * Unlike `computeEvComparison` (whose EV numbers are hit/stand-only, per the
- * module docs), each row's EV here is the fully optimal action's EV --
- * stand, hit, double, or split -- since split EV isn't expressible on the
- * hit/stand-only `bestEv` recursion. `optimalAction` is drawn from the same
- * comparison, so the displayed EV always matches the recommended action.
+ * Each row's EV here is the fully optimal action's EV -- stand, hit,
+ * double, or split -- same as `computeEvComparison`'s hard/soft tables.
+ * `optimalAction` is drawn from the same comparison, so the displayed EV
+ * always matches the recommended action.
  */
 /** Same sharing idea as `buildEvComparison`, for the splits table. */
 function buildSplitEvComparison(
