@@ -13,6 +13,11 @@ class ResizeObserverStub {
 }
 globalThis.ResizeObserver ??= ResizeObserverStub;
 
+// jsdom implements no scrolling, so Element.scrollTo is missing. Ark UI's
+// select scrolls its highlighted option into view when the listbox opens,
+// and the resulting TypeError otherwise aborts the interaction mid-flight.
+Element.prototype.scrollTo ??= () => {};
+
 // jsdom has no Worker implementation. EvTable offloads EV computation to
 // blackjackEv.worker.ts via a real Worker in the browser; this stub runs the
 // same request/response protocol on a microtask instead of a real thread, so

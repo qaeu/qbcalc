@@ -188,6 +188,17 @@ $breakpoint-tablet: 800px;
 	}
 }
 
+// Shared look for text/number inputs and select triggers
+@mixin form-control {
+	box-sizing: border-box;
+	width: 100%;
+	padding: 6px 8px;
+	border: 1px solid get($neutrals, 'sep');
+	border-radius: 4px;
+	background-color: get($neutrals, 'bg');
+	color: $foreground;
+}
+
 // Pre/code block styling
 @mixin code-block($bg: $background) {
 	background-color: $bg;
