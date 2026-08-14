@@ -22,10 +22,8 @@ function cellKey(rowId: number | Rank, upcard: Rank): string {
 }
 
 interface EvCellProps {
-	row: EvCellData;
-}
-
-interface LoadingCellProps {
+	row: EvCellData | undefined;
+	loading: boolean;
 	phase: number;
 }
 
@@ -37,30 +35,48 @@ const ACTION_CLASS: Record<PlayerAction, string> = {
 	R: 'is-surrender',
 };
 
+/**
+ * One `<td>` that persists across the loading state rather than being swapped
+ * out for a separate skeleton cell. Only its class changes, which is what lets
+ * the background colour transition between one calculation and the next — a
+ * replaced element would mount at its final colour with nothing to animate.
+ */
 const EvCell: Component<EvCellProps> = (props) => {
+	const activeRow = createMemo(() => (props.loading ? undefined : props.row));
+
+	const cellClass = createMemo(() => {
+		if (props.loading) return `is-loading ev-table__loading-phase-${props.phase}`;
+		const row = props.row;
+		return row ? ACTION_CLASS[row.optimalAction] : '';
+	});
+
 	return (
 		<HoverCard.Root openDelay={0} closeDelay={0} positioning={{ placement: 'bottom' }}>
 			<HoverCard.Trigger
 				asChild={(triggerProps) => (
-					<td
-						{...triggerProps()}
-						tabIndex={0}
-						class={ACTION_CLASS[props.row.optimalAction]}
-					>
-						{props.row.optimalAction}
+					<td {...triggerProps()} tabIndex={activeRow() ? 0 : -1} class={cellClass()}>
+						<Show
+							when={!props.loading}
+							fallback={<span class="ev-table__cell-skeleton" aria-hidden="true" />}
+						>
+							{props.row?.optimalAction ?? '—'}
+						</Show>
 					</td>
 				)}
 			/>
-			<EvCellPopover row={props.row} />
+			{/*
+			 * Deliberately keyed off `row` rather than the loading state. The app
+			 * never clears `result` while recomputing, so the previous row data is
+			 * still here throughout and the popover subtree stays mounted across
+			 * the whole cycle. Gating it on `loading` instead meant every
+			 * calculation tore down and rebuilt a Portal and an Ark positioner for
+			 * every cell, all in the same tick as the class change that is supposed
+			 * to be transitioning. Hovering is blocked by CSS while loading.
+			 */}
+			<Show when={props.row}>{(row) => <EvCellPopover row={row()} />}</Show>
 		</HoverCard.Root>
 	);
 };
-
-const LoadingCell: Component<LoadingCellProps> = (props) => (
-	<td class={`is-loading ev-table__loading-phase-${props.phase}`}>
-		<span class="ev-table__cell-skeleton" aria-hidden="true" />
-	</td>
-);
 
 const LOADING_PHASE_COUNT = 12;
 const PHASE_HASH_PRIME = 2654435761;
@@ -117,21 +133,11 @@ const EvGrid: Component<EvGridProps> = (props) => (
 								<th scope="row">{props.rowLabel ? props.rowLabel(total) : total}</th>
 								<For each={props.upcards}>
 									{(upcard, colIndex) => (
-										<Show
-											when={!props.loading}
-											fallback={
-												<LoadingCell
-													phase={loadingPhase(props.seed, rowIndex(), colIndex())}
-												/>
-											}
-										>
-											<Show
-												when={props.rowsByKey.get(cellKey(total, upcard))}
-												fallback={<td>—</td>}
-											>
-												{(row) => <EvCell row={row()} />}
-											</Show>
-										</Show>
+										<EvCell
+											row={props.rowsByKey.get(cellKey(total, upcard))}
+											loading={props.loading}
+											phase={loadingPhase(props.seed, rowIndex(), colIndex())}
+										/>
 									)}
 								</For>
 							</tr>
@@ -170,21 +176,11 @@ const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
 								<th scope="row">{formatPairLabel(pairRank)}</th>
 								<For each={props.upcards}>
 									{(upcard, colIndex) => (
-										<Show
-											when={!props.loading}
-											fallback={
-												<LoadingCell
-													phase={loadingPhase(props.seed, rowIndex(), colIndex())}
-												/>
-											}
-										>
-											<Show
-												when={props.rowsByKey.get(cellKey(pairRank, upcard))}
-												fallback={<td>—</td>}
-											>
-												{(row) => <EvCell row={row()} />}
-											</Show>
-										</Show>
+										<EvCell
+											row={props.rowsByKey.get(cellKey(pairRank, upcard))}
+											loading={props.loading}
+											phase={loadingPhase(props.seed, rowIndex(), colIndex())}
+										/>
 									)}
 								</For>
 							</tr>

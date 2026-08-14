@@ -3,7 +3,9 @@
 
 // Keep in sync with LOADING_PHASE_COUNT in src/components/EvTable.tsx.
 $skeleton-phase-count: 12;
-$skeleton-pulse-duration: 1.2s;
+$skeleton-pulse-duration: 1.4s;
+$cell-fade-duration: 0.5s;
+$cell-hover-duration: 0.1s;
 
 @layer screen {
 	.ev-table {
@@ -57,12 +59,22 @@ $skeleton-pulse-duration: 1.2s;
 			font-weight: 400;
 		}
 
-		td.is-hit,
-		td.is-stand,
-		td.is-double,
-		td.is-split,
-		td.is-surrender {
-			transition: background-color 0.15s ease;
+		// On every cell, not just the coloured ones, so a cell eases between its
+		// old action colour, the bare loading state, and its new colour instead
+		// of cutting between them. Also covers the hover highlight.
+		td {
+			background-color: transparent;
+			transition:
+				background-color $cell-fade-duration ease,
+				color $cell-fade-duration ease;
+		}
+
+		// A transition reads its duration from the state being moved *into*, so
+		// pointing at a cell picks the snappier one here while a recalculated cell
+		// still eases at $cell-fade-duration. Moving the pointer away reads from
+		// the rule above instead, so the highlight releases at the slower rate.
+		td:hover {
+			transition-duration: $cell-hover-duration;
 		}
 
 		td.is-hit {
@@ -111,7 +123,10 @@ $skeleton-pulse-duration: 1.2s;
 		}
 
 		td.is-loading {
-			text-align: center;
+			// The popover stays mounted through the loading state, so block the
+			// pointer rather than unmounting it: hovering a skeleton would
+			// otherwise reveal the previous calculation's numbers.
+			pointer-events: none;
 
 			// Negative delays start every cell mid-cycle, so the table is already
 			// twinkling on the first frame rather than fading up together.

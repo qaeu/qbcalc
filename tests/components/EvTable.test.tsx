@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
+import { createSignal } from 'solid-js';
 
 import EvTable from '#c/EvTable';
 import { DEFAULT_RULE_SET, computeAllEvTables } from '#utils/blackjackEv';
@@ -67,6 +68,42 @@ describe('EvTable', () => {
 			.querySelectorAll('td')[0];
 
 		expect(firstDataCell.classList.contains('is-loading')).toBe(true);
+	});
+
+	// The background-colour transition between one calculation and the next only
+	// runs if the cell is the same element throughout: a `<td>` swapped out for a
+	// separate skeleton cell would mount at its final colour with nothing to
+	// animate from.
+	it('reuses the same cell element across the loading state', async () => {
+		const [isComputing, setIsComputing] = createSignal(false);
+		const [result, setResult] = createSignal<EvWorkerResult | null>(SAMPLE_RESULT);
+
+		render(() => (
+			<EvTable result={result} isComputing={isComputing} error={() => null} />
+		));
+
+		const firstDataCell = () =>
+			within(screen.getAllByRole('table')[0])
+				.getAllByRole('row')[1]
+				.querySelectorAll('td')[0];
+
+		const before = firstDataCell();
+		expect(before.textContent).toMatch(/^[HSD]$/);
+
+		setIsComputing(true);
+		setResult(null);
+		await waitFor(() => {
+			expect(firstDataCell().classList.contains('is-loading')).toBe(true);
+		});
+		expect(firstDataCell()).toBe(before);
+
+		setResult(SAMPLE_RESULT);
+		setIsComputing(false);
+		await waitFor(() => {
+			expect(firstDataCell().classList.contains('is-loading')).toBe(false);
+		});
+		expect(firstDataCell()).toBe(before);
+		expect(before.textContent).toMatch(/^[HSD]$/);
 	});
 
 	it('shows the optimal play as a single letter, and EV, delta, and bust odds when hovered', async () => {
