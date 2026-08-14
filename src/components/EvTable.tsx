@@ -371,6 +371,7 @@ const EvTable: Component<EvTableProps> = (props) => {
 					upcards={RANKS}
 					rowsByKey={softRowsByKey()}
 					rowLabel={formatSoftTotalLabel}
+					handLabel={(total) => `Soft ${total}`}
 					loading={props.isComputing()}
 					seed={runSeed() ^ GRID_SALTS.soft}
 					count={props.count()}
