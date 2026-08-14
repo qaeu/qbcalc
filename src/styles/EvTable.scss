@@ -194,6 +194,10 @@ $deviation-ring-width: 3px;
 			border-radius: 6px;
 			font-size: 12px;
 			color: $foreground;
+			// Describes the cell, not an interactive surface of its own: the
+			// cursor moving onto it shouldn't keep it open, so it never registers
+			// a hover and the card closes as soon as the pointer leaves the cell.
+			pointer-events: none;
 		}
 
 		// Bleeds to the popover's own edges (cancelling its padding) so the
