@@ -7,6 +7,7 @@ $skeleton-pulse-duration: 1.4s;
 $cell-fade-duration: 0.5s;
 $cell-hover-duration: 0.1s;
 $deviation-ring-width: 3px;
+$popover-action-opacity: 0.95;
 
 @layer screen {
 	.ev-table {
@@ -79,12 +80,16 @@ $deviation-ring-width: 3px;
 			transition-duration: $cell-hover-duration;
 		}
 
-		@mixin action-colour($colourset) {
+		@mixin action-colour($colourset, $opacity: 1) {
 			color: get($colourset, 'fg-light');
-			background-color: get($colourset, 'fade');
+			background-color: oklch(
+				from get($colourset, 'fade') l c h / calc(alpha * #{$opacity})
+			);
 
 			&:hover {
-				background-color: get($colourset, 'fade-less');
+				background-color: oklch(
+					from get($colourset, 'fade-less') l c h / calc(alpha * #{$opacity})
+				);
 			}
 		}
 
@@ -189,9 +194,19 @@ $deviation-ring-width: 3px;
 			z-index: 20;
 			max-width: 220px;
 			padding: 10px 12px;
-			background-color: get($neutrals, 'bg');
-			border: 1px solid get($neutrals, 'sep');
+			background-color: oklch(from get($neutrals, 'bg') l c h / 0.85);
+			backdrop-filter: blur(4px);
+			-webkit-backdrop-filter: blur(4px);
+			// Only the edge the arrow attaches to -- The popover opens above
+			// or below the cell depending on available space, so which edge
+			// that is flips with `data-side` (set by the positioning library)
+			border-top: 1px solid var(--white-a11);
 			border-radius: 6px;
+
+			&[data-side='top'] {
+				border-top: 0;
+				border-bottom: 1px solid var(--white-a11);
+			}
 			font-size: 12px;
 			color: $foreground;
 			// Describes the cell, not an interactive surface of its own: the
@@ -209,11 +224,6 @@ $deviation-ring-width: 3px;
 		// Rounded on its own corners rather than via `overflow: hidden` on the
 		// popover, which would also clip the arrow poking outside its box.
 		&__popover-action {
-			position: relative;
-			// Above the arrow (which sits at z-index: auto), so the banner's fill
-			// covers the half of the arrow diamond that would otherwise overlap it
-			// and read as a notch cut into the banner.
-			z-index: 1;
 			margin: -10px -12px 10px;
 			padding: 6px 12px;
 			border-top-left-radius: 5px;
@@ -223,23 +233,23 @@ $deviation-ring-width: 3px;
 			text-align: center;
 
 			&.is-hit {
-				@include action-colour($primaries);
+				@include action-colour($primaries, $popover-action-opacity);
 			}
 
 			&.is-stand {
-				@include action-colour($errors);
+				@include action-colour($errors, $popover-action-opacity);
 			}
 
 			&.is-double {
-				@include action-colour($infos);
+				@include action-colour($infos, $popover-action-opacity);
 			}
 
 			&.is-split {
-				@include action-colour($warnings);
+				@include action-colour($warnings, $popover-action-opacity);
 			}
 
 			&.is-surrender {
-				@include action-colour($neutrals);
+				@include action-colour($neutrals, $popover-action-opacity);
 			}
 		}
 
@@ -267,17 +277,28 @@ $deviation-ring-width: 3px;
 		}
 
 		&__popover-arrow {
-			--arrow-size: 8px;
-			--arrow-background: #{get($neutrals, 'bg')};
+			--arrow-size: 10px;
+			--arrow-background: #{$white};
+			// Zag sets --arrow-offset inline (arrow tucked half into the content box
+			// by default), so this needs !important to win and pull the tip 1px
+			// clear of the content's border.
+			--arrow-offset: calc(var(--arrow-size-half) * -1) !important;
 		}
 
-		// The tip is a square rotated 45deg; only its top and left edges land in
-		// the visible half (the popover always opens below the cell, so the tip
-		// points up). Bordering those two makes the tip read against the
-		// background instead of just blending into it.
+		// The tip is a square rotated 45deg (225deg when the popover lands
+		// above the cell instead of below -- Zag flips it a further 180deg via
+		// the same top/left edges, so this clip needs no side-specific
+		// variant); only its top-left half ends up poking out past the
+		// content box, with the other half sitting underneath the content
+		// where it's invisible anyway. Clipping to that half stops its
+		// background from showing through the content's own translucency
+		// where the two overlap. Bordering the two straight edges of the
+		// triangle makes the tip read against the background instead of just
+		// blending into it.
 		&__popover-arrow-tip {
-			border-top: 1px solid get($neutrals, 'sep');
-			border-left: 1px solid get($neutrals, 'sep');
+			clip-path: polygon(0 0, 100% 0, 0 100%);
+			border-top: 1px solid $white;
+			border-left: 1px solid $white;
 		}
 	}
 }
