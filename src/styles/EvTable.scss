@@ -6,6 +6,7 @@ $skeleton-phase-count: 12;
 $skeleton-pulse-duration: 1.4s;
 $cell-fade-duration: 0.5s;
 $cell-hover-duration: 0.1s;
+$deviation-ring-width: 3px;
 
 @layer screen {
 	.ev-table {
@@ -66,6 +67,7 @@ $cell-hover-duration: 0.1s;
 			background-color: transparent;
 			transition:
 				background-color $cell-fade-duration ease,
+				box-shadow $cell-fade-duration ease,
 				color $cell-fade-duration ease;
 		}
 
@@ -120,6 +122,43 @@ $cell-hover-duration: 0.1s;
 			&:hover {
 				background-color: get($neutrals, 'fade-less');
 			}
+		}
+
+		// A cell whose action the count has moved off basic strategy: the fill
+		// stays with the action to take now, and the ring names the action it
+		// replaced. Drawn as an inset shadow rather than a real border because
+		// `border-collapse: collapse` makes adjacent cells share an edge -- two
+		// neighbouring deviations would have to agree on its colour -- and
+		// because a border would nudge the text by its own width.
+		@mixin deviation-ring($colourset) {
+			box-shadow: inset 0 0 0 $deviation-ring-width get($colourset, 'fade-less');
+
+			// Hovering raises the fill to alpha-3 as well, which would leave the
+			// ring and the cell it rings at the same weight. Step 5 lifts the ring
+			// just clear of that without reading as a drawn border.
+			&:hover {
+				box-shadow: inset 0 0 0 $deviation-ring-width get($colourset, 'highlight-dark');
+			}
+		}
+
+		td.was-hit {
+			@include deviation-ring($primaries);
+		}
+
+		td.was-stand {
+			@include deviation-ring($errors);
+		}
+
+		td.was-double {
+			@include deviation-ring($infos);
+		}
+
+		td.was-split {
+			@include deviation-ring($warnings);
+		}
+
+		td.was-surrender {
+			@include deviation-ring($neutrals);
 		}
 
 		td.is-loading {

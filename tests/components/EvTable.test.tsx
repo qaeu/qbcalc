@@ -10,6 +10,11 @@ import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 // fixture -- deterministic, and keeps these tests independent of the worker.
 const SAMPLE_RESULT: EvWorkerResult = computeAllEvTables(DEFAULT_RULE_SET, 1);
 
+// A count high enough to move some hard totals off basic strategy, which is
+// what the deviation ring marks. At +1 the hard grid has a single deviation;
+// this one has several, in more than one direction.
+const DEVIATION_RESULT: EvWorkerResult = computeAllEvTables(DEFAULT_RULE_SET, 15);
+
 // The HoverCard content isn't unmounted while closed (it's hidden via the
 // `hidden` attribute instead), so look it up by the id HoverCard pairs with
 // the trigger rather than trusting DOM order across the whole 10x10 grid.
@@ -104,6 +109,48 @@ describe('EvTable', () => {
 		});
 		expect(firstDataCell()).toBe(before);
 		expect(before.textContent).toMatch(/^[HSD]$/);
+	});
+
+	it('rings only the cells whose action the count has moved, in the baseline action colour', () => {
+		render(() => (
+			<EvTable
+				result={() => DEVIATION_RESULT}
+				isComputing={() => false}
+				error={() => null}
+			/>
+		));
+
+		const baseActionClass: Record<string, string> = {
+			H: 'was-hit',
+			S: 'was-stand',
+			D: 'was-double',
+			P: 'was-split',
+			R: 'was-surrender',
+		};
+
+		const rows = within(screen.getAllByRole('table')[0]).getAllByRole('row').slice(1);
+		const upcards = DEVIATION_RESULT.hard.upcards;
+		let deviations = 0;
+
+		DEVIATION_RESULT.hard.totals.forEach((total, rowIndex) => {
+			const cells = rows[rowIndex].querySelectorAll('td');
+			upcards.forEach((upcard, colIndex) => {
+				const row = DEVIATION_RESULT.hard.rows.find(
+					(candidate) => candidate.total === total && candidate.upcard === upcard
+				)!;
+				const classes = [...cells[colIndex].classList].filter((name) =>
+					name.startsWith('was-')
+				);
+				if (row.baseAction === row.optimalAction) {
+					expect(classes).toEqual([]);
+				} else {
+					expect(classes).toEqual([baseActionClass[row.baseAction]]);
+					deviations += 1;
+				}
+			});
+		});
+
+		expect(deviations).toBeGreaterThan(0);
 	});
 
 	it('shows the optimal play as a single letter, and EV, delta, and bust odds when hovered', async () => {

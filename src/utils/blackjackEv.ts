@@ -115,6 +115,12 @@ export interface EvCellData {
 	countEvPercent: number;
 	deltaPercentPoints: number;
 	optimalAction: PlayerAction;
+	/**
+	 * The optimal action for the unadjusted shoe. Where it differs from
+	 * `optimalAction` the count has moved the play off basic strategy, which
+	 * is what the table marks as a deviation.
+	 */
+	baseAction: PlayerAction;
 	playerBustOnHitPercent: number;
 	dealerBustPercent: number;
 }
@@ -1116,7 +1122,8 @@ function buildEvComparison(
 	for (const upcard of upcards) {
 		for (const total of totals) {
 			const key = gridKey(total, upcard);
-			const baseEvPercent = baseGrid.get(key)!.evPercent;
+			const baseCell = baseGrid.get(key)!;
+			const baseEvPercent = baseCell.evPercent;
 			const analysis = countGrid.get(key)!;
 			const countEvPercent = analysis.evPercent;
 			rows.push({
@@ -1126,6 +1133,7 @@ function buildEvComparison(
 				countEvPercent,
 				deltaPercentPoints: countEvPercent - baseEvPercent,
 				optimalAction: analysis.optimalAction,
+				baseAction: baseCell.optimalAction,
 				playerBustOnHitPercent: analysis.playerBustOnHitPercent,
 				dealerBustPercent: analysis.dealerBustPercent,
 			});
@@ -1160,6 +1168,7 @@ function buildSplitEvComparison(
 				countEvPercent: countCell.evPercent,
 				deltaPercentPoints: countCell.evPercent - baseCell.evPercent,
 				optimalAction: countCell.optimalAction,
+				baseAction: baseCell.optimalAction,
 				playerBustOnHitPercent: countCell.playerBustOnHitPercent,
 				dealerBustPercent: countCell.dealerBustPercent,
 			});

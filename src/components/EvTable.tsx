@@ -36,6 +36,19 @@ const ACTION_CLASS: Record<PlayerAction, string> = {
 };
 
 /**
+ * Ring colour for a cell the count has moved off basic strategy. The fill
+ * carries the action to take now, so the ring carries the action it replaced —
+ * both are legible at once without a second glyph.
+ */
+const BASE_ACTION_CLASS: Record<PlayerAction, string> = {
+	H: 'was-hit',
+	S: 'was-stand',
+	D: 'was-double',
+	P: 'was-split',
+	R: 'was-surrender',
+};
+
+/**
  * One `<td>` that persists across the loading state rather than being swapped
  * out for a separate skeleton cell. Only its class changes, which is what lets
  * the background colour transition between one calculation and the next — a
@@ -47,7 +60,11 @@ const EvCell: Component<EvCellProps> = (props) => {
 	const cellClass = createMemo(() => {
 		if (props.loading) return `is-loading ev-table__loading-phase-${props.phase}`;
 		const row = props.row;
-		return row ? ACTION_CLASS[row.optimalAction] : '';
+		if (!row) return '';
+		const action = ACTION_CLASS[row.optimalAction];
+		return row.baseAction === row.optimalAction ?
+				action
+			:	`${action} ${BASE_ACTION_CLASS[row.baseAction]}`;
 	});
 
 	return (
