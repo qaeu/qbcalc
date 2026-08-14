@@ -95,6 +95,12 @@ const App: Component = () => {
 		clearTimeout(holdTimer);
 		latestRequestId += 1;
 		latestRequestStart = performance.now();
+		// Note that `result` is deliberately left alone here: the previous rows
+		// stay in place while the new ones are computed. EvCell keeps each cell's
+		// popover mounted for as long as it has row data, and that is what stops
+		// a Portal per cell being torn down and rebuilt mid-recalculation, which
+		// would kill the background transition out of the loading state. Clearing
+		// it here would break that animation from a distance.
 		setIsComputing(true);
 		setError(null);
 
