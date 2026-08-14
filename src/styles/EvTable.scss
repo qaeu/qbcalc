@@ -196,7 +196,6 @@ $popover-action-opacity: 0.95;
 			padding: 10px 12px;
 			background-color: oklch(from get($neutrals, 'bg') l c h / 0.85);
 			backdrop-filter: blur(4px);
-			-webkit-backdrop-filter: blur(4px);
 			// Only the edge the arrow attaches to -- The popover opens above
 			// or below the cell depending on available space, so which edge
 			// that is flips with `data-side` (set by the positioning library)
