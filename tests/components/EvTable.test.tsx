@@ -196,6 +196,31 @@ describe('EvTable', () => {
 		expect(popover.textContent).toMatch(/Dealer bust%\d+\.\d%/);
 	});
 
+	it('hides the delta stat line when the count is zero', async () => {
+		render(() => (
+			<EvTable
+				result={() => SAMPLE_RESULT}
+				isComputing={() => false}
+				error={() => null}
+				count={() => 0}
+			/>
+		));
+
+		const tables = screen.getAllByRole('table');
+		const firstDataCell = () =>
+			within(tables[0]).getAllByRole('row')[1].querySelectorAll('td')[0];
+
+		fireEvent.pointerEnter(firstDataCell());
+
+		const popover = popoverFor(firstDataCell());
+		await waitFor(() => {
+			expect(popover.hidden).toBe(false);
+		});
+
+		expect(popover.textContent).toMatch(/EV/);
+		expect(popover.textContent).not.toMatch(/Δ/);
+	});
+
 	it('keeps the popover open when the pointer moves onto it, and hides it once the pointer leaves both', async () => {
 		render(() => (
 			<EvTable

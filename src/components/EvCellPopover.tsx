@@ -1,6 +1,6 @@
 import { HoverCard } from '@ark-ui/solid/hover-card';
 import { Portal } from 'solid-js/web';
-import { type Component } from 'solid-js';
+import { Show, type Component } from 'solid-js';
 
 import type { EvCellData } from '#utils/blackjackEv';
 import {
@@ -39,10 +39,12 @@ const EvCellPopover: Component<EvCellPopoverProps> = (props) => (
 					<span class={signClass(props.row.countEvPercent)}>
 						{formatEvPercent(props.row.countEvPercent)}%
 					</span>
-					<span>{formatCount(props.count)}Δ</span>
-					<span class={signClass(props.row.deltaPercentPoints)}>
-						{formatEvPercent(props.row.deltaPercentPoints)} pts
-					</span>
+					<Show when={props.count !== 0}>
+						<span>{formatCount(props.count)}Δ</span>
+						<span class={signClass(props.row.deltaPercentPoints)}>
+							{formatEvPercent(props.row.deltaPercentPoints)} pts
+						</span>
+					</Show>
 					<span>Hit bust%</span>
 					<span>{formatPercent(props.row.playerBustOnHitPercent)}</span>
 					<span>Dealer bust%</span>
