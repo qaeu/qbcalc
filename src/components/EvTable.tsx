@@ -26,6 +26,7 @@ interface EvCellProps {
 	row: EvCellData | undefined;
 	loading: boolean;
 	phase: number;
+	count: number;
 }
 
 /**
@@ -83,7 +84,9 @@ const EvCell: Component<EvCellProps> = (props) => {
 			 * every cell, all in the same tick as the class change that is supposed
 			 * to be transitioning. Hovering is blocked by CSS while loading.
 			 */}
-			<Show when={props.row}>{(row) => <EvCellPopover row={row()} />}</Show>
+			<Show when={props.row}>
+				{(row) => <EvCellPopover row={row()} count={props.count} />}
+			</Show>
 		</HoverCard.Root>
 	);
 };
@@ -122,6 +125,7 @@ interface EvGridProps {
 	rowsByKey: Map<string, EvCellData>;
 	loading: boolean;
 	seed: number;
+	count: number;
 	rowLabel?: (total: number) => string;
 }
 
@@ -147,6 +151,7 @@ const EvGrid: Component<EvGridProps> = (props) => (
 											row={props.rowsByKey.get(cellKey(total, upcard))}
 											loading={props.loading}
 											phase={loadingPhase(props.seed, rowIndex(), colIndex())}
+											count={props.count}
 										/>
 									)}
 								</For>
@@ -166,6 +171,7 @@ interface SplitEvGridProps {
 	rowsByKey: Map<string, EvCellData>;
 	loading: boolean;
 	seed: number;
+	count: number;
 }
 
 const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
@@ -190,6 +196,7 @@ const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
 											row={props.rowsByKey.get(cellKey(pairRank, upcard))}
 											loading={props.loading}
 											phase={loadingPhase(props.seed, rowIndex(), colIndex())}
+											count={props.count}
 										/>
 									)}
 								</For>
@@ -206,6 +213,7 @@ interface EvTableProps {
 	result: Accessor<EvWorkerResult | null>;
 	isComputing: Accessor<boolean>;
 	error: Accessor<string | null>;
+	count: Accessor<number>;
 }
 
 const EvTable: Component<EvTableProps> = (props) => {
@@ -257,6 +265,7 @@ const EvTable: Component<EvTableProps> = (props) => {
 					rowsByKey={hardRowsByKey()}
 					loading={props.isComputing()}
 					seed={runSeed() ^ GRID_SALTS.hard}
+					count={props.count()}
 				/>
 				<EvGrid
 					title="Soft totals"
@@ -267,6 +276,7 @@ const EvTable: Component<EvTableProps> = (props) => {
 					rowLabel={formatSoftTotalLabel}
 					loading={props.isComputing()}
 					seed={runSeed() ^ GRID_SALTS.soft}
+					count={props.count()}
 				/>
 				<SplitEvGrid
 					title="Pairs"
@@ -275,6 +285,7 @@ const EvTable: Component<EvTableProps> = (props) => {
 					rowsByKey={splitRowsByKey()}
 					loading={props.isComputing()}
 					seed={runSeed() ^ GRID_SALTS.split}
+					count={props.count()}
 				/>
 			</Show>
 		</section>

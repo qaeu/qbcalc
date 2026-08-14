@@ -32,6 +32,7 @@ describe('EvTable', () => {
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
 				error={() => null}
+				count={() => 1}
 			/>
 		));
 
@@ -55,6 +56,7 @@ describe('EvTable', () => {
 				result={() => null}
 				isComputing={() => false}
 				error={() => 'Count too extreme for this shoe'}
+				count={() => 0}
 			/>
 		));
 
@@ -64,7 +66,12 @@ describe('EvTable', () => {
 
 	it('shows a loading placeholder in cells while computing', () => {
 		render(() => (
-			<EvTable result={() => null} isComputing={() => true} error={() => null} />
+			<EvTable
+				result={() => null}
+				isComputing={() => true}
+				error={() => null}
+				count={() => 0}
+			/>
 		));
 
 		const tables = screen.getAllByRole('table');
@@ -84,7 +91,12 @@ describe('EvTable', () => {
 		const [result, setResult] = createSignal<EvWorkerResult | null>(SAMPLE_RESULT);
 
 		render(() => (
-			<EvTable result={result} isComputing={isComputing} error={() => null} />
+			<EvTable
+				result={result}
+				isComputing={isComputing}
+				error={() => null}
+				count={() => 1}
+			/>
 		));
 
 		const firstDataCell = () =>
@@ -117,6 +129,7 @@ describe('EvTable', () => {
 				result={() => DEVIATION_RESULT}
 				isComputing={() => false}
 				error={() => null}
+				count={() => 15}
 			/>
 		));
 
@@ -159,6 +172,7 @@ describe('EvTable', () => {
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
 				error={() => null}
+				count={() => 1}
 			/>
 		));
 
@@ -176,7 +190,7 @@ describe('EvTable', () => {
 		});
 
 		expect(popover.textContent).toMatch(/EV/);
-		expect(popover.textContent).toMatch(/Δ/);
+		expect(popover.textContent).toMatch(/\+1Δ/);
 		expect(popover.textContent).not.toMatch(/Optimal play:/);
 		expect(popover.textContent).toMatch(/Hit bust%\d+\.\d%/);
 		expect(popover.textContent).toMatch(/Dealer bust%\d+\.\d%/);
@@ -188,6 +202,7 @@ describe('EvTable', () => {
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
 				error={() => null}
+				count={() => 1}
 			/>
 		));
 

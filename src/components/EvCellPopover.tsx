@@ -3,13 +3,19 @@ import { Portal } from 'solid-js/web';
 import { type Component } from 'solid-js';
 
 import type { EvCellData } from '#utils/blackjackEv';
-import { formatActionLabel, formatEvPercent, formatPercent } from '#utils/format';
+import {
+	formatActionLabel,
+	formatCount,
+	formatEvPercent,
+	formatPercent,
+} from '#utils/format';
 import { ACTION_CLASS } from '#utils/actionStyle';
 
 import '#styles/EvTable';
 
 interface EvCellPopoverProps {
 	row: EvCellData;
+	count: number;
 }
 
 function signClass(value: number): string | undefined {
@@ -33,7 +39,7 @@ const EvCellPopover: Component<EvCellPopoverProps> = (props) => (
 					<span class={signClass(props.row.countEvPercent)}>
 						{formatEvPercent(props.row.countEvPercent)}%
 					</span>
-					<span>Δ</span>
+					<span>{formatCount(props.count)}Δ</span>
 					<span class={signClass(props.row.deltaPercentPoints)}>
 						{formatEvPercent(props.row.deltaPercentPoints)} pts
 					</span>

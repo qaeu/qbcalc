@@ -35,6 +35,7 @@ const App: Component = () => {
 	const [isComputing, setIsComputing] = createSignal(false);
 	const [error, setError] = createSignal<string | null>(null);
 	const [calcTimeMs, setCalcTimeMs] = createSignal<number | null>(null);
+	const [appliedCount, setAppliedCount] = createSignal(initialConfig.count);
 
 	// Exact enumeration over the full shoe takes seconds; offload it to a
 	// worker so the main thread stays responsive and the grids can show a
@@ -42,6 +43,7 @@ const App: Component = () => {
 	let worker: Worker | undefined;
 	let latestRequestId = 0;
 	let latestRequestStart = 0;
+	let latestRequestCount = 0;
 	let holdTimer: number | undefined;
 
 	const getWorker = (): Worker => {
@@ -68,6 +70,7 @@ const App: Component = () => {
 					if (response.status === 'success') {
 						setCalcTimeMs(elapsed);
 						setResult(response.result);
+						setAppliedCount(latestRequestCount);
 					} else {
 						setCalcTimeMs(null);
 						setError(response.message);
@@ -95,6 +98,7 @@ const App: Component = () => {
 		clearTimeout(holdTimer);
 		latestRequestId += 1;
 		latestRequestStart = performance.now();
+		latestRequestCount = nextConfig.count;
 		// Note that `result` is deliberately left alone here: the previous rows
 		// stay in place while the new ones are computed. EvCell keeps each cell's
 		// popover mounted for as long as it has row data, and that is what stops
@@ -125,7 +129,12 @@ const App: Component = () => {
 					calcTimeMs={calcTimeMs()}
 					onSubmit={runCalculation}
 				/>
-				<EvTable result={result} isComputing={isComputing} error={error} />
+				<EvTable
+					result={result}
+					isComputing={isComputing}
+					error={error}
+					count={appliedCount}
+				/>
 			</div>
 		</main>
 	);
