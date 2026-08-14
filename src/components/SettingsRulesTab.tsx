@@ -118,14 +118,7 @@ const SettingsRulesTab: Component<SettingsRulesTabProps> = (props) => {
 					onChange={(payout) => props.setConfig('blackjackPayout', payout)}
 				/>
 			</SettingsItem>
-			<SettingsItem
-				label="Surrender"
-				helptext={
-					props.config.dealerPeek ?
-						'Whether, and when, the player may surrender a hand'
-					:	'Whether the player may surrender a hand. With no hole card there is no dealer check to be late to, so late surrender is unavailable'
-				}
-			>
+			<SettingsItem label="Surrender" helptext="Type of surrender action allowed">
 				<SettingSelect
 					options={surrenderOptions(!props.config.dealerPeek)}
 					value={props.config.surrender}
@@ -160,11 +153,7 @@ const SettingsRulesTab: Component<SettingsRulesTabProps> = (props) => {
 						}
 					/>
 				</SettingsItem>
-				<SettingsItem
-					label="HSA"
-					helptext="Split aces may be drawn to, instead of taking one card and standing"
-					layout="row"
-				>
+				<SettingsItem label="HSA" helptext="Hit split aces allowed" layout="row">
 					<input
 						type="checkbox"
 						checked={props.config.hitSplitAces}
@@ -175,7 +164,7 @@ const SettingsRulesTab: Component<SettingsRulesTabProps> = (props) => {
 				</SettingsItem>
 				<SettingsItem
 					label="ENHC"
-					helptext="No dealer peek; a dealer natural takes all bets, doubles and splits included"
+					helptext="European no hole card; dealer natural takes all bets"
 					layout="row"
 				>
 					<input

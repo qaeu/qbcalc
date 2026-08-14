@@ -1,3 +1,5 @@
+import type { PlayerAction } from '#utils/blackjackEv';
+
 export function formatEvPercent(value: number): string {
 	const rounded = value.toFixed(3);
 	return value > 0 ? `+${rounded}` : rounded;
@@ -23,4 +25,16 @@ export function formatSoftTotalLabel(total: number): string {
 
 export function formatPairLabel(rank: string): string {
 	return `${rank},${rank}`;
+}
+
+const ACTION_LABELS: Record<PlayerAction, string> = {
+	H: 'Hit',
+	S: 'Stand',
+	D: 'Double',
+	P: 'Split',
+	R: 'Surrender',
+};
+
+export function formatActionLabel(action: PlayerAction): string {
+	return ACTION_LABELS[action];
 }

@@ -11,6 +11,7 @@ import {
 	type Rank,
 } from '#utils/blackjackEv';
 import { formatPairLabel, formatSoftTotalLabel } from '#utils/format';
+import { ACTION_CLASS } from '#utils/actionStyle';
 import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 
 import EvCellPopover from '#c/EvCellPopover';
@@ -26,14 +27,6 @@ interface EvCellProps {
 	loading: boolean;
 	phase: number;
 }
-
-const ACTION_CLASS: Record<PlayerAction, string> = {
-	H: 'is-hit',
-	S: 'is-stand',
-	D: 'is-double',
-	P: 'is-split',
-	R: 'is-surrender',
-};
 
 /**
  * Ring colour for a cell the count has moved off basic strategy. The fill

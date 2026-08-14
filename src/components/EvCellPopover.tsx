@@ -3,7 +3,8 @@ import { Portal } from 'solid-js/web';
 import { type Component } from 'solid-js';
 
 import type { EvCellData } from '#utils/blackjackEv';
-import { formatEvPercent, formatPercent } from '#utils/format';
+import { formatActionLabel, formatEvPercent, formatPercent } from '#utils/format';
+import { ACTION_CLASS } from '#utils/actionStyle';
 
 import '#styles/EvTable';
 
@@ -24,6 +25,9 @@ const EvCellPopover: Component<EvCellPopoverProps> = (props) => (
 				<HoverCard.Arrow class="ev-table__popover-arrow">
 					<HoverCard.ArrowTip class="ev-table__popover-arrow-tip" />
 				</HoverCard.Arrow>
+				<div class={`ev-table__popover-action ${ACTION_CLASS[props.row.optimalAction]}`}>
+					{formatActionLabel(props.row.optimalAction)}
+				</div>
 				<div class="ev-table__popover-grid">
 					<span>EV</span>
 					<span class={signClass(props.row.countEvPercent)}>

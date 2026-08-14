@@ -28,6 +28,13 @@
 	// Portalled out of the select, so it can't be nested under `.setting-select`.
 	.setting-select__content {
 		@include shadow-short;
+		// border-box so the padding and border below don't push min-width past
+		// the trigger's own (border-box) width.
+		box-sizing: border-box;
+		// Set by the popper middleware to the trigger's width, regardless of the
+		// `sameWidth` option -- used here as a floor so a long option can still
+		// widen the menu instead of wrapping.
+		min-width: var(--reference-width);
 		padding: 4px;
 		border: 1px solid get($neutrals, 'sep');
 		border-radius: 6px;
@@ -38,6 +45,8 @@
 	.setting-select__item {
 		padding: 6px 8px;
 		border-radius: 4px;
+		// Matches the trigger, which picks this up from the base `button` style.
+		letter-spacing: 1px;
 		cursor: pointer;
 
 		&[data-highlighted] {

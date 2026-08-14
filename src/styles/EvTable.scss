@@ -79,49 +79,33 @@ $deviation-ring-width: 3px;
 			transition-duration: $cell-hover-duration;
 		}
 
-		td.is-hit {
-			color: get($primaries, 'fg-light');
-			background-color: get($primaries, 'fade');
+		@mixin action-colour($colourset) {
+			color: get($colourset, 'fg-light');
+			background-color: get($colourset, 'fade');
 
 			&:hover {
-				background-color: get($primaries, 'fade-less');
+				background-color: get($colourset, 'fade-less');
 			}
+		}
+
+		td.is-hit {
+			@include action-colour($primaries);
 		}
 
 		td.is-stand {
-			color: get($errors, 'fg-light');
-			background-color: get($errors, 'fade');
-
-			&:hover {
-				background-color: get($errors, 'fade-less');
-			}
+			@include action-colour($errors);
 		}
 
 		td.is-double {
-			color: get($infos, 'fg-light');
-			background-color: get($infos, 'fade');
-
-			&:hover {
-				background-color: get($infos, 'fade-less');
-			}
+			@include action-colour($infos);
 		}
 
 		td.is-split {
-			color: get($warnings, 'fg-light');
-			background-color: get($warnings, 'fade');
-
-			&:hover {
-				background-color: get($warnings, 'fade-less');
-			}
+			@include action-colour($warnings);
 		}
 
 		td.is-surrender {
-			color: get($neutrals, 'fg-light');
-			background-color: get($neutrals, 'fade');
-
-			&:hover {
-				background-color: get($neutrals, 'fade-less');
-			}
+			@include action-colour($neutrals);
 		}
 
 		// A cell whose action the count has moved off basic strategy: the fill
@@ -212,6 +196,45 @@ $deviation-ring-width: 3px;
 			color: $foreground;
 		}
 
+		// Bleeds to the popover's own edges (cancelling its padding) so the
+		// action fill reads as a banner across the full width, not an inset chip.
+		// Rounded on its own corners rather than via `overflow: hidden` on the
+		// popover, which would also clip the arrow poking outside its box.
+		&__popover-action {
+			position: relative;
+			// Above the arrow (which sits at z-index: auto), so the banner's fill
+			// covers the half of the arrow diamond that would otherwise overlap it
+			// and read as a notch cut into the banner.
+			z-index: 1;
+			margin: -10px -12px 10px;
+			padding: 6px 12px;
+			border-top-left-radius: 5px;
+			border-top-right-radius: 5px;
+			font-size: 13px;
+			font-weight: 600;
+			text-align: center;
+
+			&.is-hit {
+				@include action-colour($primaries);
+			}
+
+			&.is-stand {
+				@include action-colour($errors);
+			}
+
+			&.is-double {
+				@include action-colour($infos);
+			}
+
+			&.is-split {
+				@include action-colour($warnings);
+			}
+
+			&.is-surrender {
+				@include action-colour($neutrals);
+			}
+		}
+
 		&__popover-grid {
 			display: grid;
 			grid-template-columns: auto auto;
@@ -238,6 +261,15 @@ $deviation-ring-width: 3px;
 		&__popover-arrow {
 			--arrow-size: 8px;
 			--arrow-background: #{get($neutrals, 'bg')};
+		}
+
+		// The tip is a square rotated 45deg; only its top and left edges land in
+		// the visible half (the popover always opens below the cell, so the tip
+		// points up). Bordering those two makes the tip read against the
+		// background instead of just blending into it.
+		&__popover-arrow-tip {
+			border-top: 1px solid get($neutrals, 'sep');
+			border-left: 1px solid get($neutrals, 'sep');
 		}
 	}
 }
