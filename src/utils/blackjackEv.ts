@@ -109,6 +109,34 @@ export type Composition = readonly number[];
 /** A counting system's point value ("tag") for each rank. */
 export type TagValues = Record<Rank, number>;
 
+/**
+ * How a hand settles, as percentages that sum to 100. These are *hand*
+ * probabilities, not stake-weighted: a doubled winner counts once here, and
+ * shows up as twice the money in the EV beside it.
+ */
+export interface ActionOutcome {
+	winPercent: number;
+	pushPercent: number;
+	losePercent: number;
+}
+
+/** One action a hand may take, priced on its own rather than against the others. */
+export interface ActionAnalysis {
+	action: PlayerAction;
+	/** EV of taking this action and then playing on optimally, in percent of one unit wagered. */
+	evPercent: number;
+	/**
+	 * `null` for surrender, which settles for a flat half-loss without a
+	 * showdown, so none of win/push/lose describes it.
+	 *
+	 * For a split these are the odds for *one* of the resulting hands (the two
+	 * are symmetric), while `evPercent` covers both hands' stakes together --
+	 * splitting turns one wager into two, so there is no single hand whose
+	 * money the EV describes.
+	 */
+	outcome: ActionOutcome | null;
+}
+
 /** Fields an EV table cell (and its popover) needs, shared by every table's row shape. */
 export interface EvCellData {
 	baseEvPercent: number;
@@ -123,6 +151,12 @@ export interface EvCellData {
 	baseAction: PlayerAction;
 	playerBustOnHitPercent: number;
 	dealerBustPercent: number;
+	/**
+	 * Every action the table offers this hand, priced individually, in the
+	 * engine's own preference order (the first of two equal EVs is the one
+	 * `optimalAction` names). The drill-down dialog sorts them for display.
+	 */
+	actions: readonly ActionAnalysis[];
 }
 
 export interface EvComparisonRow extends EvCellData {
@@ -213,6 +247,15 @@ const DIST_LEN = 23;
  * about a total no real hand can hold still gets the comparison it asked for.
  */
 const TABLE_LEN = 31;
+/**
+ * The stand table carries a second half: the chance the dealer ties the
+ * player's total, at `PUSH_OFFSET + total`. It rides in the same array as the
+ * EVs rather than a memo of its own because both are read straight off one
+ * dealer distribution, and the memo they would live in is entered once per
+ * node of the player recursion -- a second allocation and a second map per
+ * entry there costs more than the 31 slots this appends.
+ */
+const PUSH_OFFSET = TABLE_LEN;
 
 const RANK_INDEX: Record<Rank, number> = Object.fromEntries(
 	RANKS.map((rank, index) => [rank, index])
@@ -280,6 +323,70 @@ export interface CellAnalysis {
 	optimalAction: PlayerAction;
 	playerBustOnHitPercent: number;
 	dealerBustPercent: number;
+	actions: readonly ActionAnalysis[];
+}
+
+/** A hand's settlement probabilities, as fractions of 1. */
+interface Outcome {
+	win: number;
+	push: number;
+	lose: number;
+}
+
+const ZERO_OUTCOME: Outcome = { win: 0, push: 0, lose: 0 };
+
+/**
+ * Recovers a hand's settlement odds from its EV and its chance of pushing.
+ *
+ * A hand that is not surrendered ends in exactly one of win/push/lose, and its
+ * EV is `stake * (win - lose)`. Two equations, two unknowns -- so the push
+ * probability is the only thing the engine has to carry alongside the EV it
+ * already computes, rather than a third parallel recursion.
+ *
+ * `stake` is the number of units riding on the hand: 2 for a double, 1
+ * otherwise.
+ */
+function outcomeFromEv(ev: number, push: number, stake = 1): Outcome {
+	const margin = ev / stake;
+	const lose = (1 - push - margin) / 2;
+	return { win: margin + lose, push, lose };
+}
+
+function scaleOutcome(outcome: Outcome, factor: number): Outcome {
+	return {
+		win: outcome.win * factor,
+		push: outcome.push * factor,
+		lose: outcome.lose * factor,
+	};
+}
+
+function addOutcome(a: Outcome, b: Outcome): Outcome {
+	return { win: a.win + b.win, push: a.push + b.push, lose: a.lose + b.lose };
+}
+
+/** Rounding can push a probability a hair outside [0, 1]; percentages shouldn't show it. */
+function toPercent(probability: number): number {
+	return Math.min(100, Math.max(0, probability * 100));
+}
+
+function outcomePercent(outcome: Outcome): ActionOutcome {
+	return {
+		winPercent: toPercent(outcome.win),
+		pushPercent: toPercent(outcome.push),
+		losePercent: toPercent(outcome.lose),
+	};
+}
+
+/**
+ * Picks the action the engine plays, and with it the cell's EV: the highest EV
+ * wins, and the earliest entry wins a tie.
+ */
+function bestAction(actions: readonly ActionAnalysis[]): ActionAnalysis {
+	let best = actions[0];
+	for (const action of actions) {
+		if (action.evPercent > best.evPercent) best = action;
+	}
+	return best;
 }
 
 /**
@@ -392,6 +499,11 @@ class ShoeEv {
 		{ length: 64 * RANKS.length },
 		() => new Map()
 	);
+	/** The same, for `bestPush` -- keyed identically, filled only where a breakdown asks. */
+	private readonly memoPush: Map<number, number>[] = Array.from(
+		{ length: 64 * RANKS.length },
+		() => new Map()
+	);
 	/** Removal keys are relative to the root composition the engine was first
 	 * handed, so a different one invalidates every cache. */
 	private rootKey: string | null = null;
@@ -424,6 +536,7 @@ class ShoeEv {
 			for (const memo of this.memoDealer) memo.clear();
 			for (const memo of this.memoStand) memo.clear();
 			for (const memo of this.memoPlayer) memo.clear();
+			for (const memo of this.memoPush) memo.clear();
 			this.arena.reset();
 			this.allocTerminals();
 		}
@@ -512,7 +625,7 @@ class ShoeEv {
 		if (cached !== undefined) return cached;
 
 		const dist = this.upcardDist(upcardIndex, totCards, key);
-		const table = new Float64Array(TABLE_LEN);
+		const table = new Float64Array(TABLE_LEN * 2);
 		table[0] = dist[BUST];
 		let made = 0;
 		for (let total = 4; total <= 21; total += 1) made += dist[total];
@@ -523,6 +636,7 @@ class ShoeEv {
 			// these tables can show (simplification #2 keeps player naturals out
 			// of scope), even one that also lands on 21 by drawing.
 			table[total] = dist[BUST] - dist[NATURAL] + below - (made - below - tie);
+			table[PUSH_OFFSET + total] = tie;
 			below += tie;
 		}
 		memo.set(key, table);
@@ -622,6 +736,16 @@ class ShoeEv {
 		return this.standTable(upcardIndex, totCards, key)[playerTotal];
 	}
 
+	/** Chance the dealer finishes on exactly `playerTotal`, i.e. a stood hand pushes. */
+	private standPush(
+		playerTotal: number,
+		upcardIndex: number,
+		totCards: number,
+		key: number
+	): number {
+		return this.standTable(upcardIndex, totCards, key)[PUSH_OFFSET + playerTotal];
+	}
+
 	private hitEv(
 		total: number,
 		soft: boolean,
@@ -680,6 +804,72 @@ class ShoeEv {
 		return best;
 	}
 
+	/**
+	 * Chance a hand played out the way `bestEv` plays it ends in a push.
+	 *
+	 * It shadows `bestEv` rather than being folded into it: the EV recursion is
+	 * the engine's hot path and runs for every cell, while this is only ever
+	 * entered from the handful of top-level hands whose action breakdown is
+	 * displayed. Which branch `bestEv` took is read back off its own memo --
+	 * a hand only stands where standing is at least as good, so a best EV
+	 * strictly above the stand EV is one that hit.
+	 */
+	private bestPush(
+		total: number,
+		soft: boolean,
+		upcardIndex: number,
+		totCards: number,
+		key: number
+	): number {
+		// A busted hand is a loss, never a push.
+		if (total > 21) return 0;
+
+		const memo = this.memoPush[(total * 2 + (soft ? 1 : 0)) * RANKS.length + upcardIndex];
+		const cached = memo.get(key);
+		if (cached !== undefined) return cached;
+
+		const evStand = this.standEv(total, upcardIndex, totCards, key);
+		const best = this.bestEv(total, soft, upcardIndex, totCards, key);
+		const push =
+			best > evStand ?
+				this.hitPush(total, soft, upcardIndex, totCards, key)
+			:	this.standPush(total, upcardIndex, totCards, key);
+
+		memo.set(key, push);
+		return push;
+	}
+
+	/** `hitEv`'s push counterpart: take one card, then play on optimally. */
+	private hitPush(
+		total: number,
+		soft: boolean,
+		upcardIndex: number,
+		totCards: number,
+		key: number
+	): number {
+		const comp = this.comp;
+		const subTotCards = totCards - CARD_UNITS;
+		let push = 0.0;
+		for (let index = 0; index < RANKS.length; index += 1) {
+			const n = comp[index];
+			if (n < CARD_UNITS) continue;
+			const p = n / totCards;
+			const packed = addPacked(total, soft, index);
+			comp[index] = n - CARD_UNITS;
+			push +=
+				p
+				* this.bestPush(
+					packed >> 1,
+					(packed & 1) === 1,
+					upcardIndex,
+					subTotCards,
+					key + KEY_MULT[index]
+				);
+			comp[index] = n;
+		}
+		return push;
+	}
+
 	/** EV of taking exactly one more card, then being forced to stand, at double the bet. */
 	private doubleEv(
 		total: number,
@@ -708,6 +898,34 @@ class ShoeEv {
 			comp[index] = n;
 		}
 		return ev;
+	}
+
+	/** `doubleEv`'s push counterpart: the one card drawn has to land on the dealer's total. */
+	private doublePush(
+		total: number,
+		soft: boolean,
+		upcardIndex: number,
+		totCards: number,
+		key: number
+	): number {
+		if (totCards < CARD_UNITS) return this.standPush(total, upcardIndex, totCards, key);
+
+		const comp = this.comp;
+		const subTotCards = totCards - CARD_UNITS;
+		let push = 0.0;
+		for (let index = 0; index < RANKS.length; index += 1) {
+			const n = comp[index];
+			if (n < CARD_UNITS) continue;
+			const newTotal = addPacked(total, soft, index) >> 1;
+			// A busted double is a loss outright, so it contributes no push.
+			if (newTotal > 21) continue;
+			comp[index] = n - CARD_UNITS;
+			push +=
+				(n / totCards)
+				* this.standPush(newTotal, upcardIndex, subTotCards, key + KEY_MULT[index]);
+			comp[index] = n;
+		}
+		return push;
 	}
 
 	/** Probability that a single hit card busts the player's current total. */
@@ -775,6 +993,67 @@ class ShoeEv {
 		return (SURRENDER_EV + pBlackjack) / (1 - pBlackjack);
 	}
 
+	/**
+	 * One action's price, in the form the drill-down dialog reads. Each of
+	 * these pairs the EV the grid already compares against with the settlement
+	 * odds behind it, so a cell's headline number and its breakdown can never
+	 * disagree about what an action is worth.
+	 */
+	private standAction(
+		total: number,
+		upcardIndex: number,
+		totCards: number,
+		key: number
+	): ActionAnalysis {
+		const ev = this.standEv(total, upcardIndex, totCards, key);
+		const push = this.standPush(total, upcardIndex, totCards, key);
+		return {
+			action: 'S',
+			evPercent: ev * 100,
+			outcome: outcomePercent(outcomeFromEv(ev, push)),
+		};
+	}
+
+	private hitAction(
+		total: number,
+		soft: boolean,
+		upcardIndex: number,
+		totCards: number,
+		key: number
+	): ActionAnalysis {
+		const ev = this.hitEv(total, soft, upcardIndex, totCards, key);
+		const push = this.hitPush(total, soft, upcardIndex, totCards, key);
+		return {
+			action: 'H',
+			evPercent: ev * 100,
+			outcome: outcomePercent(outcomeFromEv(ev, push)),
+		};
+	}
+
+	private doubleAction(
+		total: number,
+		soft: boolean,
+		upcardIndex: number,
+		totCards: number,
+		key: number
+	): ActionAnalysis {
+		const ev = this.doubleEv(total, soft, upcardIndex, totCards, key);
+		const push = this.doublePush(total, soft, upcardIndex, totCards, key);
+		return {
+			action: 'D',
+			evPercent: ev * 100,
+			// Two units are riding on the hand, so its EV is twice its margin.
+			outcome: outcomePercent(outcomeFromEv(ev, push, 2)),
+		};
+	}
+
+	/** The surrender entry, or null at a table (or against an upcard) that doesn't offer it. */
+	private surrenderAction(upcard: Rank, totCards: number): ActionAnalysis | null {
+		const ev = this.surrenderEv(upcard, totCards);
+		if (ev === null) return null;
+		return { action: 'R', evPercent: ev * 100, outcome: null };
+	}
+
 	/** Half-card units left once the dealer's upcard is off the shoe. */
 	private totCardsAfterUpcard(): number {
 		let sum = 0;
@@ -804,40 +1083,32 @@ class ShoeEv {
 				// A made 21 (e.g. soft A,T) is always stood on -- hitting it is not a
 				// real decision, so there is no optimal-play comparison to make.
 				if (total >= 21) {
+					const stand = this.standAction(total, upcardIndex, totCards, key);
 					out.set(gridKey(total, upcard), {
-						evPercent: this.standEv(total, upcardIndex, totCards, key) * 100,
+						evPercent: stand.evPercent,
 						optimalAction: 'S',
 						playerBustOnHitPercent: 0,
 						dealerBustPercent,
+						actions: [stand],
 					});
 					continue;
 				}
 
-				const evStand = this.standEv(total, upcardIndex, totCards, key);
-				const evHit = this.hitEv(total, soft, upcardIndex, totCards, key);
-				const evDouble = this.doubleEv(total, soft, upcardIndex, totCards, key);
-
-				let optimalAction: PlayerAction = 'S';
-				let best = evStand;
-				if (evDouble > best) {
-					best = evDouble;
-					optimalAction = 'D';
-				}
-				if (evHit > best) {
-					best = evHit;
-					optimalAction = 'H';
-				}
-				const evSurrender = this.surrenderEv(upcard, totCards);
-				if (evSurrender !== null && evSurrender > best) {
-					best = evSurrender;
-					optimalAction = 'R';
-				}
+				const actions: ActionAnalysis[] = [
+					this.standAction(total, upcardIndex, totCards, key),
+					this.doubleAction(total, soft, upcardIndex, totCards, key),
+					this.hitAction(total, soft, upcardIndex, totCards, key),
+				];
+				const surrender = this.surrenderAction(upcard, totCards);
+				if (surrender !== null) actions.push(surrender);
+				const best = bestAction(actions);
 
 				out.set(gridKey(total, upcard), {
-					evPercent: best * 100,
-					optimalAction,
+					evPercent: best.evPercent,
+					optimalAction: best.action,
 					playerBustOnHitPercent: this.playerBustOnHitProb(total, soft, totCards) * 100,
 					dealerBustPercent,
+					actions,
 				});
 			}
 
@@ -873,22 +1144,25 @@ class ShoeEv {
 	 * than re-entering the whole draw enumeration (and its stand/hit/double
 	 * recursions) per level.
 	 */
-	private splitEv(
+	private splitAnalysis(
 		rankIndex: number,
 		upcardIndex: number,
 		totCards: number,
 		key: number
-	): number {
+	): { ev: number; outcome: Outcome } {
 		const isAce = rankIndex === ACE_INDEX;
 		const startTotal = RANK_VALUE[rankIndex];
 		if (totCards < CARD_UNITS) {
-			return 2 * this.standEv(startTotal, upcardIndex, totCards, key);
+			const ev = this.standEv(startTotal, upcardIndex, totCards, key);
+			const push = this.standPush(startTotal, upcardIndex, totCards, key);
+			return { ev: 2 * ev, outcome: outcomeFromEv(ev, push) };
 		}
 
 		const comp = this.comp;
 		const subTotCards = totCards - CARD_UNITS;
 		const drawProbs: number[] = [];
 		const drawPlayEvs: number[] = [];
+		const drawOutcomes: Outcome[] = [];
 		const drawPairsUp: boolean[] = [];
 		for (let index = 0; index < RANKS.length; index += 1) {
 			const n = comp[index];
@@ -899,56 +1173,109 @@ class ShoeEv {
 			const drawKey = key + KEY_MULT[index];
 			comp[index] = n - CARD_UNITS;
 
-			const evStand = this.standEv(newTotal, upcardIndex, subTotCards, drawKey);
+			// Written as a running maximum rather than one `Math.max` so the
+			// settlement odds of the branch actually taken can be picked up
+			// alongside its EV -- and so the push probability behind a branch
+			// that loses the comparison is never computed at all.
+			let playEv = this.standEv(newTotal, upcardIndex, subTotCards, drawKey);
+			let playOutcome = outcomeFromEv(
+				playEv,
+				this.standPush(newTotal, upcardIndex, subTotCards, drawKey)
+			);
 			// A split ace takes exactly one card and must stand on it, unless
 			// the table lets it be drawn to like any other hand.
 			const oneCardOnly = isAce && !this.hitSplitAces;
-			const playEv =
-				oneCardOnly ? evStand : (
-					Math.max(
-						evStand,
-						this.hitEv(newTotal, newSoft, upcardIndex, subTotCards, drawKey),
-						this.das ?
-							this.doubleEv(newTotal, newSoft, upcardIndex, subTotCards, drawKey)
-						:	-Infinity
-					)
-				);
+			if (!oneCardOnly) {
+				const evHit = this.hitEv(newTotal, newSoft, upcardIndex, subTotCards, drawKey);
+				if (evHit > playEv) {
+					playEv = evHit;
+					playOutcome = outcomeFromEv(
+						evHit,
+						this.hitPush(newTotal, newSoft, upcardIndex, subTotCards, drawKey)
+					);
+				}
+				if (this.das) {
+					const evDouble = this.doubleEv(
+						newTotal,
+						newSoft,
+						upcardIndex,
+						subTotCards,
+						drawKey
+					);
+					if (evDouble > playEv) {
+						playEv = evDouble;
+						playOutcome = outcomeFromEv(
+							evDouble,
+							this.doublePush(newTotal, newSoft, upcardIndex, subTotCards, drawKey),
+							2
+						);
+					}
+				}
+			}
 
 			comp[index] = n;
 			drawProbs.push(n / totCards);
 			drawPlayEvs.push(playEv);
+			drawOutcomes.push(playOutcome);
 			drawPairsUp.push(index === rankIndex);
 		}
 
-		let noResplit = 0;
+		let noResplitEv = 0;
+		let noResplitOutcome = ZERO_OUTCOME;
 		for (let draw = 0; draw < drawProbs.length; draw += 1) {
-			noResplit += drawProbs[draw] * drawPlayEvs[draw];
+			noResplitEv += drawProbs[draw] * drawPlayEvs[draw];
+			noResplitOutcome = addOutcome(
+				noResplitOutcome,
+				scaleOutcome(drawOutcomes[draw], drawProbs[draw])
+			);
 		}
+		const noResplit = { ev: noResplitEv, outcome: noResplitOutcome };
 		const canResplit = !isAce || this.resplitAces;
-		const byAllowance = new Map<number, number>();
+		const byAllowance = new Map<number, { ev: number; outcome: Outcome }>();
 
-		/** EV of one post-split hand that may occupy at most `hands` hand slots. */
-		const handEv = (hands: number): number => {
+		/**
+		 * One post-split hand that may occupy at most `hands` hand slots: its EV,
+		 * and the odds of how a single hand ends up settling.
+		 *
+		 * The two are not scaled alike. EV accumulates across every hand the slot
+		 * turns into, because that is where the money is; the settlement odds are
+		 * averaged over them instead, because the question they answer is what
+		 * becomes of one of the hands in front of the player.
+		 */
+		const handAnalysis = (hands: number): { ev: number; outcome: Outcome } => {
 			if (hands < 2 || !canResplit) return noResplit;
 			const cached = byAllowance.get(hands);
 			if (cached !== undefined) return cached;
 
 			// Splitting again trades this one hand for two, which divide this
 			// hand's own allowance between them.
-			const evResplit = handEv(Math.ceil(hands / 2)) + handEv(Math.floor(hands / 2));
+			const first = handAnalysis(Math.ceil(hands / 2));
+			const second = handAnalysis(Math.floor(hands / 2));
+			const evResplit = first.ev + second.ev;
+			const outcomeResplit = scaleOutcome(addOutcome(first.outcome, second.outcome), 0.5);
+
 			let ev = 0;
+			let outcome = ZERO_OUTCOME;
 			for (let draw = 0; draw < drawProbs.length; draw += 1) {
-				const playEv = drawPlayEvs[draw];
-				ev +=
-					drawProbs[draw] * (drawPairsUp[draw] ? Math.max(playEv, evResplit) : playEv);
+				const resplits = drawPairsUp[draw] && evResplit > drawPlayEvs[draw];
+				ev += drawProbs[draw] * (resplits ? evResplit : drawPlayEvs[draw]);
+				outcome = addOutcome(
+					outcome,
+					scaleOutcome(resplits ? outcomeResplit : drawOutcomes[draw], drawProbs[draw])
+				);
 			}
-			byAllowance.set(hands, ev);
-			return ev;
+
+			const analysis = { ev, outcome };
+			byAllowance.set(hands, analysis);
+			return analysis;
 		};
 
-		return (
-			handEv(Math.ceil(this.splitLimit / 2)) + handEv(Math.floor(this.splitLimit / 2))
-		);
+		const first = handAnalysis(Math.ceil(this.splitLimit / 2));
+		const second = handAnalysis(Math.floor(this.splitLimit / 2));
+		return {
+			ev: first.ev + second.ev,
+			outcome: scaleOutcome(addOutcome(first.outcome, second.outcome), 0.5),
+		};
 	}
 
 	/** Optimal action (incl. splitting) and EV/bust odds for each pair vs. upcard. */
@@ -970,40 +1297,30 @@ class ShoeEv {
 
 			for (const rank of pairRanks) {
 				const [total, soft] = pairTotal(rank);
-				const evStand = this.standEv(total, upcardIndex, totCards, key);
-				const evHit = this.hitEv(total, soft, upcardIndex, totCards, key);
-				const evDouble = this.doubleEv(total, soft, upcardIndex, totCards, key);
+				const actions: ActionAnalysis[] = [
+					this.standAction(total, upcardIndex, totCards, key),
+					this.doubleAction(total, soft, upcardIndex, totCards, key),
+					this.hitAction(total, soft, upcardIndex, totCards, key),
+				];
 				// A split limit of one hand is a table that doesn't split at all.
-				const evSplit =
-					this.splitLimit >= 2 ?
-						this.splitEv(RANK_INDEX[rank], upcardIndex, totCards, key)
-					:	-Infinity;
-
-				let optimalAction: PlayerAction = 'S';
-				let best = evStand;
-				if (evDouble > best) {
-					best = evDouble;
-					optimalAction = 'D';
+				if (this.splitLimit >= 2) {
+					const split = this.splitAnalysis(RANK_INDEX[rank], upcardIndex, totCards, key);
+					actions.push({
+						action: 'P',
+						evPercent: split.ev * 100,
+						outcome: outcomePercent(split.outcome),
+					});
 				}
-				if (evHit > best) {
-					best = evHit;
-					optimalAction = 'H';
-				}
-				if (evSplit > best) {
-					best = evSplit;
-					optimalAction = 'P';
-				}
-				const evSurrender = this.surrenderEv(upcard, totCards);
-				if (evSurrender !== null && evSurrender > best) {
-					best = evSurrender;
-					optimalAction = 'R';
-				}
+				const surrender = this.surrenderAction(upcard, totCards);
+				if (surrender !== null) actions.push(surrender);
+				const best = bestAction(actions);
 
 				out.set(splitGridKey(rank, upcard), {
-					evPercent: best * 100,
-					optimalAction,
+					evPercent: best.evPercent,
+					optimalAction: best.action,
 					playerBustOnHitPercent: this.playerBustOnHitProb(total, soft, totCards) * 100,
 					dealerBustPercent,
+					actions,
 				});
 			}
 
@@ -1136,6 +1453,7 @@ function buildEvComparison(
 				baseAction: baseCell.optimalAction,
 				playerBustOnHitPercent: analysis.playerBustOnHitPercent,
 				dealerBustPercent: analysis.dealerBustPercent,
+				actions: analysis.actions,
 			});
 		}
 	}
@@ -1171,6 +1489,7 @@ function buildSplitEvComparison(
 				baseAction: baseCell.optimalAction,
 				playerBustOnHitPercent: countCell.playerBustOnHitPercent,
 				dealerBustPercent: countCell.dealerBustPercent,
+				actions: countCell.actions,
 			});
 		}
 	}

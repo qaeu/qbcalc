@@ -66,6 +66,7 @@ $popover-action-opacity: 0.95;
 		// of cutting between them. Also covers the hover highlight.
 		td {
 			background-color: transparent;
+			cursor: pointer;
 			transition:
 				background-color $cell-fade-duration ease,
 				box-shadow $cell-fade-duration ease,
@@ -265,14 +266,14 @@ $popover-action-opacity: 0.95;
 			span:nth-child(even) {
 				text-align: right;
 			}
-		}
 
-		&__popover-value--positive {
-			color: get($primaries, 'fg-light');
-		}
+			.is-positive {
+				color: get($primaries, 'fg-light');
+			}
 
-		&__popover-value--negative {
-			color: get($errors, 'fg-light');
+			.is-negative {
+				color: get($errors, 'fg-light');
+			}
 		}
 
 		&__popover-arrow {

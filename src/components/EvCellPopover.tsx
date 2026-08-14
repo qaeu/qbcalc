@@ -9,19 +9,13 @@ import {
 	formatEvPercent,
 	formatPercent,
 } from '#utils/format';
-import { ACTION_CLASS } from '#utils/actionStyle';
+import { ACTION_CLASS, signClass } from '#utils/actionStyle';
 
 import '#styles/EvTable';
 
 interface EvCellPopoverProps {
 	row: EvCellData;
 	count: number;
-}
-
-function signClass(value: number): string | undefined {
-	if (value > 0) return 'ev-table__popover-value--positive';
-	if (value < 0) return 'ev-table__popover-value--negative';
-	return undefined;
 }
 
 const EvCellPopover: Component<EvCellPopoverProps> = (props) => (

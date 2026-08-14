@@ -831,3 +831,115 @@ describe('bust percentages', () => {
 		expect(six.dealerBustPercent).toBeGreaterThan(ten.dealerBustPercent);
 	});
 });
+
+describe('action breakdown', () => {
+	// One grid per rule set, shared across the cases below: each cell already
+	// carries every action's price, so there is nothing left to ask the engine
+	// for once the grid is built.
+	let hard: Map<string, ReturnType<typeof computeEvComparison>['rows'][number]>;
+	let surrenderable: typeof hard;
+	let pairs: Map<string, ReturnType<typeof computeSplitEvComparison>['rows'][number]>;
+
+	beforeAll(() => {
+		const totals = [11, 16, 20];
+		const upcards = (['5', '6', 'T'] as const).slice();
+		const byKey = (rules: Partial<RuleSet>) =>
+			new Map(
+				computeEvComparison(
+					{ ...RULE_SET, ...rules },
+					0,
+					ACE_FIVE_TAGS,
+					totals,
+					upcards
+				).rows.map((row) => [`${row.total}-${row.upcard}`, row])
+			);
+
+		hard = byKey({});
+		surrenderable = byKey({ dealerPeek: true, surrender: 'late' });
+		pairs = new Map(
+			computeSplitEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, ['8'], upcards).rows.map(
+				(row) => [`${row.pairRank}-${row.upcard}`, row]
+			)
+		);
+	}, GRID_TIMEOUT_MS);
+
+	it('prices exactly the actions the table offers', () => {
+		for (const row of hard.values()) {
+			expect(row.actions.map((action) => action.action)).toEqual(['S', 'D', 'H']);
+		}
+		for (const row of surrenderable.values()) {
+			expect(row.actions.map((action) => action.action)).toEqual(['S', 'D', 'H', 'R']);
+		}
+		for (const row of pairs.values()) {
+			expect(row.actions.map((action) => action.action)).toEqual(['S', 'D', 'H', 'P']);
+		}
+	});
+
+	it('agrees with the cell it belongs to about the best action and its EV', () => {
+		for (const row of [...hard.values(), ...surrenderable.values(), ...pairs.values()]) {
+			const best = row.actions.reduce((a, b) => (b.evPercent > a.evPercent ? b : a));
+			expect(best.action).toBe(row.optimalAction);
+			expect(best.evPercent).toBeCloseTo(row.countEvPercent, 9);
+		}
+	});
+
+	it('splits every played-out hand between winning, pushing and losing', () => {
+		for (const row of [...hard.values(), ...surrenderable.values(), ...pairs.values()]) {
+			for (const { outcome } of row.actions) {
+				if (outcome === null) continue;
+				expect(
+					outcome.winPercent + outcome.pushPercent + outcome.losePercent
+				).toBeCloseTo(100, 6);
+			}
+		}
+	});
+
+	// A hand's EV is its stake times how much more often it wins than loses --
+	// the identity the engine recovers the odds from, checked here against the
+	// EVs the grid computed independently of them.
+	it('matches each action EV to its win/lose margin at the stake it risks', () => {
+		for (const row of [...hard.values(), ...surrenderable.values(), ...pairs.values()]) {
+			for (const action of row.actions) {
+				// A split's EV covers two hands' stakes, and its odds describe one
+				// of them, so there is no single stake to relate them by.
+				if (action.outcome === null || action.action === 'P') continue;
+				const stake = action.action === 'D' ? 2 : 1;
+				expect(
+					stake * (action.outcome.winPercent - action.outcome.losePercent)
+				).toBeCloseTo(action.evPercent, 6);
+			}
+		}
+	});
+
+	it('reports surrender as half the stake with no showdown behind it', () => {
+		for (const row of surrenderable.values()) {
+			const surrender = row.actions.find((action) => action.action === 'R')!;
+			expect(surrender.evPercent).toBeCloseTo(-50, 9);
+			expect(surrender.outcome).toBeNull();
+		}
+	});
+
+	it('never pushes on a total the dealer cannot finish on', () => {
+		// The dealer stands on 17-21 (and busts otherwise), so 16 is a total no
+		// dealer hand can tie -- standing on it either wins or loses outright.
+		const stand = hard.get('16-T')!.actions.find((action) => action.action === 'S')!;
+		expect(stand.outcome!.pushPercent).toBe(0);
+
+		// 20 is squarely inside that range, and against a 6 the dealer reaches it
+		// often enough for the tie to be a real part of the hand.
+		const twenty = hard.get('20-6')!.actions.find((action) => action.action === 'S')!;
+		expect(twenty.outcome!.pushPercent).toBeGreaterThan(5);
+	});
+
+	it('reports a split hand as a single hand, not the pair it becomes', () => {
+		// Splitting 8,8 stakes two hands, so the EV can run past the -100% floor
+		// a one-unit hand has, while the odds stay those of one of the two hands.
+		const split = pairs.get('8-T')!.actions.find((action) => action.action === 'P')!;
+		expect(split.outcome!.winPercent).toBeGreaterThan(0);
+		expect(split.outcome!.winPercent).toBeLessThan(100);
+		// Two 8s beat one 16: a hand starting from a single 8 wins far more often
+		// than the stiff total it was split out of.
+		const stand = pairs.get('8-T')!.actions.find((action) => action.action === 'S')!;
+		expect(split.outcome!.winPercent).toBeGreaterThan(stand.outcome!.winPercent);
+	});
+});

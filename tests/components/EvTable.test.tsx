@@ -25,6 +25,21 @@ function popoverFor(trigger: Element): HTMLElement {
 	return content;
 }
 
+/**
+ * Dismisses the open drill-down dialog with its close button.
+ *
+ * Not with Escape, even though the dialog answers it: Escape is handled by a
+ * dismissable-layer stack that is shared module state, and the hover cards
+ * these tests leave open register layers on it too, so which layer a key press
+ * reaches depends on what ran before.
+ */
+async function closeDialog(): Promise<void> {
+	fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+	await waitFor(() => {
+		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+}
+
 describe('EvTable', () => {
 	it('renders hard totals, soft totals, and splits grids for the given result', () => {
 		render(() => (
@@ -219,6 +234,134 @@ describe('EvTable', () => {
 
 		expect(popover.textContent).toMatch(/EV/);
 		expect(popover.textContent).not.toMatch(/Δ/);
+	});
+
+	it('opens a drill-down dialog pricing every action when a cell is clicked', async () => {
+		render(() => (
+			<EvTable
+				result={() => SAMPLE_RESULT}
+				isComputing={() => false}
+				error={() => null}
+				count={() => 1}
+			/>
+		));
+
+		const tables = screen.getAllByRole('table');
+		// Hard 8 against a dealer 2 -- the first data cell of the first grid.
+		const cell = within(tables[0]).getAllByRole('row')[1].querySelectorAll('td')[0];
+
+		expect(screen.queryByRole('dialog')).toBeNull();
+
+		fireEvent.click(cell);
+
+		const dialog = await screen.findByRole('dialog');
+		expect(within(dialog).getByText('Hard 8 vs 2')).toBeDefined();
+
+		// One row per action the table offers this hand (stand, double, hit),
+		// plus the header row.
+		const actionRows = within(dialog).getAllByRole('row');
+		expect(actionRows).toHaveLength(4);
+		expect(within(dialog).getByRole('rowheader', { name: 'Stand' })).toBeDefined();
+		expect(within(dialog).getByRole('rowheader', { name: 'Double' })).toBeDefined();
+		expect(within(dialog).getByRole('rowheader', { name: 'Hit' })).toBeDefined();
+
+		// Ranked best first, and the top row is the play the grid recommends.
+		const row = SAMPLE_RESULT.hard.rows.find((r) => r.total === 8 && r.upcard === '2')!;
+		const [, best] = within(dialog).getAllByRole('row');
+		expect(within(best).getByRole('rowheader').textContent).toBe(
+			{ H: 'Hit', S: 'Stand', D: 'Double', P: 'Split', R: 'Surrender' }[row.optimalAction]
+		);
+		expect(best.classList.contains('is-optimal')).toBe(true);
+
+		// EV, then win/push/lose, all as percentages.
+		const figures = [...within(best).getAllByRole('cell')].map((td) => td.textContent);
+		expect(figures).toHaveLength(4);
+		for (const figure of figures) expect(figure).toMatch(/^[+-]?\d+\.\d+%$/);
+
+		await closeDialog();
+	});
+
+	// The pointer sits over the backdrop while the dialog is up, so nothing tells
+	// the hover card to close on its own, and closing the dialog hands focus back
+	// to the cell -- which the card would otherwise take as a cue to reopen over
+	// a cell the pointer left long ago.
+	it('drops the hover card when a cell opens its dialog, and leaves it down after', async () => {
+		render(() => (
+			<EvTable
+				result={() => SAMPLE_RESULT}
+				isComputing={() => false}
+				error={() => null}
+				count={() => 1}
+			/>
+		));
+
+		const tables = screen.getAllByRole('table');
+		const cell = within(tables[0]).getAllByRole('row')[1].querySelectorAll('td')[0];
+
+		fireEvent.pointerEnter(cell);
+		const popover = popoverFor(cell);
+		await waitFor(() => {
+			expect(popover.hidden).toBe(false);
+		});
+
+		fireEvent.click(cell);
+		await screen.findByRole('dialog');
+		await waitFor(() => {
+			expect(popover.hidden).toBe(true);
+		});
+
+		await closeDialog();
+		expect(popover.hidden).toBe(true);
+
+		// Until the pointer arrives on the cell again, which is a fresh hover.
+		fireEvent.pointerOver(cell);
+		fireEvent.pointerEnter(cell);
+		await waitFor(() => {
+			expect(popover.hidden).toBe(false);
+		});
+	});
+
+	it('closes the drill-down dialog from its close button', async () => {
+		render(() => (
+			<EvTable
+				result={() => SAMPLE_RESULT}
+				isComputing={() => false}
+				error={() => null}
+				count={() => 1}
+			/>
+		));
+
+		const tables = screen.getAllByRole('table');
+		const cell = within(tables[0]).getAllByRole('row')[1].querySelectorAll('td')[0];
+
+		fireEvent.click(cell);
+		await screen.findByRole('dialog');
+
+		await closeDialog();
+	});
+
+	it('adds a split row and its per-hand caveat for a pairs cell', async () => {
+		render(() => (
+			<EvTable
+				result={() => SAMPLE_RESULT}
+				isComputing={() => false}
+				error={() => null}
+				count={() => 1}
+			/>
+		));
+
+		// 8,8 against a dealer 2: the seventh pair row of the splits grid.
+		const pairsGrid = screen.getAllByRole('table')[2];
+		const cell = within(pairsGrid).getAllByRole('row')[7].querySelectorAll('td')[0];
+
+		fireEvent.click(cell);
+
+		const dialog = await screen.findByRole('dialog');
+		expect(within(dialog).getByText('8,8 vs 2')).toBeDefined();
+		expect(within(dialog).getByRole('rowheader', { name: 'Split' })).toBeDefined();
+		expect(dialog.textContent).toMatch(/EV covers both hands/);
+
+		await closeDialog();
 	});
 
 	it('keeps the popover open when the pointer moves onto it, and hides it once the pointer leaves both', async () => {

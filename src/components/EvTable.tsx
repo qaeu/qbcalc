@@ -1,5 +1,12 @@
 import { HoverCard } from '@ark-ui/solid/hover-card';
-import { createMemo, For, Show, type Accessor, type Component } from 'solid-js';
+import {
+	createMemo,
+	createSignal,
+	For,
+	Show,
+	type Accessor,
+	type Component,
+} from 'solid-js';
 
 import {
 	HARD_TOTALS,
@@ -14,6 +21,7 @@ import { formatPairLabel, formatSoftTotalLabel } from '#utils/format';
 import { ACTION_CLASS } from '#utils/actionStyle';
 import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 
+import EvCellDialog from '#c/EvCellDialog';
 import EvCellPopover from '#c/EvCellPopover';
 
 import '#styles/EvTable';
@@ -27,6 +35,9 @@ interface EvCellProps {
 	loading: boolean;
 	phase: number;
 	count: number;
+	/** The player's hand as the grid labels it, for the drill-down's heading. */
+	hand: string;
+	upcard: Rank;
 }
 
 /**
@@ -61,11 +72,67 @@ const EvCell: Component<EvCellProps> = (props) => {
 			:	`${action} ${BASE_ACTION_CLASS[row.baseAction]}`;
 	});
 
+	const [hoverOpen, setHoverOpen] = createSignal(false);
+	const [dialogOpen, setDialogOpen] = createSignal(false);
+	/**
+	 * Holds the hover card shut from the moment the dialog opens until the
+	 * pointer next arrives on the cell.
+	 *
+	 * Suppressing it only while the dialog is up isn't enough. The pointer is
+	 * over the backdrop, not the cell, so nothing tells the card to close, and
+	 * Zag hands focus back to the cell as the dialog goes away -- which the card
+	 * reads as another reason to open. Either way it comes back up over a cell
+	 * the pointer has long since left, and stays there while other cells open
+	 * cards of their own.
+	 */
+	const [hoverSuppressed, setHoverSuppressed] = createSignal(false);
+	// The dialog's machine, its Portal and its focus trap are worth one cell's
+	// worth of setup, not three hundred, so it stays unmounted until the cell is
+	// first opened -- and then stays mounted, so closing it is a state change
+	// rather than a teardown racing Zag's own focus restoration.
+	const [dialogMounted, setDialogMounted] = createSignal(false);
+
+	const openDialog = () => {
+		// Nothing to drill into mid-recalculation. CSS already blocks the
+		// pointer over a loading cell; this covers a cell that was focused
+		// before the recalculation started.
+		if (!activeRow()) return;
+		setHoverSuppressed(true);
+		setDialogMounted(true);
+		setDialogOpen(true);
+	};
+
 	return (
-		<HoverCard.Root openDelay={0} closeDelay={0} positioning={{ placement: 'bottom' }}>
+		<HoverCard.Root
+			openDelay={0}
+			closeDelay={0}
+			positioning={{ placement: 'bottom' }}
+			// Controlled purely so the dialog can take the card's place rather
+			// than open on top of it: the card describes the very cell the dialog
+			// is already describing in full.
+			open={hoverOpen() && !hoverSuppressed()}
+			onOpenChange={(details) => setHoverOpen(details.open)}
+		>
 			<HoverCard.Trigger
 				asChild={(triggerProps) => (
-					<td {...triggerProps()} tabIndex={activeRow() ? 0 : -1} class={cellClass()}>
+					<td
+						{...triggerProps()}
+						tabIndex={activeRow() ? 0 : -1}
+						class={cellClass()}
+						aria-haspopup="dialog"
+						// Lifts the suppression above on the pointer's next arrival.
+						// `pointerover` rather than `pointerenter` because the hover
+						// card's own trigger props already carry the latter, and
+						// declaring it again after the spread would replace theirs.
+						onPointerOver={() => setHoverSuppressed(false)}
+						onClick={openDialog}
+						onKeyDown={(event) => {
+							if (event.key !== 'Enter' && event.key !== ' ') return;
+							// Space would otherwise scroll the page out from under the dialog.
+							event.preventDefault();
+							openDialog();
+						}}
+					>
 						<Show
 							when={!props.loading}
 							fallback={<span class="ev-table__cell-skeleton" aria-hidden="true" />}
@@ -85,7 +152,21 @@ const EvCell: Component<EvCellProps> = (props) => {
 			 * to be transitioning. Hovering is blocked by CSS while loading.
 			 */}
 			<Show when={props.row}>
-				{(row) => <EvCellPopover row={row()} count={props.count} />}
+				{(row) => (
+					<>
+						<EvCellPopover row={row()} count={props.count} />
+						<Show when={dialogMounted()}>
+							<EvCellDialog
+								row={row()}
+								count={props.count}
+								hand={props.hand}
+								upcard={props.upcard}
+								open={dialogOpen()}
+								onOpenChange={setDialogOpen}
+							/>
+						</Show>
+					</>
+				)}
 			</Show>
 		</HoverCard.Root>
 	);
@@ -127,6 +208,12 @@ interface EvGridProps {
 	seed: number;
 	count: number;
 	rowLabel?: (total: number) => string;
+	/**
+	 * How the drill-down names a row's hand. Defaults to the row heading itself,
+	 * which reads as a label in the leftmost column ("16") but needs its kind
+	 * spelling out once it's a heading on its own ("Hard 16").
+	 */
+	handLabel?: (total: number) => string;
 }
 
 const EvGrid: Component<EvGridProps> = (props) => (
@@ -152,6 +239,13 @@ const EvGrid: Component<EvGridProps> = (props) => (
 											loading={props.loading}
 											phase={loadingPhase(props.seed, rowIndex(), colIndex())}
 											count={props.count}
+											hand={
+												props.handLabel ? props.handLabel(total)
+												: props.rowLabel ?
+													props.rowLabel(total)
+												:	String(total)
+											}
+											upcard={upcard}
 										/>
 									)}
 								</For>
@@ -197,6 +291,8 @@ const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
 											loading={props.loading}
 											phase={loadingPhase(props.seed, rowIndex(), colIndex())}
 											count={props.count}
+											hand={formatPairLabel(pairRank)}
+											upcard={upcard}
 										/>
 									)}
 								</For>
@@ -263,6 +359,7 @@ const EvTable: Component<EvTableProps> = (props) => {
 					totals={HARD_TOTALS}
 					upcards={RANKS}
 					rowsByKey={hardRowsByKey()}
+					handLabel={(total) => `Hard ${total}`}
 					loading={props.isComputing()}
 					seed={runSeed() ^ GRID_SALTS.hard}
 					count={props.count()}
