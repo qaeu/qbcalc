@@ -197,7 +197,11 @@ $deviation-ring-width: 3px;
 			// Describes the cell, not an interactive surface of its own: the
 			// cursor moving onto it shouldn't keep it open, so it never registers
 			// a hover and the card closes as soon as the pointer leaves the cell.
-			pointer-events: none;
+			// Zag's dismissable-layer stack writes `pointer-events: auto` inline on
+			// the open layer, so this needs !important to win; without it the card
+			// still sees its own pointerenter and reopens whenever the cursor
+			// crosses from the cell onto it before the close delay elapses.
+			pointer-events: none !important;
 		}
 
 		// Bleeds to the popover's own edges (cancelling its padding) so the
