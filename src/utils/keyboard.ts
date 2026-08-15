@@ -3,9 +3,9 @@ import { onCleanup, onMount } from 'solid-js';
 /**
  * Elements a key press belongs to before it belongs to the page. A shortcut
  * registered through `createGlobalKeydown` has to step aside for these or it
- * would swallow space on the Calculate button, on the counting-system select,
- * and inside the drill-down dialog -- each of which the browser or Ark UI has
- * already given the key a meaning in.
+ * would swallow space on the counting-system select, the tab strip, and inside
+ * the drill-down dialog -- each of which the browser or Ark UI has already
+ * given the key a meaning in.
  */
 const KEY_CONSUMING_SELECTOR = [
 	'button',

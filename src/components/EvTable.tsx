@@ -374,6 +374,12 @@ const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
 interface EvTableProps {
 	result: Accessor<EvWorkerResult | null>;
 	isComputing: Accessor<boolean>;
+	/**
+	 * Loading state for the summary cards alone. It is not `isComputing`: the
+	 * cards describe the whole shoe, so a recalculation at a new running count
+	 * leaves them showing what they already show rather than blanking them.
+	 */
+	isSummaryComputing: Accessor<boolean>;
 	error: Accessor<string | null>;
 	count: Accessor<number>;
 	bankroll: Accessor<BankrollAnalysis | undefined>;
@@ -461,7 +467,7 @@ const EvTable: Component<EvTableProps> = (props) => {
 			</Show>
 
 			<Show when={!props.error()}>
-				<EvSummary bankroll={props.bankroll()} loading={props.isComputing()} />
+				<EvSummary bankroll={props.bankroll()} loading={props.isSummaryComputing()} />
 				<p class="ev-table__mode" aria-live="polite">
 					<span class="ev-table__mode-name">{CELL_DISPLAY_MODE_LABELS[mode()]}</span>
 					<span class="ev-table__mode-hint">space to cycle</span>

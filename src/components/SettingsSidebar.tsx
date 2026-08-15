@@ -1,5 +1,5 @@
 import { Tabs } from '@ark-ui/solid/tabs';
-import { createMemo, createSignal, Show, type Component } from 'solid-js';
+import { createEffect, createSignal, onCleanup, Show, type Component } from 'solid-js';
 import { createStore } from 'solid-js/store';
 
 import { LayoutGrid, SlidersHorizontal, Wallet } from 'lucide-solid';
@@ -9,6 +9,7 @@ import { type Rank } from '#utils/ev/cards';
 import { type TagValues } from '#utils/ev/composition';
 import { tagsForSystem, type CountingSystemId } from '#utils/countingSystems';
 import { formatDuration } from '#utils/format';
+import { INPUT_SETTLE_MS } from '#utils/settle';
 import {
 	calculatorSettingsEqual,
 	settingsFromConfig,
@@ -27,15 +28,16 @@ interface SettingsSidebarProps {
 	initialConfig: CalculatorConfig;
 	calcTimeMs: number | null;
 	/**
+	 * Called once the settings have stopped moving for `INPUT_SETTLE_MS`.
 	 * Handed the settings alone: the running count is the app's, moved by the
 	 * arrow keys and recalculated without this form's involvement.
 	 */
-	onSubmit: (settings: CalculatorSettings) => void;
+	onSettingsChange: (settings: CalculatorSettings) => void;
 	/**
 	 * The bankroll settings, which -- unlike the config above -- are owned by the
 	 * app rather than mirrored into this form. They change nothing the worker
-	 * computes, so they apply as they are typed and never dirty the Calculate
-	 * button. See docs/bankroll-model.md.
+	 * computes, so they are applied as they are typed and never reach the
+	 * settle timer below. See docs/bankroll-model.md.
 	 */
 	bankroll: BankrollConfig;
 	bankrollAnalysis: BankrollAnalysis | undefined;
@@ -47,8 +49,8 @@ interface SettingsSidebarProps {
 
 const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
 	// One store rather than a signal per field: the form mirrors every setting,
-	// and submitting is then just handing the mirror back. Tag vectors are
-	// copied in rather than stored by reference -- the presets are shared
+	// and reporting a change is then just handing the mirror back. Tag vectors
+	// are copied in rather than stored by reference -- the presets are shared
 	// module constants, and a store takes ownership of the object it is handed.
 	const [config, setConfig] = createStore<CalculatorSettings>({
 		...settingsFromConfig(props.initialConfig),
@@ -58,12 +60,32 @@ const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
 	// The settings the shown results were calculated from. The app kicks off a
 	// calculation with initialConfig on mount, so the form starts out matching
 	// what is on screen and there is nothing to recalculate yet.
-	const [lastCalculated, setLastCalculated] = createSignal<CalculatorSettings>({
+	let lastReported: CalculatorSettings = {
 		...settingsFromConfig(props.initialConfig),
 		tags: { ...props.initialConfig.tags },
-	});
+	};
 
-	const isUnchanged = createMemo(() => calculatorSettingsEqual(config, lastCalculated()));
+	let settleTimer: number | undefined;
+	onCleanup(() => clearTimeout(settleTimer));
+
+	// Spreading the store reads every field, which is what subscribes this to
+	// all of them at once -- including the tag vector, one rank at a time. The
+	// snapshot is a plain copy for the same reason it is on the way in: the
+	// app must not be handed a live view of a form that keeps moving.
+	createEffect(() => {
+		const settings: CalculatorSettings = { ...config, tags: { ...config.tags } };
+		// Read here rather than in the timer, where it would be a props access
+		// outside any tracked scope.
+		const report = props.onSettingsChange;
+		clearTimeout(settleTimer);
+		// Covers the first run, and any edit that lands back on the calculated
+		// value before the timer fires -- there is nothing to recompute either way.
+		if (calculatorSettingsEqual(settings, lastReported)) return;
+		settleTimer = window.setTimeout(() => {
+			lastReported = settings;
+			report(settings);
+		}, INPUT_SETTLE_MS);
+	});
 
 	// The tag vector Custom last held, so that selecting a preset and coming back
 	// restores the user's own values rather than leaving the preset's behind.
@@ -89,18 +111,18 @@ const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
 		setConfig('system', 'custom');
 	};
 
-	const handleSubmit = (event: SubmitEvent) => {
-		event.preventDefault();
-		if (isUnchanged()) return;
-		const nextSettings: CalculatorSettings = { ...config, tags: { ...config.tags } };
-		setLastCalculated(nextSettings);
-		props.onSubmit(nextSettings);
-	};
-
 	return (
 		<div class="settings-sidebar">
 			<aside class="settings-sidebar__card">
-				<form class="settings-sidebar__controls" onSubmit={handleSubmit}>
+				{/*
+				 * Still a form, for the grouping and the implicit labelling, but
+				 * with nothing to submit: every field recalculates on its own once
+				 * it settles. Enter in a text field would otherwise reload the page.
+				 */}
+				<form
+					class="settings-sidebar__controls"
+					onSubmit={(event) => event.preventDefault()}
+				>
 					<Tabs.Root defaultValue="rules" class="settings-sidebar__tabs">
 						<Tabs.List class="settings-sidebar__tab-list">
 							<Tabs.Trigger value="rules" class="settings-sidebar__tab">
@@ -135,13 +157,6 @@ const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
 							/>
 						</Tabs.Content>
 					</Tabs.Root>
-					<button
-						type="submit"
-						disabled={isUnchanged()}
-						title={isUnchanged() ? 'Settings match the last calculation' : undefined}
-					>
-						Calculate
-					</button>
 				</form>
 			</aside>
 			<Show when={props.calcTimeMs !== null}>

@@ -80,6 +80,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
+				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
 				count={() => 1}
@@ -105,6 +106,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
+				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => SAMPLE_BANKROLL}
 				count={() => 1}
@@ -136,6 +138,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
+				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
 				count={() => 1}
@@ -149,11 +152,12 @@ describe('EvTable', () => {
 		for (const card of cards) expect(card.querySelector('.ev-summary__value')).toBeNull();
 	});
 
-	it('shows a skeleton in place of the average while computing', () => {
+	it('shows a skeleton in place of the average while the summary is computing', () => {
 		render(() => (
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => true}
+				isSummaryComputing={() => true}
 				error={() => null}
 				bankroll={() => undefined}
 				count={() => 1}
@@ -166,11 +170,31 @@ describe('EvTable', () => {
 		expect(document.querySelectorAll('.ev-summary__value')).toHaveLength(0);
 	});
 
+	// A recalculation at a new running count redraws the grids but says nothing
+	// new about the shoe as a whole, so the cards keep their figures rather than
+	// blinking to skeletons on every press of an arrow key.
+	it('keeps the summary figures while only the grids are computing', () => {
+		render(() => (
+			<EvTable
+				result={() => SAMPLE_RESULT}
+				isComputing={() => true}
+				isSummaryComputing={() => false}
+				error={() => null}
+				bankroll={() => SAMPLE_BANKROLL}
+				count={() => 1}
+			/>
+		));
+
+		expect(document.querySelectorAll('.ev-summary__skeleton')).toHaveLength(0);
+		expect(document.querySelectorAll('.ev-summary__value')).toHaveLength(5);
+	});
+
 	it('reports insurance EV in the ace column popovers, and nowhere else', async () => {
 		render(() => (
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
+				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
 				count={() => 1}
@@ -206,6 +230,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => noInsurance}
 				isComputing={() => false}
+				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
 				count={() => 1}
@@ -230,6 +255,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => null}
 				isComputing={() => false}
+				isSummaryComputing={() => false}
 				error={() => 'Count too extreme for this shoe'}
 				count={() => 0}
 				bankroll={() => undefined}
@@ -245,6 +271,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => null}
 				isComputing={() => true}
+				isSummaryComputing={() => true}
 				error={() => null}
 				bankroll={() => undefined}
 				count={() => 0}
@@ -271,6 +298,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={result}
 				isComputing={isComputing}
+				isSummaryComputing={isComputing}
 				error={() => null}
 				bankroll={() => undefined}
 				count={() => 1}
@@ -306,6 +334,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => DEVIATION_RESULT}
 				isComputing={() => false}
+				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
 				count={() => 15}
@@ -350,6 +379,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
+				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
 				count={() => 1}
@@ -383,6 +413,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
+				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
 				count={() => 0}
@@ -409,6 +440,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
+				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
 				count={() => 1}
@@ -462,6 +494,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
+				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
 				count={() => 1}
@@ -499,6 +532,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
+				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
 				count={() => 1}
@@ -519,6 +553,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
+				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
 				count={() => 1}
@@ -545,6 +580,7 @@ describe('EvTable', () => {
 				<EvTable
 					result={() => DEVIATION_RESULT}
 					isComputing={() => false}
+					isSummaryComputing={() => false}
 					error={() => null}
 					bankroll={() => undefined}
 					count={() => 15}
@@ -674,6 +710,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
+				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
 				count={() => 1}

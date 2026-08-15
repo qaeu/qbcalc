@@ -14,14 +14,28 @@ import {
 // that one is driven by the arrow keys and never passes through the sidebar.
 const DEFAULT_SETTINGS = settingsFromConfig(DEFAULT_CONFIG);
 
+/**
+ * The form reports its settings once they have stopped moving rather than on a
+ * submit, so every assertion on `onSettingsChange` has to outlast that wait --
+ * `waitFor`'s default timeout is comfortably longer than the settle delay.
+ */
+const settledWith = (onSettingsChange: ReturnType<typeof vi.fn>, expected: unknown) =>
+	waitFor(() => expect(onSettingsChange).toHaveBeenCalledWith(expected));
+
+/**
+ * Long enough that a report would have arrived if one were coming -- what a
+ * case asserting nothing was reported has to wait out before it can say so.
+ */
+const settlingTime = () => new Promise((resolve) => setTimeout(resolve, 800));
+
 describe('SettingsSidebar', () => {
-	it('renders the current settings and calls onSubmit with the entered values', () => {
-		const onSubmit = vi.fn();
+	it('renders the current settings and reports the entered values once they settle', async () => {
+		const onSettingsChange = vi.fn();
 		render(() => (
 			<SettingsSidebar
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
-				onSubmit={onSubmit}
+				onSettingsChange={onSettingsChange}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
@@ -32,13 +46,15 @@ describe('SettingsSidebar', () => {
 		fireEvent.input(decksInput, { target: { value: '6' } });
 		const checkbox = screen.getByLabelText('S17') as HTMLInputElement;
 		fireEvent.click(checkbox);
-		fireEvent.submit(decksInput.closest('form')!);
 
-		expect(onSubmit).toHaveBeenCalledWith({
+		await settledWith(onSettingsChange, {
 			...DEFAULT_SETTINGS,
 			decks: 6,
 			dealerHitsSoft17: true,
 		} satisfies CalculatorSettings);
+		// One report for the pair of edits, not one each: the timer restarts on
+		// every change, so a burst costs a single calculation.
+		expect(onSettingsChange).toHaveBeenCalledTimes(1);
 	});
 
 	it('restores previously submitted values from the given initialConfig', () => {
@@ -51,7 +67,7 @@ describe('SettingsSidebar', () => {
 					dealerHitsSoft17: false,
 				}}
 				calcTimeMs={null}
-				onSubmit={vi.fn()}
+				onSettingsChange={vi.fn()}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
@@ -62,13 +78,13 @@ describe('SettingsSidebar', () => {
 		expect((screen.getByLabelText('S17') as HTMLInputElement).checked).toBe(true);
 	});
 
-	it('submits the game rules entered on the Rules tab', async () => {
-		const onSubmit = vi.fn();
+	it('reports the game rules entered on the Rules tab', async () => {
+		const onSettingsChange = vi.fn();
 		render(() => (
 			<SettingsSidebar
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
-				onSubmit={onSubmit}
+				onSettingsChange={onSettingsChange}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
@@ -91,9 +107,7 @@ describe('SettingsSidebar', () => {
 		fireEvent.click(await screen.findByRole('option', { name: 'Late' }));
 		await waitFor(() => expect(surrenderTrigger.textContent).toBe('Late'));
 
-		fireEvent.submit(screen.getByLabelText('Decks').closest('form')!);
-
-		expect(onSubmit).toHaveBeenCalledWith({
+		await settledWith(onSettingsChange, {
 			...DEFAULT_SETTINGS,
 			penetrationPercent: 60,
 			splitLimit: 2,
@@ -111,7 +125,7 @@ describe('SettingsSidebar', () => {
 			<SettingsSidebar
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
-				onSubmit={vi.fn()}
+				onSettingsChange={vi.fn()}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
@@ -134,12 +148,12 @@ describe('SettingsSidebar', () => {
 
 	it('moves a late-surrender table to early surrender when ENHC is turned on', async () => {
 		cleanup();
-		const onSubmit = vi.fn();
+		const onSettingsChange = vi.fn();
 		render(() => (
 			<SettingsSidebar
 				initialConfig={{ ...DEFAULT_CONFIG, dealerPeek: true, surrender: 'late' }}
 				calcTimeMs={null}
-				onSubmit={onSubmit}
+				onSettingsChange={onSettingsChange}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
@@ -152,20 +166,20 @@ describe('SettingsSidebar', () => {
 		fireEvent.click(screen.getByLabelText('ENHC'));
 		await waitFor(() => expect(trigger.textContent).toBe('Early'));
 
-		fireEvent.submit(screen.getByLabelText('Decks').closest('form')!);
-		expect(onSubmit).toHaveBeenCalledWith(
+		await settledWith(
+			onSettingsChange,
 			expect.objectContaining({ dealerPeek: false, surrender: 'early' })
 		);
 	});
 
-	it('submits the hit-split-aces rule', () => {
+	it('reports the hit-split-aces rule', async () => {
 		cleanup();
-		const onSubmit = vi.fn();
+		const onSettingsChange = vi.fn();
 		render(() => (
 			<SettingsSidebar
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
-				onSubmit={onSubmit}
+				onSettingsChange={onSettingsChange}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
@@ -177,21 +191,21 @@ describe('SettingsSidebar', () => {
 		const hsa = screen.getByLabelText('HSA') as HTMLInputElement;
 		expect(hsa.checked).toBe(DEFAULT_CONFIG.hitSplitAces);
 		fireEvent.click(hsa);
-		fireEvent.submit(screen.getByLabelText('Decks').closest('form')!);
 
-		expect(onSubmit).toHaveBeenCalledWith(
+		await settledWith(
+			onSettingsChange,
 			expect.objectContaining({ hitSplitAces: !DEFAULT_CONFIG.hitSplitAces })
 		);
 	});
 
-	it('submits the insurance rule', () => {
+	it('reports the insurance rule', async () => {
 		cleanup();
-		const onSubmit = vi.fn();
+		const onSettingsChange = vi.fn();
 		render(() => (
 			<SettingsSidebar
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
-				onSubmit={onSubmit}
+				onSettingsChange={onSettingsChange}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
@@ -201,9 +215,9 @@ describe('SettingsSidebar', () => {
 		const insurance = screen.getByLabelText('INS') as HTMLInputElement;
 		expect(insurance.checked).toBe(DEFAULT_CONFIG.insurance);
 		fireEvent.click(insurance);
-		fireEvent.submit(screen.getByLabelText('Decks').closest('form')!);
 
-		expect(onSubmit).toHaveBeenCalledWith(
+		await settledWith(
+			onSettingsChange,
 			expect.objectContaining({ insurance: !DEFAULT_CONFIG.insurance })
 		);
 	});
@@ -223,7 +237,7 @@ describe('SettingsSidebar', () => {
 					surrender: 'early',
 				}}
 				calcTimeMs={null}
-				onSubmit={vi.fn()}
+				onSettingsChange={vi.fn()}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
@@ -244,7 +258,7 @@ describe('SettingsSidebar', () => {
 			<SettingsSidebar
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
-				onSubmit={vi.fn()}
+				onSettingsChange={vi.fn()}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
@@ -272,7 +286,7 @@ describe('SettingsSidebar', () => {
 			<SettingsSidebar
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
-				onSubmit={vi.fn()}
+				onSettingsChange={vi.fn()}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
@@ -290,13 +304,13 @@ describe('SettingsSidebar', () => {
 		);
 	});
 
-	it('switches the system to Custom when a tag value is edited and submits it', async () => {
-		const onSubmit = vi.fn();
+	it('switches the system to Custom when a tag value is edited and reports it', async () => {
+		const onSettingsChange = vi.fn();
 		render(() => (
 			<SettingsSidebar
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
-				onSubmit={onSubmit}
+				onSettingsChange={onSettingsChange}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
@@ -305,9 +319,8 @@ describe('SettingsSidebar', () => {
 
 		const tenTag = screen.getByLabelText('Tag value for 10');
 		fireEvent.input(tenTag, { target: { value: '-1' } });
-		fireEvent.submit(tenTag.closest('form')!);
 
-		expect(onSubmit).toHaveBeenCalledWith({
+		await settledWith(onSettingsChange, {
 			...DEFAULT_SETTINGS,
 			system: 'custom',
 			tags: { ...ACE_FIVE_TAGS, T: -1 },
@@ -328,7 +341,7 @@ describe('SettingsSidebar', () => {
 					tags: { ...ACE_FIVE_TAGS, T: -1 },
 				}}
 				calcTimeMs={null}
-				onSubmit={vi.fn()}
+				onSettingsChange={vi.fn()}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
@@ -358,7 +371,7 @@ describe('SettingsSidebar', () => {
 			<SettingsSidebar
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
-				onSubmit={vi.fn()}
+				onSettingsChange={vi.fn()}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
@@ -391,7 +404,7 @@ describe('SettingsSidebar', () => {
 			<SettingsSidebar
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
-				onSubmit={vi.fn()}
+				onSettingsChange={vi.fn()}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
@@ -423,35 +436,28 @@ describe('SettingsSidebar', () => {
 		);
 	});
 
-	it('disables Calculate until a setting differs from the last calculation', () => {
+	it('does not report a setting edited back to what was last calculated', async () => {
 		cleanup();
-		const onSubmit = vi.fn();
+		const onSettingsChange = vi.fn();
 		render(() => (
 			<SettingsSidebar
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
-				onSubmit={onSubmit}
+				onSettingsChange={onSettingsChange}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
 			/>
 		));
 
-		const button = screen.getByRole('button', { name: 'Calculate' }) as HTMLButtonElement;
-		expect(button.disabled).toBe(true);
-
 		const decksInput = screen.getByLabelText('Decks');
 		fireEvent.input(decksInput, { target: { value: '8' } });
-		expect(button.disabled).toBe(false);
-
-		// Back to the calculated value: nothing to recalculate again.
+		// Back to the calculated value before the timer fires: the results on
+		// screen already answer this, so nothing should be recalculated.
 		fireEvent.input(decksInput, { target: { value: String(DEFAULT_CONFIG.decks) } });
-		expect(button.disabled).toBe(true);
 
-		fireEvent.input(decksInput, { target: { value: '8' } });
-		fireEvent.click(button);
-		expect(onSubmit).toHaveBeenCalledTimes(1);
-		expect(button.disabled).toBe(true);
+		await settlingTime();
+		expect(onSettingsChange).not.toHaveBeenCalled();
 	});
 
 	it('shows the calculation duration when calcTimeMs is provided', () => {
@@ -459,7 +465,7 @@ describe('SettingsSidebar', () => {
 			<SettingsSidebar
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={1234}
-				onSubmit={vi.fn()}
+				onSettingsChange={vi.fn()}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
@@ -470,12 +476,15 @@ describe('SettingsSidebar', () => {
 	});
 
 	describe('bankroll tab', () => {
-		const renderWithBankroll = (onBankrollChange = vi.fn()) => {
+		const renderWithBankroll = (
+			onBankrollChange = vi.fn(),
+			onSettingsChange = vi.fn()
+		) => {
 			render(() => (
 				<SettingsSidebar
 					initialConfig={DEFAULT_CONFIG}
 					calcTimeMs={null}
-					onSubmit={vi.fn()}
+					onSettingsChange={onSettingsChange}
 					bankroll={DEFAULT_BANKROLL_CONFIG}
 					bankrollAnalysis={undefined}
 					onBankrollChange={onBankrollChange}
@@ -514,13 +523,11 @@ describe('SettingsSidebar', () => {
 
 		// The whole reason the bankroll settings are owned by the app rather than
 		// mirrored into this form: they change nothing the worker computes, so
-		// offering to recalculate after one would be offering to redo identical work.
-		it('does not enable Calculate', () => {
-			renderWithBankroll();
-			const button = screen.getByRole('button', {
-				name: 'Calculate',
-			}) as HTMLButtonElement;
-			expect(button.disabled).toBe(true);
+		// recalculating after one would be redoing identical work -- and would
+		// blank the grids on the way, which is what the app renders from.
+		it('does not recalculate', async () => {
+			const onSettingsChange = vi.fn();
+			renderWithBankroll(vi.fn(), onSettingsChange);
 
 			fireEvent.input(screen.getByLabelText('Bankroll', { selector: 'input' }), {
 				target: { value: '20000' },
@@ -529,7 +536,8 @@ describe('SettingsSidebar', () => {
 				target: { value: '9' },
 			});
 
-			expect(button.disabled).toBe(true);
+			await settlingTime();
+			expect(onSettingsChange).not.toHaveBeenCalled();
 		});
 	});
 });

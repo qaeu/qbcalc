@@ -29,7 +29,7 @@ export const DEFAULT_CONFIG: CalculatorConfig = { ...DEFAULT_PARAMS, system: 'ac
 
 /**
  * A config minus the running count. The count is driven by the arrow keys and
- * recalculates on its own, so the sidebar form neither holds it nor submits it
+ * recalculates on its own, so the sidebar form neither holds it nor reports it
  * -- everything the form does own is exactly this.
  */
 export type CalculatorSettings = Omit<CalculatorConfig, 'count'>;
@@ -69,9 +69,8 @@ const STORAGE_VERSION = 5;
 
 /**
  * Kept out of `CalculatorConfig` and under a key of its own. The config decides
- * what the worker computes and whether the sidebar considers itself dirty, and
- * the display mode changes neither -- filing it there would leave the Calculate
- * button reporting stale results after a mode switch.
+ * what the worker computes, and the display mode changes none of it -- filing
+ * it there would send a mode switch off to recompute results it cannot alter.
  *
  * Stored as a bare string with no version envelope: anything unrecognised is
  * simply dropped and the table falls back to its default mode.
@@ -81,9 +80,9 @@ const DISPLAY_MODE_KEY = 'qbcalc:cell-display-mode';
 /**
  * Also kept out of `CalculatorConfig`, and for the same reason as the display
  * mode: bankroll and bet spread change nothing the worker computes, so filing
- * them there would leave the Calculate button offering to recalculate results
- * that are already current. Structured rather than a bare string, so unlike the
- * display mode it carries a version envelope of its own.
+ * them there would send every spread edit off to recalculate results that are
+ * already current -- blanking the grids on the way. Structured rather than a
+ * bare string, so unlike the display mode it carries a version envelope.
  */
 const BANKROLL_KEY = 'qbcalc:bankroll';
 
@@ -314,8 +313,10 @@ export function loadCalculatorConfig(): CalculatorConfig | null {
  * Whether two sets of sidebar settings would produce the same calculation.
  * Every field is a primitive apart from the tag vector, so a field-wise
  * comparison is enough -- no structural clone or JSON round-trip needed. The
- * running count is deliberately not part of it: it recalculates as it changes,
- * so it can never be what makes the form dirty.
+ * running count is deliberately not part of it: it recalculates on its own as
+ * the arrow keys move it, so it can never be what the settle timer is waiting
+ * on -- and its absence is also what lets the app tell a count-only
+ * recalculation apart from one the summary cards have to follow.
  */
 export function calculatorSettingsEqual(
 	a: CalculatorSettings,
