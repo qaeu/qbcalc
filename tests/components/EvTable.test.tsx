@@ -623,7 +623,10 @@ describe('EvTable', () => {
 		// The ring is an inset shadow rather than a fill, so it survives the heat
 		// colours -- and which cells the count has moved is worth as much while
 		// reading their numbers as while reading their letters.
-		it('keeps the deviation ring in the numeric modes', () => {
+		// The ring marks a change of letter, which is dressing with no meaning on
+		// top of the EV and occurrence heat ramps -- so it belongs to the action
+		// mode alone.
+		it('drops the deviation ring outside the action mode', () => {
 			renderTable();
 
 			const ringed = () => document.querySelectorAll('td[class*="was-"]').length;
@@ -631,7 +634,11 @@ describe('EvTable', () => {
 			expect(inActionMode).toBeGreaterThan(0);
 
 			cycle();
-			expect(ringed()).toBe(inActionMode);
+			expect(ringed()).toBe(0);
+			cycle();
+			expect(ringed()).toBe(0);
+
+			// And comes back on the way round, rather than being spent once.
 			cycle();
 			expect(ringed()).toBe(inActionMode);
 		});
