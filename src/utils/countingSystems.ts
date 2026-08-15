@@ -12,7 +12,15 @@
 import { ACE_FIVE_TAGS, type TagValues } from './ev/composition';
 
 export type CountingSystemId =
-	'ace-five' | 'hi-lo' | 'ko' | 'hi-opt-i' | 'uston-apm' | 'custom';
+	| 'ace-five'
+	| 'hi-lo'
+	| 'ko'
+	| 'hi-opt-i'
+	| 'uston-apm'
+	| 'omega-ii'
+	| 'rpc'
+	| 'zen'
+	| 'custom';
 
 export interface CountingSystem {
 	id: CountingSystemId;
@@ -59,6 +67,21 @@ export const COUNTING_SYSTEMS: readonly CountingSystem[] = [
 		id: 'uston-apm',
 		label: 'Uston APM',
 		tags: tags({ '3': 1, '4': 1, '5': 1, '6': 1, '7': 1, T: -1, A: -1 }),
+	},
+	{
+		id: 'omega-ii',
+		label: 'Omega II',
+		tags: tags({ '2': 1, '3': 1, '4': 2, '5': 2, '6': 2, '7': 1, '9': -1, T: -2 }),
+	},
+	{
+		id: 'rpc',
+		label: 'RPC',
+		tags: tags({ '2': 1, '3': 2, '4': 2, '5': 2, '6': 2, '7': 1, T: -2, A: -2 }),
+	},
+	{
+		id: 'zen',
+		label: 'Zen',
+		tags: tags({ '2': 1, '3': 1, '4': 2, '5': 2, '6': 2, '7': 1, T: -2, A: -1 }),
 	},
 	{ id: 'custom', label: 'Custom', tags: null },
 ];
