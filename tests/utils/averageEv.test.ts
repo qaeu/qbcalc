@@ -162,3 +162,31 @@ describe('blackjack payout', () => {
 		expect(cost).toBeLessThan(0.5 * naturals);
 	});
 });
+
+describe('variancePerRound', () => {
+	it('lands near the published flat-bet variance for a six-deck game', () => {
+		// Basic strategy is usually quoted at about 1.26-1.32 units squared. This
+		// model reads a little under that: simplification 1 leaves the player's own
+		// cards in the shoe, and `actionSecondMoment` sums a split's two hands as
+		// independent, both of which trim spread rather than add it.
+		const variance = tablesFor().average.variancePerRound;
+		expect(variance).toBeGreaterThan(1.15);
+		expect(variance).toBeLessThan(1.32);
+	});
+
+	it('rises when the table pays more for a natural', () => {
+		// A bigger natural payout is a bigger winning outcome, so it widens the
+		// spread as well as lifting the mean.
+		expect(tablesFor({ blackjackPayout: '6:5' }).average.variancePerRound).toBeLessThan(
+			tablesFor().average.variancePerRound
+		);
+	});
+
+	it('is smaller at a table that lets a bad hand be surrendered', () => {
+		// Surrender replaces a wide loss-heavy spread with a certain half-unit
+		// loss, which removes variance wherever it is taken.
+		expect(tablesFor({ surrender: 'late' }).average.variancePerRound).toBeLessThan(
+			tablesFor({ surrender: 'none' }).average.variancePerRound
+		);
+	});
+});

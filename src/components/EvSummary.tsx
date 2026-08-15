@@ -1,17 +1,33 @@
 import { Show, type Component } from 'solid-js';
 
+import type { BankrollAnalysis } from '#utils/bankroll';
 import type { AverageEvAnalysis } from '#utils/ev/tables';
-import { formatCount, formatEvPercent } from '#utils/format';
+import {
+	formatCount,
+	formatCurrency,
+	formatEvPercent,
+	formatProbabilityPercent,
+	formatRounds,
+} from '#utils/format';
 import { signClass } from '#utils/actionStyle';
 
 import '#styles/EvSummary';
 
 interface SummaryCardProps {
 	label: string;
-	/** Signed figure to show, or `undefined` while there isn't one yet. */
-	value: number | undefined;
+	/**
+	 * The figure to show, already formatted, or `undefined` while there isn't
+	 * one yet. Formatted by the caller because the cards no longer share a unit:
+	 * percentages, money and round counts each read differently.
+	 */
+	value: string | undefined;
 	/** Unit the figure is in, e.g. a percentage or percentage points. */
-	unit: string;
+	unit?: string;
+	/**
+	 * The figure the +/- colouring keys off, where the sign carries meaning.
+	 * Omitted for figures that are always positive, like a standard deviation.
+	 */
+	sign?: number;
 	loading: boolean;
 }
 
@@ -22,9 +38,15 @@ const SummaryCard: Component<SummaryCardProps> = (props) => (
 			when={!props.loading && props.value !== undefined}
 			fallback={<span class="ev-summary__skeleton" aria-hidden="true" />}
 		>
-			<span class={`ev-summary__value ${signClass(props.value!) ?? ''}`}>
-				{formatEvPercent(props.value!)}
-				<span class="ev-summary__unit">{props.unit}</span>
+			<span
+				class={`ev-summary__value ${
+					props.sign === undefined ? '' : (signClass(props.sign) ?? '')
+				}`}
+			>
+				{props.value}
+				<Show when={props.unit}>
+					<span class="ev-summary__unit">{props.unit}</span>
+				</Show>
 			</span>
 		</Show>
 	</div>
@@ -32,31 +54,86 @@ const SummaryCard: Component<SummaryCardProps> = (props) => (
 
 interface EvSummaryProps {
 	average: AverageEvAnalysis | undefined;
+	bankroll: BankrollAnalysis | undefined;
 	loading: boolean;
 	count: number;
 }
 
 /**
- * The three grids in one figure: what a round is worth on average over every
- * hand the shoe can deal. The delta card only appears at a count that moves the
- * shoe -- at a neutral one it would read zero on every recalculation.
+ * What the game is worth to the player, above the grids that say what each spot
+ * is worth. Player Edge is the whole shoe averaged under the bet spread and the
+ * penetration -- not the edge at the count on screen, which is what the cells
+ * already show and what the delta card beside it reports the movement of. The
+ * delta card only appears at a count that moves the shoe; at a neutral one it
+ * would read zero on every recalculation.
+ *
+ * Every card but the delta is derived from the result rather than computed from
+ * one, so they all follow a spread edit without a recalculation.
  */
 const EvSummary: Component<EvSummaryProps> = (props) => (
 	<div class="ev-summary">
 		<SummaryCard
 			label="Player Edge"
-			value={props.average?.countEvPercent}
+			value={
+				props.bankroll === undefined ?
+					undefined
+				:	formatEvPercent(props.bankroll.edgePercent)
+			}
 			unit="%"
+			sign={props.bankroll?.edgePercent}
 			loading={props.loading}
 		/>
 		<Show when={props.count !== 0}>
 			<SummaryCard
 				label={`${formatCount(props.count)} EVΔ`}
-				value={props.average?.deltaPercentPoints}
+				value={
+					props.average === undefined ?
+						undefined
+					:	formatEvPercent(props.average.deltaPercentPoints)
+				}
 				unit=" pts"
+				sign={props.average?.deltaPercentPoints}
 				loading={props.loading}
 			/>
 		</Show>
+		<SummaryCard
+			label="Win Rate"
+			value={
+				props.bankroll === undefined ?
+					undefined
+				:	formatCurrency(props.bankroll.winRatePerHour)
+			}
+			unit=" /hr"
+			sign={props.bankroll?.winRatePerHour}
+			loading={props.loading}
+		/>
+		<SummaryCard
+			label="Std Dev"
+			value={
+				props.bankroll === undefined ?
+					undefined
+				:	formatCurrency(props.bankroll.sdPerHour).replace('+', '')
+			}
+			unit=" /hr"
+			loading={props.loading}
+		/>
+		<SummaryCard
+			label="N0"
+			value={
+				props.bankroll === undefined ? undefined : formatRounds(props.bankroll.n0Rounds)
+			}
+			unit=" rounds"
+			loading={props.loading}
+		/>
+		<SummaryCard
+			label="Risk of Ruin"
+			value={
+				props.bankroll === undefined ?
+					undefined
+				:	formatProbabilityPercent(props.bankroll.riskOfRuin)
+			}
+			loading={props.loading}
+		/>
 	</div>
 );
 

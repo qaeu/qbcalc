@@ -4,6 +4,7 @@ import { fireEvent, render, screen, cleanup, waitFor } from '@solidjs/testing-li
 import SettingsSidebar from '#c/SettingsSidebar';
 import { ACE_FIVE_TAGS } from '#utils/ev/composition';
 import {
+	DEFAULT_BANKROLL_CONFIG,
 	DEFAULT_CONFIG,
 	loadCalculatorConfig,
 	type CalculatorConfig,
@@ -17,6 +18,9 @@ describe('SettingsSidebar', () => {
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSubmit={onSubmit}
+				bankroll={DEFAULT_BANKROLL_CONFIG}
+				bankrollAnalysis={undefined}
+				onBankrollChange={() => {}}
 			/>
 		));
 
@@ -43,6 +47,9 @@ describe('SettingsSidebar', () => {
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSubmit={onSubmit}
+				bankroll={DEFAULT_BANKROLL_CONFIG}
+				bankrollAnalysis={undefined}
+				onBankrollChange={() => {}}
 			/>
 		));
 
@@ -70,6 +77,9 @@ describe('SettingsSidebar', () => {
 				}}
 				calcTimeMs={null}
 				onSubmit={vi.fn()}
+				bankroll={DEFAULT_BANKROLL_CONFIG}
+				bankrollAnalysis={undefined}
+				onBankrollChange={() => {}}
 			/>
 		));
 
@@ -85,6 +95,9 @@ describe('SettingsSidebar', () => {
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSubmit={onSubmit}
+				bankroll={DEFAULT_BANKROLL_CONFIG}
+				bankrollAnalysis={undefined}
+				onBankrollChange={() => {}}
 			/>
 		));
 
@@ -125,6 +138,9 @@ describe('SettingsSidebar', () => {
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSubmit={vi.fn()}
+				bankroll={DEFAULT_BANKROLL_CONFIG}
+				bankrollAnalysis={undefined}
+				onBankrollChange={() => {}}
 			/>
 		));
 
@@ -150,6 +166,9 @@ describe('SettingsSidebar', () => {
 				initialConfig={{ ...DEFAULT_CONFIG, dealerPeek: true, surrender: 'late' }}
 				calcTimeMs={null}
 				onSubmit={onSubmit}
+				bankroll={DEFAULT_BANKROLL_CONFIG}
+				bankrollAnalysis={undefined}
+				onBankrollChange={() => {}}
 			/>
 		));
 
@@ -173,6 +192,9 @@ describe('SettingsSidebar', () => {
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSubmit={onSubmit}
+				bankroll={DEFAULT_BANKROLL_CONFIG}
+				bankrollAnalysis={undefined}
+				onBankrollChange={() => {}}
 			/>
 		));
 
@@ -196,6 +218,9 @@ describe('SettingsSidebar', () => {
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSubmit={onSubmit}
+				bankroll={DEFAULT_BANKROLL_CONFIG}
+				bankrollAnalysis={undefined}
+				onBankrollChange={() => {}}
 			/>
 		));
 
@@ -225,6 +250,9 @@ describe('SettingsSidebar', () => {
 				}}
 				calcTimeMs={null}
 				onSubmit={vi.fn()}
+				bankroll={DEFAULT_BANKROLL_CONFIG}
+				bankrollAnalysis={undefined}
+				onBankrollChange={() => {}}
 			/>
 		));
 
@@ -243,6 +271,9 @@ describe('SettingsSidebar', () => {
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSubmit={vi.fn()}
+				bankroll={DEFAULT_BANKROLL_CONFIG}
+				bankrollAnalysis={undefined}
+				onBankrollChange={() => {}}
 			/>
 		));
 
@@ -268,6 +299,9 @@ describe('SettingsSidebar', () => {
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSubmit={vi.fn()}
+				bankroll={DEFAULT_BANKROLL_CONFIG}
+				bankrollAnalysis={undefined}
+				onBankrollChange={() => {}}
 			/>
 		));
 
@@ -289,6 +323,9 @@ describe('SettingsSidebar', () => {
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSubmit={onSubmit}
+				bankroll={DEFAULT_BANKROLL_CONFIG}
+				bankrollAnalysis={undefined}
+				onBankrollChange={() => {}}
 			/>
 		));
 
@@ -318,6 +355,9 @@ describe('SettingsSidebar', () => {
 				}}
 				calcTimeMs={null}
 				onSubmit={vi.fn()}
+				bankroll={DEFAULT_BANKROLL_CONFIG}
+				bankrollAnalysis={undefined}
+				onBankrollChange={() => {}}
 			/>
 		));
 
@@ -345,6 +385,9 @@ describe('SettingsSidebar', () => {
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSubmit={vi.fn()}
+				bankroll={DEFAULT_BANKROLL_CONFIG}
+				bankrollAnalysis={undefined}
+				onBankrollChange={() => {}}
 			/>
 		));
 
@@ -375,6 +418,9 @@ describe('SettingsSidebar', () => {
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSubmit={vi.fn()}
+				bankroll={DEFAULT_BANKROLL_CONFIG}
+				bankrollAnalysis={undefined}
+				onBankrollChange={() => {}}
 			/>
 		));
 
@@ -411,6 +457,9 @@ describe('SettingsSidebar', () => {
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSubmit={onSubmit}
+				bankroll={DEFAULT_BANKROLL_CONFIG}
+				bankrollAnalysis={undefined}
+				onBankrollChange={() => {}}
 			/>
 		));
 
@@ -437,9 +486,76 @@ describe('SettingsSidebar', () => {
 				initialConfig={DEFAULT_CONFIG}
 				calcTimeMs={1234}
 				onSubmit={vi.fn()}
+				bankroll={DEFAULT_BANKROLL_CONFIG}
+				bankrollAnalysis={undefined}
+				onBankrollChange={() => {}}
 			/>
 		));
 
 		expect(screen.getByText(/\(took 1\.2s\)/)).toBeDefined();
+	});
+
+	describe('bankroll tab', () => {
+		const renderWithBankroll = (onBankrollChange = vi.fn()) => {
+			render(() => (
+				<SettingsSidebar
+					initialConfig={DEFAULT_CONFIG}
+					calcTimeMs={null}
+					onSubmit={vi.fn()}
+					bankroll={DEFAULT_BANKROLL_CONFIG}
+					bankrollAnalysis={undefined}
+					onBankrollChange={onBankrollChange}
+				/>
+			));
+			fireEvent.click(screen.getByRole('tab', { name: 'Bankroll' }));
+			return onBankrollChange;
+		};
+
+		it('reports edits to its fields', () => {
+			const onBankrollChange = renderWithBankroll();
+
+			fireEvent.input(screen.getByLabelText('Bankroll', { selector: 'input' }), {
+				target: { value: '20000' },
+			});
+			expect(onBankrollChange).toHaveBeenCalledWith('bankroll', 20000);
+
+			fireEvent.input(screen.getByLabelText('Unit'), { target: { value: '50' } });
+			expect(onBankrollChange).toHaveBeenCalledWith('unit', 50);
+
+			fireEvent.input(screen.getByLabelText('Rounds per hour'), {
+				target: { value: '80' },
+			});
+			expect(onBankrollChange).toHaveBeenCalledWith('roundsPerHour', 80);
+		});
+
+		it('reports a bet spread edit as a whole new ramp', () => {
+			const onBankrollChange = renderWithBankroll();
+
+			fireEvent.input(screen.getByLabelText('Units bet at true count ≥+6'), {
+				target: { value: '20' },
+			});
+
+			expect(onBankrollChange).toHaveBeenCalledWith('ramp', [1, 1, 2, 4, 8, 12, 20]);
+		});
+
+		// The whole reason the bankroll settings are owned by the app rather than
+		// mirrored into this form: they change nothing the worker computes, so
+		// offering to recalculate after one would be offering to redo identical work.
+		it('does not enable Calculate', () => {
+			renderWithBankroll();
+			const button = screen.getByRole('button', {
+				name: 'Calculate',
+			}) as HTMLButtonElement;
+			expect(button.disabled).toBe(true);
+
+			fireEvent.input(screen.getByLabelText('Bankroll', { selector: 'input' }), {
+				target: { value: '20000' },
+			});
+			fireEvent.input(screen.getByLabelText('Units bet at true count +3'), {
+				target: { value: '9' },
+			});
+
+			expect(button.disabled).toBe(true);
+		});
 	});
 });

@@ -50,6 +50,7 @@ src/
     │   ├── insurance.ts         # Insurance side bet, priced off the composition
     │   ├── engine.ts            # Action pricing, the three analysis grids
     │   └── tables.ts            # Base/count comparison tables, entry points
+    ├── bankroll.ts              # Count frequency, bet spread, risk of ruin
     └── *.ts                     # Worker protocol and utility scripts
 tests/
 └── **/*.test.ts(x)              # Mirrors the src/ tree
@@ -131,7 +132,7 @@ Formatting is enforced by Prettier (`.prettierrc`): tabs, single quotes, 90 colu
 
 ### EV Engine Guidelines
 
-- **Read the model doc first**: [docs/ev-model.md](./docs/ev-model.md) records the method, the simplifications the numbers rest on, and why the engine is shaped the way it is. Reasoning belongs there; the modules under `src/utils/ev/` keep short comments that point at it.
+- **Read the model doc first**: [docs/ev-model.md](./docs/ev-model.md) records the method, the simplifications the numbers rest on, and why the engine is shaped the way it is. Reasoning belongs there; the modules under `src/utils/ev/` keep short comments that point at it. [docs/bankroll-model.md](./docs/bankroll-model.md) does the same for `src/utils/bankroll.ts`, the bet-sizing and risk layer above it.
 - **Pure functions**: EV calculation must be side-effect free and independent of SolidJS so it is directly unit testable.
 - **Rules as data**: Table variations (deck count, dealer hits soft 17, blackjack payout, DAS, surrender) belong in a `RuleSet` object passed in — never hardcoded.
 - **Exact over sampled**: Prefer exact combinatorial computation; if simulation is ever used, seed it so tests are deterministic.

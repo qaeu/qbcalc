@@ -9,6 +9,7 @@ import {
 	type Component,
 } from 'solid-js';
 
+import type { BankrollAnalysis } from '#utils/bankroll';
 import { RANKS, type Rank } from '#utils/ev/cards';
 import { HARD_TOTALS, PAIR_RANKS, SOFT_TOTALS, type PlayerAction } from '#utils/ev/rules';
 import type { EvCellData } from '#utils/ev/tables';
@@ -375,6 +376,7 @@ interface EvTableProps {
 	isComputing: Accessor<boolean>;
 	error: Accessor<string | null>;
 	count: Accessor<number>;
+	bankroll: Accessor<BankrollAnalysis | undefined>;
 }
 
 const EvTable: Component<EvTableProps> = (props) => {
@@ -461,6 +463,7 @@ const EvTable: Component<EvTableProps> = (props) => {
 			<Show when={!props.error()}>
 				<EvSummary
 					average={props.result()?.average}
+					bankroll={props.bankroll()}
 					loading={props.isComputing()}
 					count={props.count()}
 				/>

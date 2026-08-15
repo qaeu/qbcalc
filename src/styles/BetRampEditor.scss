@@ -1,0 +1,34 @@
+@use 'base' as *;
+
+@layer screen {
+	.bet-ramp-editor {
+		display: grid;
+		// Seven buckets to a row, so each column is narrower still than the tag
+		// grid's five -- the labels carry the sign and the fields stay bare.
+		grid-template-columns: repeat(7, 1fr);
+		gap: 6px;
+
+		&__bucket {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 2px;
+			font-size: 11px;
+			color: get($neutrals, 'fg-light');
+
+			input[type='number'] {
+				@include form-control;
+				min-width: 0;
+				padding: 6px 2px;
+				text-align: center;
+				appearance: textfield;
+
+				&::-webkit-outer-spin-button,
+				&::-webkit-inner-spin-button {
+					appearance: none;
+					margin: 0;
+				}
+			}
+		}
+	}
+}

@@ -78,6 +78,32 @@ export function outcomePercent(outcome: Outcome): ActionOutcome {
 }
 
 /**
+ * `E[X²]` for one action's settlement, in units² of the base wager -- the second
+ * moment a variance figure is built from. A hand riding `s` units returns `±s` or
+ * `0`, so `E[X²] = s²·(1 − push)`. See docs/bankroll-model.md §Variance per round.
+ */
+export function actionSecondMoment(action: ActionAnalysis): number {
+	const push = action.outcome === null ? 0 : action.outcome.pushPercent / 100;
+	switch (action.action) {
+		case 'D':
+			return 4 * (1 - push);
+		case 'R':
+			// A flat half-unit loss every time -- no showdown, so no spread at all.
+			return 0.25;
+		case 'P': {
+			// `outcome` describes one of the two symmetric hands while `evPercent`
+			// covers both stakes, so the per-hand margin is half of it. The siblings
+			// are summed as independent -- simplification 1 already keeps them from
+			// seeing each other's cards -- giving E[(X₁+X₂)²] = 2·E[X²] + 2·E[X]².
+			const handEv = action.evPercent / 200;
+			return 2 * (1 - push) + 2 * handEv * handEv;
+		}
+		default:
+			return 1 - push;
+	}
+}
+
+/**
  * Picks the action the engine plays, and with it the cell's EV: the highest EV
  * wins, and the earliest entry wins a tie.
  */

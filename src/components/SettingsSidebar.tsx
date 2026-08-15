@@ -2,8 +2,9 @@ import { Tabs } from '@ark-ui/solid/tabs';
 import { createMemo, createSignal, Show, type Component } from 'solid-js';
 import { createStore } from 'solid-js/store';
 
-import { LayoutGrid, SlidersHorizontal } from 'lucide-solid';
+import { LayoutGrid, SlidersHorizontal, Wallet } from 'lucide-solid';
 
+import type { BankrollAnalysis } from '#utils/bankroll';
 import { type Rank } from '#utils/ev/cards';
 import { type TagValues } from '#utils/ev/composition';
 import { tagsForSystem, type CountingSystemId } from '#utils/countingSystems';
@@ -11,9 +12,11 @@ import { formatDuration } from '#utils/format';
 import {
 	calculatorConfigsEqual,
 	saveCalculatorConfig,
+	type BankrollConfig,
 	type CalculatorConfig,
 } from '#utils/storage';
 
+import SettingsBankrollTab from '#c/SettingsBankrollTab';
 import SettingsCountTab from '#c/SettingsCountTab';
 import SettingsRulesTab from '#c/SettingsRulesTab';
 
@@ -23,6 +26,18 @@ interface SettingsSidebarProps {
 	initialConfig: CalculatorConfig;
 	calcTimeMs: number | null;
 	onSubmit: (config: CalculatorConfig) => void;
+	/**
+	 * The bankroll settings, which -- unlike the config above -- are owned by the
+	 * app rather than mirrored into this form. They change nothing the worker
+	 * computes, so they apply as they are typed and never dirty the Calculate
+	 * button. See docs/bankroll-model.md.
+	 */
+	bankroll: BankrollConfig;
+	bankrollAnalysis: BankrollAnalysis | undefined;
+	onBankrollChange: <K extends keyof BankrollConfig>(
+		key: K,
+		value: BankrollConfig[K]
+	) => void;
 }
 
 const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
@@ -93,6 +108,10 @@ const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
 								<LayoutGrid />
 								Count
 							</Tabs.Trigger>
+							<Tabs.Trigger value="bankroll" class="settings-sidebar__tab">
+								<Wallet />
+								Bankroll
+							</Tabs.Trigger>
 						</Tabs.List>
 						<Tabs.Content value="rules" class="settings-sidebar__tab-panel">
 							<SettingsRulesTab config={config} setConfig={setConfig} />
@@ -105,6 +124,13 @@ const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
 								onSystemChange={handleSystemChange}
 								onTagChange={handleTagChange}
 								onCountChange={(count) => setConfig('count', count)}
+							/>
+						</Tabs.Content>
+						<Tabs.Content value="bankroll" class="settings-sidebar__tab-panel">
+							<SettingsBankrollTab
+								config={props.bankroll}
+								analysis={props.bankrollAnalysis}
+								onChange={props.onBankrollChange}
 							/>
 						</Tabs.Content>
 					</Tabs.Root>

@@ -93,6 +93,13 @@ export interface AverageEvAnalysis {
 	deltaPercentPoints: number;
 	/** Chance the deal hands the player a natural, count-adjusted. */
 	naturalPercent: number;
+	/**
+	 * Variance of one round's result at a flat one-unit bet, in units², from the
+	 * count-adjusted shoe. Bet sizing scales it by the square of the bet, which is
+	 * what makes it the input a bankroll calculation needs -- see
+	 * docs/bankroll-model.md.
+	 */
+	variancePerRound: number;
 }
 
 export interface EvTables {
@@ -120,11 +127,28 @@ const BLACKJACK_PAYOUT_VALUE: Record<BlackjackPayout, number> = {
  * `blackjackPayout` reaches a number, which is what keeps it out of the grids and
  * out of `ruleSetKey`.
  */
-function averageEvPercent(parts: AverageEvParts, payout: BlackjackPayout): number {
+export function averageEvPercent(parts: AverageEvParts, payout: BlackjackPayout): number {
 	return (
 		parts.evPercentExNatural
 		+ parts.naturalPayoutWeight * BLACKJACK_PAYOUT_VALUE[payout] * 100
 	);
+}
+
+/**
+ * The round's variance, from the same parts. A natural is the one hand whose
+ * spread the payout decides, so it is squared in here exactly where
+ * `averageEvPercent` adds it linearly; the pushed naturals contribute nothing to
+ * either. `evPerRound` is in units, not percent.
+ */
+function averageVariance(
+	parts: AverageEvParts,
+	payout: BlackjackPayout,
+	evPerRound: number
+): number {
+	const naturalValue = BLACKJACK_PAYOUT_VALUE[payout];
+	const secondMoment =
+		parts.secondMomentExNatural + parts.naturalPayoutWeight * naturalValue * naturalValue;
+	return secondMoment - evPerRound * evPerRound;
 }
 
 function buildAverageEv(
@@ -139,6 +163,7 @@ function buildAverageEv(
 		countEvPercent,
 		deltaPercentPoints: countEvPercent - baseEvPercent,
 		naturalPercent: countParts.naturalProbability * 100,
+		variancePerRound: averageVariance(countParts, payout, countEvPercent / 100),
 	};
 }
 

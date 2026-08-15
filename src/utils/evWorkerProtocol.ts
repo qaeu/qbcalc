@@ -8,12 +8,13 @@
 import {
 	applyCountToComposition,
 	baseComposition,
+	type Composition,
 	type TagValues,
 } from './ev/composition';
 import { computeEvGrids, type EvGrids } from './ev/engine';
 import { analyzeInsurance } from './ev/insurance';
 import { ruleSetKey, type RuleSet } from './ev/rules';
-import { combineEvTables, type EvTables } from './ev/tables';
+import { averageEvPercent, combineEvTables, type EvTables } from './ev/tables';
 
 export interface EvWorkerRequest {
 	/**
@@ -29,7 +30,16 @@ export interface EvWorkerRequest {
 	tags: TagValues;
 }
 
-export type EvWorkerResult = EvTables;
+export interface EvWorkerResult extends EvTables {
+	/**
+	 * How many percentage points of player edge one unit of true count is worth,
+	 * from a straight line through the baseline and one count-adjusted shoe. Bet
+	 * sizing needs the edge at counts other than the one on screen, and a line is
+	 * what this app is willing to spend on that -- see docs/bankroll-model.md
+	 * §The edge line.
+	 */
+	edgeSlopePointsPerTrueCount: number;
+}
 
 export type EvWorkerResponse =
 	| { requestId: number; status: 'success'; result: EvWorkerResult }
@@ -54,6 +64,55 @@ function baseGridsFor(ruleSet: RuleSet): EvGrids {
 	return grids;
 }
 
+/**
+ * True count the edge line is measured over when the count on screen is no use
+ * for it. Far enough out that the half-card rounding in
+ * `applyCountToComposition` is a rounding error rather than the whole signal,
+ * and well inside what any shoe can represent.
+ */
+const SLOPE_PROBE_TRUE_COUNT = 2;
+
+/**
+ * The smallest true count whose own delta is trusted to set the edge line. A
+ * count of 1 or 2 on an eight-deck shoe moves the composition by a half-card or
+ * not at all, and dividing that by a true count near zero magnifies the rounding
+ * into a slope that is mostly noise -- so those probe instead.
+ */
+const MIN_SLOPE_TRUE_COUNT = 1;
+
+/**
+ * Percentage points of player edge per unit of true count.
+ *
+ * The engine spreads a count's removals across a full shoe in proportion to
+ * `count / decks` (see `applyCountToComposition`), so the true count a set of
+ * grids describes is exactly `count / decks` -- which is what lets a second shoe
+ * at a known count fix a line. See docs/bankroll-model.md §The edge line.
+ */
+function edgeSlope(
+	ruleSet: RuleSet,
+	base: Composition,
+	tags: TagValues,
+	baseGrids: EvGrids,
+	countGrids: EvGrids,
+	count: number
+): number {
+	const payout = ruleSet.blackjackPayout;
+	const baseEv = averageEvPercent(baseGrids.average, payout);
+	const trueCount = count / ruleSet.decks;
+
+	if (countGrids !== baseGrids && Math.abs(trueCount) >= MIN_SLOPE_TRUE_COUNT) {
+		return (averageEvPercent(countGrids.average, payout) - baseEv) / trueCount;
+	}
+
+	const probeComp = applyCountToComposition(
+		base,
+		tags,
+		SLOPE_PROBE_TRUE_COUNT * ruleSet.decks
+	);
+	const probeEv = averageEvPercent(computeEvGrids(ruleSet, probeComp).average, payout);
+	return (probeEv - baseEv) / SLOPE_PROBE_TRUE_COUNT;
+}
+
 export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerResponse {
 	try {
 		const { ruleSet, count, tags } = request;
@@ -65,15 +124,26 @@ export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerRespo
 		// A count that leaves the shoe untouched -- zero, or one too small to
 		// move a whole half-card -- is the baseline, already computed.
 		const unchanged = modified.every((halfCards, index) => halfCards === base[index]);
+		const countGrids = unchanged ? baseGrids : computeEvGrids(ruleSet, modified);
 		return {
 			requestId: request.requestId,
 			status: 'success',
-			result: combineEvTables(
-				ruleSet,
-				baseGrids,
-				unchanged ? baseGrids : computeEvGrids(ruleSet, modified),
-				analyzeInsurance(ruleSet, base, modified)
-			),
+			result: {
+				...combineEvTables(
+					ruleSet,
+					baseGrids,
+					countGrids,
+					analyzeInsurance(ruleSet, base, modified)
+				),
+				edgeSlopePointsPerTrueCount: edgeSlope(
+					ruleSet,
+					base,
+					tags,
+					baseGrids,
+					countGrids,
+					count
+				),
+			},
 		};
 	} catch (err) {
 		return {

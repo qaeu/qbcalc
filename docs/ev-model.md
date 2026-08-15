@@ -103,6 +103,11 @@ does both:
 
 Insurance is left out, as a side bet rather than a play of the hand (§Insurance).
 
+`analyzeAverage` sums a second moment beside the EV, over the same weights and on the same
+warm memos, which `tables.ts` turns into `AverageEvAnalysis.variancePerRound`: the variance
+of one flat-bet round, in units². Nothing in the grids uses it — it exists for bet sizing,
+and is documented in [bankroll-model.md](./bankroll-model.md) §Variance per round.
+
 The average inherits the grids' simplifications, and simplification 1 is the one that
 shows. Leaving the player's cards in the shoe is most of what the deck count is worth, so
 the average separates a single deck from a six-deck shoe by far less than a published
@@ -131,7 +136,9 @@ hit/stand/double/split table:
 
 - **`penetrationPercent`** sets how deep the shoe is dealt, which governs how often a
   given count occurs, not what a hand is worth once it has. It belongs to bet sizing and
-  risk of ruin rather than to playing decisions.
+  risk of ruin rather than to playing decisions, and that is where it is used —
+  `trueCountFrequencies` in `bankroll.ts` is its only reader (see
+  [bankroll-model.md](./bankroll-model.md) §How often a count comes up).
 - **`insurance`** prices a side bet on the hole card, settled before the hand is played
   and independently of how it is played (§Insurance).
 

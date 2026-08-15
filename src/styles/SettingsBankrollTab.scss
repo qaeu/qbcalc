@@ -1,0 +1,34 @@
+@use 'base' as *;
+
+@layer screen {
+	.settings-bankroll-tab {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+
+		h3 {
+			@include panel-title;
+		}
+
+		// As the rules tab: two short numeric fields read better side by side
+		// than stacked down a narrow sidebar.
+		&__field-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 12px 8px;
+		}
+
+		// Sits directly under the unit field it is advising on, so the gap the
+		// flex column would otherwise add is pulled back.
+		&__kelly {
+			margin: -10px 0 0;
+			font-size: 11px;
+			line-height: 1.4;
+			color: get($neutrals, 'fg-light');
+		}
+
+		input[type='number'] {
+			@include form-control;
+		}
+	}
+}

@@ -13,6 +13,7 @@ import {
 	type RuleSet,
 	type Surrender,
 } from './ev/rules';
+import { RAMP_TRUE_COUNTS } from './bankroll';
 import { isCountingSystemId, type CountingSystemId } from './countingSystems';
 import { isCellDisplayMode, type CellDisplayMode } from './cellDisplay';
 
@@ -25,6 +26,27 @@ export interface CalculatorConfig extends CalculatorParams {
 }
 
 export const DEFAULT_CONFIG: CalculatorConfig = { ...DEFAULT_PARAMS, system: 'ace-five' };
+
+/**
+ * What the player brings to the table rather than what the table offers: the
+ * bankroll figures are derived from an EV result, never an input to one.
+ */
+export interface BankrollConfig {
+	/** Total bankroll, in the same currency as `unit`. */
+	bankroll: number;
+	/** What one betting unit is worth. */
+	unit: number;
+	roundsPerHour: number;
+	/** Units wagered in each `RAMP_TRUE_COUNTS` bucket. */
+	ramp: readonly number[];
+}
+
+export const DEFAULT_BANKROLL_CONFIG: BankrollConfig = {
+	bankroll: 10000,
+	unit: 25,
+	roundsPerHour: 100,
+	ramp: [1, 1, 2, 4, 8, 12, 12],
+};
 
 const STORAGE_KEY = 'qbcalc:calculator-config';
 const STORAGE_VERSION = 5;
@@ -39,6 +61,17 @@ const STORAGE_VERSION = 5;
  * simply dropped and the table falls back to its default mode.
  */
 const DISPLAY_MODE_KEY = 'qbcalc:cell-display-mode';
+
+/**
+ * Also kept out of `CalculatorConfig`, and for the same reason as the display
+ * mode: bankroll and bet spread change nothing the worker computes, so filing
+ * them there would leave the Calculate button offering to recalculate results
+ * that are already current. Structured rather than a bare string, so unlike the
+ * display mode it carries a version envelope of its own.
+ */
+const BANKROLL_KEY = 'qbcalc:bankroll';
+
+const BANKROLL_VERSION = 1;
 
 interface StoredConfig extends CalculatorConfig {
 	version: number;
@@ -72,6 +105,26 @@ type StoredConfigV3 = Omit<CalculatorConfig, 'hitSplitAces' | 'insurance'> & {
 
 /** The v4 schema: every rule the sidebar has today except `insurance`. */
 type StoredConfigV4 = Omit<CalculatorConfig, 'insurance'> & { version: 4 };
+
+interface StoredBankroll extends BankrollConfig {
+	version: number;
+}
+
+function isStoredBankroll(value: unknown): value is StoredBankroll {
+	if (typeof value !== 'object' || value === null) return false;
+	const config = value as Record<string, unknown>;
+	return (
+		config.version === BANKROLL_VERSION
+		&& Number.isFinite(config.bankroll)
+		&& Number.isFinite(config.unit)
+		&& Number.isFinite(config.roundsPerHour)
+		&& Array.isArray(config.ramp)
+		// The ramp's length is the bucket count, so a stored ramp of the wrong
+		// length would silently leave the top counts unbet -- reject it instead.
+		&& config.ramp.length === RAMP_TRUE_COUNTS.length
+		&& config.ramp.every((units) => Number.isFinite(units))
+	);
+}
 
 function isTagValues(value: unknown): value is TagValues {
 	if (typeof value !== 'object' || value === null) return false;
@@ -291,6 +344,33 @@ export function saveCalculatorConfig(config: CalculatorConfig): void {
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
 	} catch {
 		// localStorage may be unavailable (private browsing, quota exceeded, etc.) — ignore.
+	}
+}
+
+export function loadBankrollConfig(): BankrollConfig | null {
+	try {
+		const raw = localStorage.getItem(BANKROLL_KEY);
+		if (!raw) return null;
+		const parsed: unknown = JSON.parse(raw);
+		return isStoredBankroll(parsed) ?
+				{
+					bankroll: parsed.bankroll,
+					unit: parsed.unit,
+					roundsPerHour: parsed.roundsPerHour,
+					ramp: parsed.ramp,
+				}
+			:	null;
+	} catch {
+		return null;
+	}
+}
+
+export function saveBankrollConfig(config: BankrollConfig): void {
+	try {
+		const stored: StoredBankroll = { version: BANKROLL_VERSION, ...config };
+		localStorage.setItem(BANKROLL_KEY, JSON.stringify(stored));
+	} catch {
+		// As above.
 	}
 }
 

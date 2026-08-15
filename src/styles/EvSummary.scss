@@ -4,19 +4,23 @@ $skeleton-pulse-duration: 1.4s;
 
 @layer screen {
 	.ev-summary {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 30px;
+		// A fixed column count rather than a wrapping flex row: the card set is
+		// five or six depending on the count, and a wrapping row would stretch
+		// whatever landed on the short last line to fill it.
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 20px;
 		width: 100%;
 		max-width: 1000px;
 		margin-left: auto;
 		margin-right: auto;
 
+		@media (max-width: $breakpoint-tablet) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
 		&__card {
 			@include card;
-			// Each card carries one figure, so they share the row evenly rather
-			// than sizing to their own labels.
-			flex: 1 1 200px;
 			display: flex;
 			flex-direction: column;
 			align-items: center;

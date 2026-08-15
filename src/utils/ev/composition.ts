@@ -70,6 +70,28 @@ export function baseComposition(ruleSet: RuleSet): Composition {
 }
 
 /**
+ * How much counting information a tag vector carries over a whole shoe:
+ * `Σ w_r · t_r · (t_r − t̄)`, the frequency-weighted variance of the tags, with
+ * `w_r` the cards of rank `r` and `t̄` the frequency-weighted mean tag.
+ *
+ * Equivalently `N · σ_t²` for a shoe of `N` cards, which is the form the
+ * count-frequency model wants (docs/bankroll-model.md); `applyCountToComposition`
+ * below wants it as the divisor that turns a count into per-rank removals. Zero
+ * -- to floating-point tolerance -- means the system cannot distinguish any rank
+ * from any other, and no count value has any meaning under it.
+ */
+export function tagSpread(comp: Composition, tags: TagValues): number {
+	const weights = comp.map((halfCards) => halfCards / 2);
+	const totalCards = weights.reduce((sum, w) => sum + w, 0);
+	const meanTag =
+		weights.reduce((sum, w, index) => sum + w * tags[RANKS[index]], 0) / totalCards;
+	return weights.reduce(
+		(sum, w, index) => sum + w * tags[RANKS[index]] * (tags[RANKS[index]] - meanTag),
+		0
+	);
+}
+
+/**
  * Adjusts a composition to represent a given running count under an arbitrary
  * counting system.
  *
@@ -97,12 +119,7 @@ export function applyCountToComposition(
 	const meanTag =
 		weights.reduce((sum, w, index) => sum + w * tags[RANKS[index]], 0) / totalCards;
 
-	// Σ w_r · t_r · (t_r - t̄) -- the frequency-weighted variance of the tags,
-	// i.e. how much counting information the system carries per shoe.
-	const spread = weights.reduce(
-		(sum, w, index) => sum + w * tags[RANKS[index]] * (tags[RANKS[index]] - meanTag),
-		0
-	);
+	const spread = tagSpread(comp, tags);
 	if (Math.abs(spread) < 1e-9) {
 		if (count === 0) return comp.slice();
 		throw new Error('Tag values give the count no effect (all ranks weighted equally).');

@@ -16,6 +16,7 @@ import { type Composition } from './composition';
 import { DealerModel } from './dealer';
 import { dealIndex, dealWeights, type DealWeights } from './deal';
 import {
+	actionSecondMoment,
 	bestAction,
 	outcomeFromEv,
 	outcomePercent,
@@ -75,6 +76,13 @@ export interface AverageEvParts {
 	 * hand that is not a natural.
 	 */
 	evPercentExNatural: number;
+	/**
+	 * Probability-weighted `E[X²]`, in units² of one unit wagered, over the same
+	 * hands -- the raw material for a per-round variance. Unlike the EV above this
+	 * is a plain ratio rather than a percentage, since it is squared money and a
+	 * "percent" of it would read as nothing anyone recognises.
+	 */
+	secondMomentExNatural: number;
 	/** Chance the player's first two cards are a natural. */
 	naturalProbability: number;
 	/**
@@ -405,6 +413,7 @@ export class ShoeEv {
 		const rankCount = RANKS.length;
 
 		let evPercentExNatural = 0;
+		let secondMomentExNatural = 0;
 		let naturalProbability = 0;
 		let naturalPayoutWeight = 0;
 
@@ -442,13 +451,22 @@ export class ShoeEv {
 					);
 					evPercentExNatural +=
 						weight * (pRebase * -100 + (1 - pRebase) * best.evPercent);
+					// The rebased branch is a flat one-unit loss, so it contributes
+					// 1² to the second moment however the hand would have played.
+					secondMomentExNatural +=
+						weight * (pRebase + (1 - pRebase) * actionSecondMoment(best));
 				}
 			}
 
 			comp[upcardIndex] += CARD_UNITS;
 		}
 
-		return { evPercentExNatural, naturalProbability, naturalPayoutWeight };
+		return {
+			evPercentExNatural,
+			secondMomentExNatural,
+			naturalProbability,
+			naturalPayoutWeight,
+		};
 	}
 }
 

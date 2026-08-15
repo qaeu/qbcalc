@@ -2,16 +2,21 @@ import { describe, it, expect, afterEach } from 'vitest';
 
 import { ACE_FIVE_TAGS, type TagValues } from '#utils/ev/composition';
 import {
+	DEFAULT_BANKROLL_CONFIG,
 	DEFAULT_CONFIG,
+	loadBankrollConfig,
 	loadCalculatorConfig,
 	loadCellDisplayMode,
+	saveBankrollConfig,
 	saveCalculatorConfig,
 	saveCellDisplayMode,
+	type BankrollConfig,
 	type CalculatorConfig,
 } from '#utils/storage';
 
 const STORAGE_KEY = 'qbcalc:calculator-config';
 const DISPLAY_MODE_KEY = 'qbcalc:cell-display-mode';
+const BANKROLL_KEY = 'qbcalc:bankroll';
 /** Mirrors the module's own constant: the schema `saveCalculatorConfig` writes. */
 const STORAGE_VERSION = 5;
 
@@ -206,6 +211,63 @@ describe('loadCalculatorConfig', () => {
 		);
 
 		expect(loadCalculatorConfig()).toBeNull();
+	});
+});
+
+describe('bankroll config', () => {
+	it('round-trips a saved config', () => {
+		const config: BankrollConfig = {
+			bankroll: 25000,
+			unit: 50,
+			roundsPerHour: 80,
+			ramp: [1, 1, 2, 4, 6, 10, 16],
+		};
+		saveBankrollConfig(config);
+		expect(loadBankrollConfig()).toEqual(config);
+	});
+
+	it('returns null when nothing has been saved', () => {
+		expect(loadBankrollConfig()).toBeNull();
+	});
+
+	it('rejects a ramp of the wrong length', () => {
+		// A short ramp would leave the top counts silently unbet rather than
+		// failing, so it is dropped for the default instead.
+		localStorage.setItem(
+			BANKROLL_KEY,
+			JSON.stringify({
+				version: 1,
+				bankroll: 10000,
+				unit: 25,
+				roundsPerHour: 100,
+				ramp: [1, 2, 4],
+			})
+		);
+		expect(loadBankrollConfig()).toBeNull();
+	});
+
+	it('rejects a stored config from a future version', () => {
+		localStorage.setItem(
+			BANKROLL_KEY,
+			JSON.stringify({ ...DEFAULT_BANKROLL_CONFIG, version: 99 })
+		);
+		expect(loadBankrollConfig()).toBeNull();
+	});
+
+	it('survives unparseable stored bankroll settings', () => {
+		localStorage.setItem(BANKROLL_KEY, 'not json');
+		expect(loadBankrollConfig()).toBeNull();
+	});
+
+	// The two keys are independent: bankroll settings change nothing the worker
+	// computes, which is the whole reason they are stored apart from the config.
+	it('leaves the calculator config alone', () => {
+		saveCalculatorConfig(DEFAULT_CONFIG);
+		saveBankrollConfig(DEFAULT_BANKROLL_CONFIG);
+		expect(loadCalculatorConfig()).toEqual(DEFAULT_CONFIG);
+
+		localStorage.setItem(BANKROLL_KEY, 'not json');
+		expect(loadCalculatorConfig()).toEqual(DEFAULT_CONFIG);
 	});
 });
 

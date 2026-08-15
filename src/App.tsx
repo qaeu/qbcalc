@@ -1,9 +1,14 @@
-import { createSignal, onCleanup, type Component } from 'solid-js';
+import { createMemo, createSignal, onCleanup, type Component } from 'solid-js';
 
+import { analyzeBankroll, type BankrollAnalysis } from '#utils/bankroll';
 import {
+	DEFAULT_BANKROLL_CONFIG,
 	DEFAULT_CONFIG,
+	loadBankrollConfig,
 	loadCalculatorConfig,
 	ruleSetFromConfig,
+	saveBankrollConfig,
+	type BankrollConfig,
 	type CalculatorConfig,
 } from '#utils/storage';
 import type {
@@ -35,7 +40,39 @@ const App: Component = () => {
 	const [isComputing, setIsComputing] = createSignal(false);
 	const [error, setError] = createSignal<string | null>(null);
 	const [calcTimeMs, setCalcTimeMs] = createSignal<number | null>(null);
-	const [appliedCount, setAppliedCount] = createSignal(initialConfig.count);
+	// The config the shown result was computed from, which is what the bankroll
+	// figures have to be read against -- the sidebar's own config may already
+	// have moved on to something not yet calculated.
+	const [appliedConfig, setAppliedConfig] = createSignal(initialConfig);
+	const [bankroll, setBankroll] = createSignal<BankrollConfig>(
+		loadBankrollConfig() ?? DEFAULT_BANKROLL_CONFIG
+	);
+
+	const updateBankroll = <K extends keyof BankrollConfig>(
+		key: K,
+		value: BankrollConfig[K]
+	) => {
+		const next = { ...bankroll(), [key]: value };
+		setBankroll(next);
+		// Saved as typed rather than on a submit: these settings have no
+		// Calculate step to hang the save off, since nothing recomputes.
+		saveBankrollConfig(next);
+	};
+
+	// Derived, not computed in the worker: every input is either already on the
+	// result or a bankroll field, so a spread edit re-reads this instantly
+	// instead of queueing another few seconds of enumeration.
+	const bankrollAnalysis = createMemo<BankrollAnalysis | undefined>(() => {
+		const current = result();
+		if (!current) return undefined;
+		const config = appliedConfig();
+		return analyzeBankroll(ruleSetFromConfig(config), config.tags, {
+			...bankroll(),
+			baseEvPercent: current.average.baseEvPercent,
+			edgeSlopePointsPerTrueCount: current.edgeSlopePointsPerTrueCount,
+			variancePerRound: current.average.variancePerRound,
+		});
+	});
 
 	// Exact enumeration over the full shoe takes seconds; offload it to a
 	// worker so the main thread stays responsive and the grids can show a
@@ -43,7 +80,7 @@ const App: Component = () => {
 	let worker: Worker | undefined;
 	let latestRequestId = 0;
 	let latestRequestStart = 0;
-	let latestRequestCount = 0;
+	let latestRequestConfig = initialConfig;
 	let holdTimer: number | undefined;
 
 	const getWorker = (): Worker => {
@@ -70,7 +107,7 @@ const App: Component = () => {
 					if (response.status === 'success') {
 						setCalcTimeMs(elapsed);
 						setResult(response.result);
-						setAppliedCount(latestRequestCount);
+						setAppliedConfig(latestRequestConfig);
 					} else {
 						setCalcTimeMs(null);
 						setError(response.message);
@@ -98,7 +135,7 @@ const App: Component = () => {
 		clearTimeout(holdTimer);
 		latestRequestId += 1;
 		latestRequestStart = performance.now();
-		latestRequestCount = nextConfig.count;
+		latestRequestConfig = nextConfig;
 		// Note that `result` is deliberately left alone here: the previous rows
 		// stay in place while the new ones are computed. EvCell keeps each cell's
 		// popover mounted for as long as it has row data, and that is what stops
@@ -128,12 +165,16 @@ const App: Component = () => {
 					initialConfig={initialConfig}
 					calcTimeMs={calcTimeMs()}
 					onSubmit={runCalculation}
+					bankroll={bankroll()}
+					bankrollAnalysis={bankrollAnalysis()}
+					onBankrollChange={updateBankroll}
 				/>
 				<EvTable
 					result={result}
 					isComputing={isComputing}
 					error={error}
-					count={appliedCount}
+					count={() => appliedConfig().count}
+					bankroll={bankrollAnalysis}
 				/>
 			</div>
 		</main>
