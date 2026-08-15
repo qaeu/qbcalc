@@ -271,9 +271,11 @@ $action-cell-opacity: 1.5;
 			}
 		}
 
-		// Names the view the cells are currently in. Both numeric modes render
-		// bare numbers, so without it there is nothing on screen saying whether a
-		// cell reads as EV or as occurrence.
+		// Names the view the cells are currently in, and the running count they
+		// are computed at. Both numeric modes render bare numbers, so without it
+		// there is nothing on screen saying whether a cell reads as EV or as
+		// occurrence; the count has no home in the sidebar either, now that the
+		// arrow keys are what move it.
 		&__mode {
 			display: flex;
 			align-items: baseline;
@@ -291,6 +293,15 @@ $action-cell-opacity: 1.5;
 		&__mode-hint {
 			color: get($neutrals, 'fg-light');
 			font-size: 12px;
+		}
+
+		// Separates the mode from the count, the two halves of the line each
+		// being a name and its key hint.
+		&__mode-divider {
+			align-self: center;
+			width: 1px;
+			height: 12px;
+			background-color: get($neutrals, 'sep');
 		}
 
 		&__cell-skeleton {

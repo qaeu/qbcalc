@@ -10,10 +10,11 @@ import { type TagValues } from '#utils/ev/composition';
 import { tagsForSystem, type CountingSystemId } from '#utils/countingSystems';
 import { formatDuration } from '#utils/format';
 import {
-	calculatorConfigsEqual,
-	saveCalculatorConfig,
+	calculatorSettingsEqual,
+	settingsFromConfig,
 	type BankrollConfig,
 	type CalculatorConfig,
+	type CalculatorSettings,
 } from '#utils/storage';
 
 import SettingsBankrollTab from '#c/SettingsBankrollTab';
@@ -25,7 +26,11 @@ import '#styles/SettingsSidebar';
 interface SettingsSidebarProps {
 	initialConfig: CalculatorConfig;
 	calcTimeMs: number | null;
-	onSubmit: (config: CalculatorConfig) => void;
+	/**
+	 * Handed the settings alone: the running count is the app's, moved by the
+	 * arrow keys and recalculated without this form's involvement.
+	 */
+	onSubmit: (settings: CalculatorSettings) => void;
 	/**
 	 * The bankroll settings, which -- unlike the config above -- are owned by the
 	 * app rather than mirrored into this form. They change nothing the worker
@@ -41,25 +46,24 @@ interface SettingsSidebarProps {
 }
 
 const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
-	// One store rather than a signal per field: the form mirrors the whole
-	// config, and submitting is then just handing the mirror back. Tag
-	// vectors are copied in rather than stored by reference -- the presets
-	// are shared module constants, and a store takes ownership of the object
-	// it is handed.
-	const [config, setConfig] = createStore<CalculatorConfig>({
-		...props.initialConfig,
+	// One store rather than a signal per field: the form mirrors every setting,
+	// and submitting is then just handing the mirror back. Tag vectors are
+	// copied in rather than stored by reference -- the presets are shared
+	// module constants, and a store takes ownership of the object it is handed.
+	const [config, setConfig] = createStore<CalculatorSettings>({
+		...settingsFromConfig(props.initialConfig),
 		tags: { ...props.initialConfig.tags },
 	});
 
-	// The config the shown results were calculated from. The app kicks off a
+	// The settings the shown results were calculated from. The app kicks off a
 	// calculation with initialConfig on mount, so the form starts out matching
 	// what is on screen and there is nothing to recalculate yet.
-	const [lastCalculated, setLastCalculated] = createSignal<CalculatorConfig>({
-		...props.initialConfig,
+	const [lastCalculated, setLastCalculated] = createSignal<CalculatorSettings>({
+		...settingsFromConfig(props.initialConfig),
 		tags: { ...props.initialConfig.tags },
 	});
 
-	const isUnchanged = createMemo(() => calculatorConfigsEqual(config, lastCalculated()));
+	const isUnchanged = createMemo(() => calculatorSettingsEqual(config, lastCalculated()));
 
 	// The tag vector Custom last held, so that selecting a preset and coming back
 	// restores the user's own values rather than leaving the preset's behind.
@@ -88,10 +92,9 @@ const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
 	const handleSubmit = (event: SubmitEvent) => {
 		event.preventDefault();
 		if (isUnchanged()) return;
-		const nextConfig: CalculatorConfig = { ...config, tags: { ...config.tags } };
-		setLastCalculated(nextConfig);
-		saveCalculatorConfig(nextConfig);
-		props.onSubmit(nextConfig);
+		const nextSettings: CalculatorSettings = { ...config, tags: { ...config.tags } };
+		setLastCalculated(nextSettings);
+		props.onSubmit(nextSettings);
 	};
 
 	return (
@@ -120,10 +123,8 @@ const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
 							<SettingsCountTab
 								system={config.system}
 								tags={config.tags}
-								count={config.count}
 								onSystemChange={handleSystemChange}
 								onTagChange={handleTagChange}
-								onCountChange={(count) => setConfig('count', count)}
 							/>
 						</Tabs.Content>
 						<Tabs.Content value="bankroll" class="settings-sidebar__tab-panel">

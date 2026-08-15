@@ -30,12 +30,6 @@ const DEVIATION_RESULT: EvWorkerResult = {
 	edgeSlopePointsPerTrueCount: EDGE_SLOPE,
 };
 
-// An unadjusted shoe, for the summary row at a count with no delta to report.
-const NEUTRAL_RESULT: EvWorkerResult = {
-	...computeAllEvTables(DEFAULT_RULE_SET, 0),
-	edgeSlopePointsPerTrueCount: EDGE_SLOPE,
-};
-
 // A real analysis of the default spread against the same rules, so the summary
 // cards are exercised with figures that actually agree with each other.
 const SAMPLE_BANKROLL: BankrollAnalysis = analyzeBankroll(
@@ -106,7 +100,7 @@ describe('EvTable', () => {
 		expect(within(tables[2]).getAllByRole('row')).toHaveLength(11);
 	});
 
-	it('heads the grids with the shoe-wide edge, and the delta once the count moves', () => {
+	it('heads the grids with the shoe-wide edge, and names the running count', () => {
 		render(() => (
 			<EvTable
 				result={() => SAMPLE_RESULT}
@@ -118,7 +112,7 @@ describe('EvTable', () => {
 		));
 
 		const cards = document.querySelectorAll('.ev-summary__card');
-		expect(cards).toHaveLength(6);
+		expect(cards).toHaveLength(5);
 
 		// The edge over the whole shoe under the bet spread, not the EV at the
 		// count on screen -- the cells already answer that question.
@@ -130,9 +124,10 @@ describe('EvTable', () => {
 			formatEvPercent(SAMPLE_RESULT.average.countEvPercent)
 		);
 
-		expect(cards[1].textContent).toContain('+1 EVΔ');
-		expect(cards[1].querySelector('.ev-summary__value')?.textContent).toBe(
-			`${formatEvPercent(SAMPLE_RESULT.average.deltaPercentPoints)} pts`
+		// The count has no field in the sidebar any more, so the line above the
+		// grids is where it is read off.
+		expect(document.querySelector('.ev-table__mode')?.textContent).toContain(
+			'Running count +1'
 		);
 	});
 
@@ -147,28 +142,11 @@ describe('EvTable', () => {
 			/>
 		));
 
+		// Every card is derived from the bankroll analysis, so without one there
+		// is nothing to show anywhere along the row.
 		const cards = document.querySelectorAll('.ev-summary__card');
 		expect(cards[0].textContent).toContain('Player Edge');
-		expect(cards[0].querySelector('.ev-summary__value')).toBeNull();
-		// The delta is read straight off the result, so it stands on its own.
-		expect(cards[1].querySelector('.ev-summary__value')).not.toBeNull();
-	});
-
-	it('drops the delta card at a neutral count, where it is always zero', () => {
-		render(() => (
-			<EvTable
-				result={() => NEUTRAL_RESULT}
-				isComputing={() => false}
-				error={() => null}
-				bankroll={() => undefined}
-				count={() => 0}
-			/>
-		));
-
-		const cards = document.querySelectorAll('.ev-summary__card');
-		expect(cards).toHaveLength(5);
-		expect(cards[0].textContent).toContain('Player Edge');
-		for (const card of cards) expect(card.textContent).not.toContain('EVΔ');
+		for (const card of cards) expect(card.querySelector('.ev-summary__value')).toBeNull();
 	});
 
 	it('shows a skeleton in place of the average while computing', () => {
@@ -184,7 +162,7 @@ describe('EvTable', () => {
 
 		// The previous result is still in hand, so the figure has to be withheld
 		// deliberately rather than merely being absent.
-		expect(document.querySelectorAll('.ev-summary__skeleton')).toHaveLength(6);
+		expect(document.querySelectorAll('.ev-summary__skeleton')).toHaveLength(5);
 		expect(document.querySelectorAll('.ev-summary__value')).toHaveLength(0);
 	});
 

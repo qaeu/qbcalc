@@ -33,8 +33,9 @@ export function formatCellOccurrencePercent(value: number): string {
 	return value.toFixed(2);
 }
 
+/** A running count, signed -- except at zero, which no counter calls "+0". */
 export function formatCount(value: number): string {
-	return value >= 0 ? `+${value}` : `${value}`;
+	return value > 0 ? `+${value}` : `${value}`;
 }
 
 /**

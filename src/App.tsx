@@ -8,14 +8,18 @@ import {
 	loadCalculatorConfig,
 	ruleSetFromConfig,
 	saveBankrollConfig,
+	saveCalculatorConfig,
 	type BankrollConfig,
 	type CalculatorConfig,
+	type CalculatorSettings,
 } from '#utils/storage';
 import type {
 	EvWorkerRequest,
 	EvWorkerResponse,
 	EvWorkerResult,
 } from '#utils/evWorkerProtocol';
+
+import { createGlobalKeydown, isKeyConsumingTarget } from '#utils/keyboard';
 
 import EvTable from '#c/EvTable';
 import SettingsSidebar from '#c/SettingsSidebar';
@@ -44,6 +48,10 @@ const App: Component = () => {
 	// figures have to be read against -- the sidebar's own config may already
 	// have moved on to something not yet calculated.
 	const [appliedConfig, setAppliedConfig] = createSignal(initialConfig);
+	// The running count lives here rather than in the sidebar form: it is the
+	// one input a counter moves hand to hand, so the arrow keys drive it and it
+	// recalculates on its own instead of waiting on Calculate.
+	const [count, setCount] = createSignal(initialConfig.count);
 	const [bankroll, setBankroll] = createSignal<BankrollConfig>(
 		loadBankrollConfig() ?? DEFAULT_BANKROLL_CONFIG
 	);
@@ -127,6 +135,7 @@ const App: Component = () => {
 
 	onCleanup(() => {
 		clearTimeout(holdTimer);
+		clearTimeout(countTimer);
 		worker?.terminate();
 	});
 
@@ -144,16 +153,51 @@ const App: Component = () => {
 		// it here would break that animation from a distance.
 		setIsComputing(true);
 		setError(null);
+		// Saved here rather than on submit, since the count reaches a calculation
+		// without passing through the form at all.
+		saveCalculatorConfig(nextConfig);
 
-		const { count, tags } = nextConfig;
 		const request: EvWorkerRequest = {
 			requestId: latestRequestId,
 			ruleSet: ruleSetFromConfig(nextConfig),
-			count,
-			tags,
+			count: nextConfig.count,
+			tags: nextConfig.tags,
 		};
 		w.postMessage(request);
 	};
+
+	/**
+	 * How long the count waits for the arrow keys to settle before a
+	 * calculation is queued. A held key repeats far faster than the worker
+	 * answers, so the count moves on screen at once and one sweep from +2 to
+	 * +10 costs a single enumeration rather than eight.
+	 */
+	const COUNT_SETTLE_MS = 120;
+	let countTimer: number | undefined;
+
+	const stepCount = (step: number) => {
+		const next = count() + step;
+		setCount(next);
+		clearTimeout(countTimer);
+		countTimer = window.setTimeout(
+			// Based on the newest requested config rather than the applied one, so
+			// a count change during a recalculation keeps the rules being computed.
+			() => runCalculation({ ...latestRequestConfig, count: next }),
+			COUNT_SETTLE_MS
+		);
+	};
+
+	createGlobalKeydown((event) => {
+		const step =
+			event.key === 'ArrowUp' ? 1
+			: event.key === 'ArrowDown' ? -1
+			: 0;
+		if (step === 0 || isKeyConsumingTarget(event.target)) return;
+		// Both keys scroll the page by default, which would drag the grids out
+		// from under the change the key just made.
+		event.preventDefault();
+		stepCount(step);
+	});
 
 	runCalculation(initialConfig);
 
@@ -164,7 +208,9 @@ const App: Component = () => {
 				<SettingsSidebar
 					initialConfig={initialConfig}
 					calcTimeMs={calcTimeMs()}
-					onSubmit={runCalculation}
+					onSubmit={(settings: CalculatorSettings) =>
+						runCalculation({ ...settings, count: count() })
+					}
 					bankroll={bankroll()}
 					bankrollAnalysis={bankrollAnalysis()}
 					onBankrollChange={updateBankroll}
@@ -173,7 +219,7 @@ const App: Component = () => {
 					result={result}
 					isComputing={isComputing}
 					error={error}
-					count={() => appliedConfig().count}
+					count={count}
 					bankroll={bankrollAnalysis}
 				/>
 			</div>

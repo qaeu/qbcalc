@@ -1,9 +1,7 @@
 import { Show, type Component } from 'solid-js';
 
 import type { BankrollAnalysis } from '#utils/bankroll';
-import type { AverageEvAnalysis } from '#utils/ev/tables';
 import {
-	formatCount,
 	formatCurrency,
 	formatEvPercent,
 	formatProbabilityPercent,
@@ -53,22 +51,18 @@ const SummaryCard: Component<SummaryCardProps> = (props) => (
 );
 
 interface EvSummaryProps {
-	average: AverageEvAnalysis | undefined;
 	bankroll: BankrollAnalysis | undefined;
 	loading: boolean;
-	count: number;
 }
 
 /**
  * What the game is worth to the player, above the grids that say what each spot
  * is worth. Player Edge is the whole shoe averaged under the bet spread and the
  * penetration -- not the edge at the count on screen, which is what the cells
- * already show and what the delta card beside it reports the movement of. The
- * delta card only appears at a count that moves the shoe; at a neutral one it
- * would read zero on every recalculation.
+ * already show.
  *
- * Every card but the delta is derived from the result rather than computed from
- * one, so they all follow a spread edit without a recalculation.
+ * Every card is derived from the result rather than computed from one, so they
+ * all follow a spread edit without a recalculation.
  */
 const EvSummary: Component<EvSummaryProps> = (props) => (
 	<div class="ev-summary">
@@ -83,19 +77,6 @@ const EvSummary: Component<EvSummaryProps> = (props) => (
 			sign={props.bankroll?.edgePercent}
 			loading={props.loading}
 		/>
-		<Show when={props.count !== 0}>
-			<SummaryCard
-				label={`${formatCount(props.count)} EVΔ`}
-				value={
-					props.average === undefined ?
-						undefined
-					:	formatEvPercent(props.average.deltaPercentPoints)
-				}
-				unit=" pts"
-				sign={props.average?.deltaPercentPoints}
-				loading={props.loading}
-			/>
-		</Show>
 		<SummaryCard
 			label="Win Rate"
 			value={

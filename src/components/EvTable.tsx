@@ -13,7 +13,7 @@ import type { BankrollAnalysis } from '#utils/bankroll';
 import { RANKS, type Rank } from '#utils/ev/cards';
 import { HARD_TOTALS, PAIR_RANKS, SOFT_TOTALS, type PlayerAction } from '#utils/ev/rules';
 import type { EvCellData } from '#utils/ev/tables';
-import { formatPairLabel, formatSoftTotalLabel } from '#utils/format';
+import { formatCount, formatPairLabel, formatSoftTotalLabel } from '#utils/format';
 import { ACTION_CLASS } from '#utils/actionStyle';
 import {
 	CELL_DISPLAY_MODE_LABELS,
@@ -461,15 +461,15 @@ const EvTable: Component<EvTableProps> = (props) => {
 			</Show>
 
 			<Show when={!props.error()}>
-				<EvSummary
-					average={props.result()?.average}
-					bankroll={props.bankroll()}
-					loading={props.isComputing()}
-					count={props.count()}
-				/>
+				<EvSummary bankroll={props.bankroll()} loading={props.isComputing()} />
 				<p class="ev-table__mode" aria-live="polite">
 					<span class="ev-table__mode-name">{CELL_DISPLAY_MODE_LABELS[mode()]}</span>
 					<span class="ev-table__mode-hint">space to cycle</span>
+					<span class="ev-table__mode-divider" aria-hidden="true" />
+					<span class="ev-table__mode-name">
+						Running count {formatCount(props.count())}
+					</span>
+					<span class="ev-table__mode-hint">↑/↓ to adjust</span>
 				</p>
 				<EvGrid
 					title="Hard totals"

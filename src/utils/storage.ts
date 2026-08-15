@@ -28,6 +28,22 @@ export interface CalculatorConfig extends CalculatorParams {
 export const DEFAULT_CONFIG: CalculatorConfig = { ...DEFAULT_PARAMS, system: 'ace-five' };
 
 /**
+ * A config minus the running count. The count is driven by the arrow keys and
+ * recalculates on its own, so the sidebar form neither holds it nor submits it
+ * -- everything the form does own is exactly this.
+ */
+export type CalculatorSettings = Omit<CalculatorConfig, 'count'>;
+
+/**
+ * The settings half of a config, for seeding the sidebar's form. The tag vector
+ * comes across by reference, so a caller that intends to edit it -- a store,
+ * say -- copies it as it takes it.
+ */
+export function settingsFromConfig(config: CalculatorConfig): CalculatorSettings {
+	return { ...ruleSetFromConfig(config), system: config.system, tags: config.tags };
+}
+
+/**
  * What the player brings to the table rather than what the table offers: the
  * bankroll figures are derived from an EV result, never an input to one.
  */
@@ -295,17 +311,18 @@ export function loadCalculatorConfig(): CalculatorConfig | null {
 }
 
 /**
- * Whether two configs would produce the same calculation and the same saved
- * state. Every field is a primitive apart from the tag vector, so a field-wise
- * comparison is enough -- no structural clone or JSON round-trip needed.
+ * Whether two sets of sidebar settings would produce the same calculation.
+ * Every field is a primitive apart from the tag vector, so a field-wise
+ * comparison is enough -- no structural clone or JSON round-trip needed. The
+ * running count is deliberately not part of it: it recalculates as it changes,
+ * so it can never be what makes the form dirty.
  */
-export function calculatorConfigsEqual(
-	a: CalculatorConfig,
-	b: CalculatorConfig
+export function calculatorSettingsEqual(
+	a: CalculatorSettings,
+	b: CalculatorSettings
 ): boolean {
 	return (
 		a.decks === b.decks
-		&& a.count === b.count
 		&& a.dealerHitsSoft17 === b.dealerHitsSoft17
 		&& a.penetrationPercent === b.penetrationPercent
 		&& a.blackjackPayout === b.blackjackPayout

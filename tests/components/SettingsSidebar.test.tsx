@@ -6,9 +6,13 @@ import { ACE_FIVE_TAGS } from '#utils/ev/composition';
 import {
 	DEFAULT_BANKROLL_CONFIG,
 	DEFAULT_CONFIG,
-	loadCalculatorConfig,
-	type CalculatorConfig,
+	settingsFromConfig,
+	type CalculatorSettings,
 } from '#utils/storage';
+
+// What the form owns, which is every field of a config but the running count:
+// that one is driven by the arrow keys and never passes through the sidebar.
+const DEFAULT_SETTINGS = settingsFromConfig(DEFAULT_CONFIG);
 
 describe('SettingsSidebar', () => {
 	it('renders the current settings and calls onSubmit with the entered values', () => {
@@ -26,43 +30,15 @@ describe('SettingsSidebar', () => {
 
 		const decksInput = screen.getByLabelText('Decks');
 		fireEvent.input(decksInput, { target: { value: '6' } });
-		const countInput = screen.getByLabelText('Running count');
-		fireEvent.input(countInput, { target: { value: '-2' } });
 		const checkbox = screen.getByLabelText('S17') as HTMLInputElement;
 		fireEvent.click(checkbox);
 		fireEvent.submit(decksInput.closest('form')!);
 
 		expect(onSubmit).toHaveBeenCalledWith({
-			...DEFAULT_CONFIG,
+			...DEFAULT_SETTINGS,
 			decks: 6,
-			count: -2,
 			dealerHitsSoft17: true,
-		} satisfies CalculatorConfig);
-	});
-
-	it('persists the submitted config to localStorage', () => {
-		const onSubmit = vi.fn();
-		render(() => (
-			<SettingsSidebar
-				initialConfig={DEFAULT_CONFIG}
-				calcTimeMs={null}
-				onSubmit={onSubmit}
-				bankroll={DEFAULT_BANKROLL_CONFIG}
-				bankrollAnalysis={undefined}
-				onBankrollChange={() => {}}
-			/>
-		));
-
-		// Eight decks, not the default six: Calculate stays disabled -- and the
-		// form unsubmittable -- until something actually differs.
-		const decksInput = screen.getByLabelText('Decks');
-		fireEvent.input(decksInput, { target: { value: '8' } });
-		fireEvent.submit(decksInput.closest('form')!);
-
-		expect(loadCalculatorConfig()).toEqual({
-			...DEFAULT_CONFIG,
-			decks: 8,
-		});
+		} satisfies CalculatorSettings);
 	});
 
 	it('restores previously submitted values from the given initialConfig', () => {
@@ -72,7 +48,6 @@ describe('SettingsSidebar', () => {
 				initialConfig={{
 					...DEFAULT_CONFIG,
 					decks: 6,
-					count: -2,
 					dealerHitsSoft17: false,
 				}}
 				calcTimeMs={null}
@@ -84,7 +59,6 @@ describe('SettingsSidebar', () => {
 		));
 
 		expect((screen.getByLabelText('Decks') as HTMLInputElement).value).toBe('6');
-		expect((screen.getByLabelText('Running count') as HTMLInputElement).value).toBe('-2');
 		expect((screen.getByLabelText('S17') as HTMLInputElement).checked).toBe(true);
 	});
 
@@ -120,7 +94,7 @@ describe('SettingsSidebar', () => {
 		fireEvent.submit(screen.getByLabelText('Decks').closest('form')!);
 
 		expect(onSubmit).toHaveBeenCalledWith({
-			...DEFAULT_CONFIG,
+			...DEFAULT_SETTINGS,
 			penetrationPercent: 60,
 			splitLimit: 2,
 			doubleAfterSplit: false,
@@ -128,7 +102,7 @@ describe('SettingsSidebar', () => {
 			dealerPeek: true,
 			blackjackPayout: '6:5',
 			surrender: 'late',
-		} satisfies CalculatorConfig);
+		} satisfies CalculatorSettings);
 	});
 
 	it('does not offer late surrender while ENHC is on', async () => {
@@ -334,10 +308,10 @@ describe('SettingsSidebar', () => {
 		fireEvent.submit(tenTag.closest('form')!);
 
 		expect(onSubmit).toHaveBeenCalledWith({
-			...DEFAULT_CONFIG,
+			...DEFAULT_SETTINGS,
 			system: 'custom',
 			tags: { ...ACE_FIVE_TAGS, T: -1 },
-		} satisfies CalculatorConfig);
+		} satisfies CalculatorSettings);
 
 		fireEvent.click(screen.getByRole('tab', { name: 'Count' }));
 		const trigger = await screen.findByRole('combobox', { name: 'System' });
