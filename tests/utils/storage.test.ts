@@ -184,7 +184,7 @@ describe('loadCalculatorConfig', () => {
 
 		localStorage.setItem(
 			STORAGE_KEY,
-			JSON.stringify({ ...base, system: 'hi-lo', tags: ACE_FIVE_TAGS })
+			JSON.stringify({ ...base, system: 'not-a-system', tags: ACE_FIVE_TAGS })
 		);
 		expect(loadCalculatorConfig()).toBeNull();
 	});

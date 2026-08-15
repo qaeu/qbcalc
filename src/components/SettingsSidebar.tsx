@@ -46,10 +46,21 @@ const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
 
 	const isUnchanged = createMemo(() => calculatorConfigsEqual(config, lastCalculated()));
 
+	// The tag vector Custom last held, so that selecting a preset and coming back
+	// restores the user's own values rather than leaving the preset's behind.
+	// `null` until Custom has been left at least once -- selecting Custom with
+	// nothing remembered keeps whatever is in the grid as the starting point.
+	const [customTags, setCustomTags] = createSignal<TagValues | null>(
+		props.initialConfig.system === 'custom' ? { ...props.initialConfig.tags } : null
+	);
+
 	const handleSystemChange = (system: CountingSystemId) => {
+		if (config.system === 'custom' && system !== 'custom') {
+			setCustomTags({ ...config.tags });
+		}
 		setConfig('system', system);
-		const presetTags = tagsForSystem(system);
-		if (presetTags) setConfig('tags', { ...presetTags });
+		const nextTags = tagsForSystem(system) ?? (system === 'custom' ? customTags() : null);
+		if (nextTags) setConfig('tags', { ...nextTags });
 	};
 
 	// Any hand-edited tag makes the vector no longer the preset's, whichever

@@ -338,6 +338,71 @@ describe('SettingsSidebar', () => {
 		);
 	});
 
+	it('loads the tag values of a named preset', async () => {
+		cleanup();
+		render(() => (
+			<SettingsSidebar
+				initialConfig={DEFAULT_CONFIG}
+				calcTimeMs={null}
+				onSubmit={vi.fn()}
+			/>
+		));
+
+		fireEvent.click(screen.getByRole('tab', { name: 'Count' }));
+		fireEvent.click(await screen.findByRole('combobox', { name: 'System' }));
+		fireEvent.click(await screen.findByRole('option', { name: 'Hi-Lo' }));
+
+		await waitFor(() =>
+			expect((screen.getByLabelText('Tag value for 2') as HTMLInputElement).value).toBe(
+				'1'
+			)
+		);
+		expect((screen.getByLabelText('Tag value for 7') as HTMLInputElement).value).toBe(
+			'0'
+		);
+		expect((screen.getByLabelText('Tag value for 10') as HTMLInputElement).value).toBe(
+			'-1'
+		);
+		expect((screen.getByLabelText('Tag value for A') as HTMLInputElement).value).toBe(
+			'-1'
+		);
+	});
+
+	it('restores the hand-edited tag values when Custom is reselected', async () => {
+		cleanup();
+		render(() => (
+			<SettingsSidebar
+				initialConfig={DEFAULT_CONFIG}
+				calcTimeMs={null}
+				onSubmit={vi.fn()}
+			/>
+		));
+
+		fireEvent.click(screen.getByRole('tab', { name: 'Count' }));
+		fireEvent.input(screen.getByLabelText('Tag value for 8'), { target: { value: '3' } });
+
+		const combobox = await screen.findByRole('combobox', { name: 'System' });
+		fireEvent.click(combobox);
+		fireEvent.click(await screen.findByRole('option', { name: 'Hi-Opt I' }));
+		await waitFor(() =>
+			expect((screen.getByLabelText('Tag value for 8') as HTMLInputElement).value).toBe(
+				'0'
+			)
+		);
+
+		fireEvent.click(combobox);
+		fireEvent.click(await screen.findByRole('option', { name: 'Custom' }));
+
+		await waitFor(() =>
+			expect((screen.getByLabelText('Tag value for 8') as HTMLInputElement).value).toBe(
+				'3'
+			)
+		);
+		expect((screen.getByLabelText('Tag value for 5') as HTMLInputElement).value).toBe(
+			'1'
+		);
+	});
+
 	it('disables Calculate until a setting differs from the last calculation', () => {
 		cleanup();
 		const onSubmit = vi.fn();
