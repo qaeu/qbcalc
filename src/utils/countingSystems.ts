@@ -49,14 +49,14 @@ function tags(nonNeutral: Partial<TagValues>): TagValues {
 export const COUNTING_SYSTEMS: readonly CountingSystem[] = [
 	{ id: 'ace-five', label: 'Ace-Five', tags: ACE_FIVE_TAGS },
 	{
-		id: 'hi-lo',
-		label: 'Hi-Lo',
-		tags: tags({ '2': 1, '3': 1, '4': 1, '5': 1, '6': 1, T: -1, A: -1 }),
-	},
-	{
 		id: 'ko',
 		label: 'KO',
 		tags: tags({ '2': 1, '3': 1, '4': 1, '5': 1, '6': 1, '7': 1, T: -1, A: -1 }),
+	},
+	{
+		id: 'hi-lo',
+		label: 'Hi-Lo',
+		tags: tags({ '2': 1, '3': 1, '4': 1, '5': 1, '6': 1, T: -1, A: -1 }),
 	},
 	{
 		id: 'hi-opt-i',
