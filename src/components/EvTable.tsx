@@ -17,7 +17,6 @@ import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 
 import EvCellDialog from '#c/EvCellDialog';
 import EvCellPopover from '#c/EvCellPopover';
-import InsurancePanel from '#c/InsurancePanel';
 
 import '#styles/EvTable';
 
@@ -33,6 +32,11 @@ interface EvCellProps {
 	/** The player's hand as the grid labels it, for the drill-down's heading. */
 	hand: string;
 	upcard: Rank;
+	/**
+	 * EV of insurance at this count, where the table offers it. It is a property
+	 * of the upcard, so only the ace column reports it.
+	 */
+	insuranceEvPercent?: number;
 }
 
 /**
@@ -149,7 +153,13 @@ const EvCell: Component<EvCellProps> = (props) => {
 			<Show when={props.row}>
 				{(row) => (
 					<>
-						<EvCellPopover row={row()} count={props.count} />
+						<EvCellPopover
+							row={row()}
+							count={props.count}
+							insuranceEvPercent={
+								props.upcard === 'A' ? props.insuranceEvPercent : undefined
+							}
+						/>
 						<Show when={dialogMounted()}>
 							<EvCellDialog
 								row={row()}
@@ -202,6 +212,7 @@ interface EvGridProps {
 	loading: boolean;
 	seed: number;
 	count: number;
+	insuranceEvPercent?: number;
 	rowLabel?: (total: number) => string;
 	/**
 	 * How the drill-down names a row's hand. Defaults to the row heading itself,
@@ -241,6 +252,7 @@ const EvGrid: Component<EvGridProps> = (props) => (
 												:	String(total)
 											}
 											upcard={upcard}
+											insuranceEvPercent={props.insuranceEvPercent}
 										/>
 									)}
 								</For>
@@ -261,6 +273,7 @@ interface SplitEvGridProps {
 	loading: boolean;
 	seed: number;
 	count: number;
+	insuranceEvPercent?: number;
 }
 
 const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
@@ -288,6 +301,7 @@ const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
 											count={props.count}
 											hand={formatPairLabel(pairRank)}
 											upcard={upcard}
+											insuranceEvPercent={props.insuranceEvPercent}
 										/>
 									)}
 								</For>
@@ -341,6 +355,16 @@ const EvTable: Component<EvTableProps> = (props) => {
 		return map;
 	});
 
+	/**
+	 * The count's insurance price, or `undefined` at a table that doesn't offer
+	 * the bet -- the popovers under the ace upcard report it, since it is that
+	 * upcard's number rather than any one hand's.
+	 */
+	const insuranceEvPercent = createMemo(() => {
+		const insurance = props.result()?.insurance;
+		return insurance?.offered ? insurance.countEvPercent : undefined;
+	});
+
 	return (
 		<section class="ev-table">
 			<Show when={props.error()}>
@@ -358,6 +382,7 @@ const EvTable: Component<EvTableProps> = (props) => {
 					loading={props.isComputing()}
 					seed={runSeed() ^ GRID_SALTS.hard}
 					count={props.count()}
+					insuranceEvPercent={insuranceEvPercent()}
 				/>
 				<EvGrid
 					title="Soft totals"
@@ -370,6 +395,7 @@ const EvTable: Component<EvTableProps> = (props) => {
 					loading={props.isComputing()}
 					seed={runSeed() ^ GRID_SALTS.soft}
 					count={props.count()}
+					insuranceEvPercent={insuranceEvPercent()}
 				/>
 				<SplitEvGrid
 					title="Pairs"
@@ -379,22 +405,8 @@ const EvTable: Component<EvTableProps> = (props) => {
 					loading={props.isComputing()}
 					seed={runSeed() ^ GRID_SALTS.split}
 					count={props.count()}
+					insuranceEvPercent={insuranceEvPercent()}
 				/>
-				{/*
-				 * Kept mounted across recalculations for the same reason the cell
-				 * popovers are: the previous numbers stay on screen, dimmed, so the
-				 * panel eases into the new ones rather than being torn down. A table
-				 * that doesn't offer the bet has no panel at all.
-				 */}
-				<Show when={props.result()?.insurance.offered ? props.result()?.insurance : null}>
-					{(insurance) => (
-						<InsurancePanel
-							insurance={insurance()}
-							count={props.count()}
-							loading={props.isComputing()}
-						/>
-					)}
-				</Show>
 			</Show>
 		</section>
 	);

@@ -164,7 +164,7 @@ const SettingsRulesTab: Component<SettingsRulesTabProps> = (props) => {
 				</SettingsItem>
 				<SettingsItem
 					label="INS"
-					helptext="Insurance offered against a dealer ace"
+					helptext="Insurance offered 2:1 on ace upcard"
 					layout="row"
 				>
 					<input

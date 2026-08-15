@@ -64,9 +64,12 @@ that lifts ten density is the only thing that ever makes insurance correct.
 
 The EV is reported per unit staked _on the insurance bet_, which is the frame the 2:1
 payout and the 1/3 break-even both live in. A full insurance stakes half the main wager,
-so its contribution to the round is half that figure. Nothing else in the tables is in
-this frame, which is why the number is displayed in a panel of its own rather than beside
-the play EVs.
+so its contribution to the round is half that figure — note that this is not the frame
+the play EVs beside it are in.
+
+It is a property of the upcard and not of the player's hand, so the UI hangs it off the
+ace column: every cell popover under an ace reports the same insurance EV, and no other
+column reports one at all.
 
 `RuleSet.insurance` says only whether the table offers the bet; the price is the same
 wherever it is offered, so the flag gates the recommendation rather than the maths. It is

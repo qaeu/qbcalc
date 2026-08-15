@@ -27,17 +27,6 @@ function popoverFor(trigger: Element): HTMLElement {
 }
 
 /**
- * The insurance panel, looked up by class: every cell popover stays mounted
- * (hidden) with figures of its own, so panel assertions have to be scoped to it
- * rather than made against the whole document.
- */
-function insurancePanel(): HTMLElement {
-	const panel = document.querySelector<HTMLElement>('.insurance-panel');
-	if (!panel) throw new Error('No insurance panel rendered');
-	return panel;
-}
-
-/**
  * Dismisses the open drill-down dialog with its close button.
  *
  * Not with Escape, even though the dialog answers it: Escape is handled by a
@@ -77,7 +66,7 @@ describe('EvTable', () => {
 		expect(within(tables[2]).getAllByRole('row')).toHaveLength(11);
 	});
 
-	it('prices insurance beside the grids, and advises declining a normal shoe', () => {
+	it('reports insurance EV in the ace column popovers, and nowhere else', async () => {
 		render(() => (
 			<EvTable
 				result={() => SAMPLE_RESULT}
@@ -87,42 +76,26 @@ describe('EvTable', () => {
 			/>
 		));
 
-		const panel = insurancePanel();
-		expect(within(panel).getByText('Insurance')).toBeDefined();
-		expect(within(panel).getByText('Decline')).toBeDefined();
+		const hardRow = within(screen.getAllByRole('table')[0]).getAllByRole('row')[1];
+		const cells = hardRow.querySelectorAll('td');
+		// The upcard columns run 2..T, A, so the ace is the last of the ten.
+		const aceCell = cells[cells.length - 1];
+		const twoCell = cells[0];
+
+		fireEvent.pointerEnter(aceCell);
+		const acePopover = popoverFor(aceCell);
+		await waitFor(() => {
+			expect(acePopover.hidden).toBe(false);
+		});
+
 		// A fresh six-deck shoe is a bit under a third tens, so the bet loses.
 		expect(SAMPLE_RESULT.insurance.countEvPercent).toBeLessThan(0);
-		expect(within(panel).getByText(/^-\d+\.\d+%$/)).toBeDefined();
+		expect(acePopover.textContent).toMatch(/Insurance EV-\d+\.\d+%/);
+
+		expect(popoverFor(twoCell).textContent).not.toMatch(/Insurance/);
 	});
 
-	it('advises taking insurance once the tens are dense enough', () => {
-		const richResult: EvWorkerResult = {
-			...SAMPLE_RESULT,
-			insurance: {
-				offered: true,
-				tenPercent: 40,
-				baseEvPercent: -7.4,
-				countEvPercent: 20,
-				deltaPercentPoints: 27.4,
-			},
-		};
-
-		render(() => (
-			<EvTable
-				result={() => richResult}
-				isComputing={() => false}
-				error={() => null}
-				count={() => 10}
-			/>
-		));
-
-		const panel = insurancePanel();
-		expect(within(panel).getByText('Take')).toBeDefined();
-		expect(within(panel).getByText('+20.000%')).toBeDefined();
-		expect(within(panel).getByText('40.0%')).toBeDefined();
-	});
-
-	it('drops the panel entirely when the table does not offer insurance', () => {
+	it('leaves insurance out of the popovers when the table does not offer it', async () => {
 		const noInsurance: EvWorkerResult = {
 			...SAMPLE_RESULT,
 			insurance: { ...SAMPLE_RESULT.insurance, offered: false },
@@ -137,8 +110,17 @@ describe('EvTable', () => {
 			/>
 		));
 
-		expect(document.querySelector('.insurance-panel')).toBeNull();
-		expect(screen.queryByText('Insurance')).toBeNull();
+		const hardRow = within(screen.getAllByRole('table')[0]).getAllByRole('row')[1];
+		const cells = hardRow.querySelectorAll('td');
+		const aceCell = cells[cells.length - 1];
+
+		fireEvent.pointerEnter(aceCell);
+		const acePopover = popoverFor(aceCell);
+		await waitFor(() => {
+			expect(acePopover.hidden).toBe(false);
+		});
+
+		expect(acePopover.textContent).not.toMatch(/Insurance/);
 	});
 
 	it('shows an error instead of a table when given an error', () => {
