@@ -6,7 +6,16 @@ $skeleton-phase-count: 12;
 $skeleton-pulse-duration: 1.4s;
 $cell-fade-duration: 0.5s;
 $cell-hover-duration: 0.1s;
-$deviation-ring-width: 3px;
+$deviation-ring-width: 6px;
+$cell-padding-y: 12px;
+$cell-padding-x: 10px;
+$cell-separator-width: 1px;
+// A deviated cell pays for its ring (and for the row rule its bottom border
+// swallows) out of its own padding, so its box stays the size its undeviated
+// neighbours are however wide the ring gets.
+$deviation-padding-y: $cell-padding-y - $deviation-ring-width;
+$deviation-padding-x: $cell-padding-x - $deviation-ring-width;
+$deviation-padding-bottom: $deviation-padding-y - $cell-separator-width;
 // Keep in sync with HEAT_STEPS in src/utils/cellDisplay.ts.
 $heat-steps: 8;
 // Alpha the top step of a heat ramp reaches. Held well short of opaque so the
@@ -17,7 +26,6 @@ $popover-action-opacity: 0.95;
 // The grid cells read the action colour at a glance across the whole board,
 // so they lean on a stronger fill than the popover's single-row chip.
 $action-cell-opacity: 1.5;
-$deviation-ring-opacity: 1.4;
 
 @layer screen {
 	.ev-table {
@@ -47,7 +55,12 @@ $deviation-ring-opacity: 1.4;
 		}
 
 		table {
-			border-collapse: collapse;
+			// Separate rather than collapsed so a deviated cell can carry its own
+			// ring as a real border: collapsing would make it share that edge with
+			// its neighbours. Only bottom borders are drawn, so with zero spacing
+			// the two models look the same everywhere else.
+			border-collapse: separate;
+			border-spacing: 0;
 			table-layout: fixed;
 			width: 100%;
 			font-size: 13px;
@@ -57,9 +70,28 @@ $deviation-ring-opacity: 1.4;
 		th,
 		td {
 			width: calc(100% / 11);
-			padding: 12px 10px;
+			padding: $cell-padding-y $cell-padding-x;
 			text-align: center;
-			border-bottom: 1px solid get($neutrals, 'sep-light');
+			// Every edge stays transparent, the row's rule being painted as a
+			// background layer instead: a cell gaining a deviation ring transitions
+			// its border colour from whatever it already had, and both defaults on
+			// offer -- `currentColor` on the sides, the rule's grey along the bottom
+			// -- flash hard through the fade as the ring comes in.
+			border-style: solid;
+			border-width: 0 0 $cell-separator-width;
+			border-color: transparent;
+			// The second layer is empty and load-bearing: a browser truncates the
+			// `background-clip` list to the number of `background-image` layers and
+			// the background colour takes the last surviving value, which is how a
+			// deviated cell holds its fill inside the ring while the rule runs on
+			// through it.
+			background-image:
+				linear-gradient(get($neutrals, 'sep-light'), get($neutrals, 'sep-light')), none;
+			background-repeat: no-repeat;
+			background-position: bottom;
+			background-size: 100% $cell-separator-width;
+			background-origin: border-box;
+			background-clip: border-box;
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;
@@ -79,7 +111,7 @@ $deviation-ring-opacity: 1.4;
 			cursor: pointer;
 			transition:
 				background-color $cell-fade-duration ease,
-				box-shadow $cell-fade-duration ease,
+				border-color $cell-fade-duration ease,
 				color $cell-fade-duration ease;
 		}
 
@@ -178,20 +210,26 @@ $deviation-ring-opacity: 1.4;
 
 		// A cell whose action the count has moved off basic strategy: the fill
 		// stays with the action to take now, and the ring names the action it
-		// replaced. Drawn as an inset shadow rather than a real border because
-		// `border-collapse: collapse` makes adjacent cells share an edge -- two
-		// neighbouring deviations would have to agree on its colour -- and
-		// because a border would nudge the text by its own width.
-		@mixin deviation-ring($colourset, $opacity: $deviation-ring-opacity) {
-			box-shadow: inset 0 0 0 $deviation-ring-width
-				oklch(from get($colourset, 'fade-less') l c h / calc(alpha * #{$opacity}));
+		// replaced. The ring is a real border with the fill clipped to the padding
+		// box, so it sits on the bare table background at exactly the colour that
+		// action's cells carry, rather than compositing over the fill underneath.
+		@mixin deviation-ring($colourset, $opacity: $action-cell-opacity) {
+			padding: $deviation-padding-y $deviation-padding-x $deviation-padding-bottom;
+			border: $deviation-ring-width solid
+				oklch(from get($colourset, 'fade') l c h / calc(alpha * #{$opacity}));
+			// The bottom edge carries the row's rule as well as the ring, so it takes
+			// the width of both; the rule itself is already painted over that last
+			// pixel by the shared cell rule above.
+			border-bottom-width: $deviation-ring-width + $cell-separator-width;
+			background-origin: border-box, padding-box;
+			background-clip: border-box, padding-box;
 
-			// Hovering raises the fill to alpha-3 as well, which would leave the
-			// ring and the cell it rings at the same weight. Step 5 lifts the ring
-			// just clear of that without reading as a drawn border.
+			// Tracks the fill's own hover lift, so the ring and the cells it is
+			// quoting stay the same colour under the pointer too.
 			&:hover {
-				box-shadow: inset 0 0 0 $deviation-ring-width
-					oklch(from get($colourset, 'highlight-dark') l c h / calc(alpha * #{$opacity}));
+				border-color: oklch(
+					from get($colourset, 'fade-less') l c h / calc(alpha * #{$opacity})
+				);
 			}
 		}
 
