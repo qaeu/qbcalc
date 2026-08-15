@@ -331,9 +331,12 @@ describe('EvTable', () => {
 		);
 		expect(best.classList.contains('is-optimal')).toBe(true);
 
-		// EV, then win/push/lose, all as percentages.
-		const figures = [...within(best).getAllByRole('cell')].map((td) => td.textContent);
-		expect(figures).toHaveLength(4);
+		// Rank and deviation indicator first, then EV, then win/push/lose, all as
+		// percentages.
+		const cells = [...within(best).getAllByRole('cell')].map((td) => td.textContent);
+		expect(cells).toHaveLength(6);
+		const [rank, , ...figures] = cells;
+		expect(rank).toBe('1');
 		for (const figure of figures) expect(figure).toMatch(/^[+-]?\d+\.\d+%$/);
 
 		await closeDialog();

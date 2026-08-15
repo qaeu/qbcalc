@@ -93,8 +93,41 @@ $action-chip-opacity: 0.95;
 			}
 
 			th[scope='row'],
-			th[scope='col']:first-child {
+			.ev-cell-dialog__action-col {
 				text-align: left;
+			}
+
+			// Written as explicit class selectors rather than `&__x`: nested under
+			// `&__actions`, `&__x` would compile against *that* selector and emit
+			// `.ev-cell-dialog__actions__x`, which never matches the plain
+			// `.ev-cell-dialog__x` classes the markup uses.
+			.ev-cell-dialog__rank-col {
+				width: 16px;
+				padding-left: 0;
+				padding-right: 0;
+				text-align: center;
+				color: get($neutrals, 'fg-light');
+			}
+
+			.ev-cell-dialog__deviation-col {
+				width: 24px;
+				min-width: 24px;
+				max-width: 24px;
+				padding-left: 0;
+				padding-right: 0;
+				text-align: left;
+				vertical-align: middle;
+				color: get($neutrals, 'fg-light');
+			}
+
+			// `display: block` already takes the icon off the text baseline; the
+			// nudge down is for the chevron glyphs themselves, whose visual weight
+			// sits above centre inside their 24x24 viewBox.
+			.ev-cell-dialog__deviation-col svg {
+				display: block;
+				width: 18px;
+				height: 18px;
+				transform: translateY(2px);
 			}
 
 			// The EV column is what the rows are ranked by, so it carries the

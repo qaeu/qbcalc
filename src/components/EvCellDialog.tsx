@@ -6,9 +6,9 @@
 
 import { Dialog } from '@ark-ui/solid/dialog';
 import { Portal } from 'solid-js/web';
-import { createMemo, For, Show, type Component } from 'solid-js';
+import { createMemo, For, Match, Show, Switch, type Component } from 'solid-js';
 
-import { X } from 'lucide-solid';
+import { ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, X } from 'lucide-solid';
 
 import type { Rank } from '#utils/ev/cards';
 import type { ActionAnalysis } from '#utils/ev/outcome';
@@ -42,6 +42,15 @@ const EvCellDialog: Component<EvCellDialogProps> = (props) => {
 	const rankedActions = createMemo(() =>
 		[...props.row.actions].sort((a, b) => b.evPercent - a.evPercent)
 	);
+
+	// Where each action stood before the count moved it, so the table can show
+	// how far it climbed or slid rather than just where it ended up.
+	const baseRanks = createMemo(() => {
+		const ranked = [...props.row.baseActions].sort((a, b) => b.evPercent - a.evPercent);
+		const ranks = new Map<string, number>();
+		ranked.forEach((action, index) => ranks.set(action.action, index + 1));
+		return ranks;
+	});
 
 	const hasSplit = createMemo(() =>
 		props.row.actions.some((action) => action.action === 'P')
@@ -78,7 +87,17 @@ const EvCellDialog: Component<EvCellDialogProps> = (props) => {
 						<table class="ev-cell-dialog__actions">
 							<thead>
 								<tr>
-									<th scope="col">Action</th>
+									<th scope="col" class="ev-cell-dialog__rank-col">
+										#
+									</th>
+									<th
+										scope="col"
+										class="ev-cell-dialog__deviation-col"
+										aria-hidden="true"
+									/>
+									<th scope="col" class="ev-cell-dialog__action-col">
+										Action
+									</th>
 									<th scope="col">EV</th>
 									<th scope="col">Win</th>
 									<th scope="col">Push</th>
@@ -87,44 +106,71 @@ const EvCellDialog: Component<EvCellDialogProps> = (props) => {
 							</thead>
 							<tbody>
 								<For each={rankedActions()}>
-									{(action: ActionAnalysis) => (
-										<tr
-											classList={{
-												'is-optimal': action.action === props.row.optimalAction,
-											}}
-										>
-											<th scope="row">
-												<span
-													class={`ev-cell-dialog__action ${ACTION_CLASS[action.action]}`}
-												>
-													{formatActionLabel(action.action)}
-												</span>
-											</th>
-											<td class={signClass(action.evPercent)}>
-												{formatEvPercent(action.evPercent)}%
-											</td>
-											{/* Surrender settles for a flat half-loss with no showdown, so
-											    there is no win/push/lose to report against it. */}
-											<Show
-												when={action.outcome}
-												fallback={
-													<>
-														<td>&mdash;</td>
-														<td>&mdash;</td>
-														<td>&mdash;</td>
-													</>
-												}
+									{(action: ActionAnalysis, index) => {
+										// How far this action's rank has moved from where it stood
+										// against the unadjusted shoe: positive is a climb, negative a
+										// slide, relative to the same ranking read at count 0.
+										const rankDelta = createMemo(() => {
+											const baseRank = baseRanks().get(action.action);
+											return baseRank === undefined ? 0 : baseRank - (index() + 1);
+										});
+
+										return (
+											<tr
+												classList={{
+													'is-optimal': action.action === props.row.optimalAction,
+												}}
 											>
-												{(outcome) => (
-													<>
-														<td>{formatPercent(outcome().winPercent)}</td>
-														<td>{formatPercent(outcome().pushPercent)}</td>
-														<td>{formatPercent(outcome().losePercent)}</td>
-													</>
-												)}
-											</Show>
-										</tr>
-									)}
+												<td class="ev-cell-dialog__rank-col">{index() + 1}</td>
+												<td class="ev-cell-dialog__deviation-col">
+													<Switch>
+														<Match when={rankDelta() === 1}>
+															<ChevronUp class="is-positive" />
+														</Match>
+														<Match when={rankDelta() > 1}>
+															<ChevronsUp class="is-positive" />
+														</Match>
+														<Match when={rankDelta() === -1}>
+															<ChevronDown class="is-negative" />
+														</Match>
+														<Match when={rankDelta() < -1}>
+															<ChevronsDown class="is-negative" />
+														</Match>
+													</Switch>
+												</td>
+												<th scope="row">
+													<span
+														class={`ev-cell-dialog__action ${ACTION_CLASS[action.action]}`}
+													>
+														{formatActionLabel(action.action)}
+													</span>
+												</th>
+												<td class={signClass(action.evPercent)}>
+													{formatEvPercent(action.evPercent)}%
+												</td>
+												{/* Surrender settles for a flat half-loss with no showdown, so
+												    there is no win/push/lose to report against it. */}
+												<Show
+													when={action.outcome}
+													fallback={
+														<>
+															<td>&mdash;</td>
+															<td>&mdash;</td>
+															<td>&mdash;</td>
+														</>
+													}
+												>
+													{(outcome) => (
+														<>
+															<td>{formatPercent(outcome().winPercent)}</td>
+															<td>{formatPercent(outcome().pushPercent)}</td>
+															<td>{formatPercent(outcome().losePercent)}</td>
+														</>
+													)}
+												</Show>
+											</tr>
+										);
+									}}
 								</For>
 							</tbody>
 						</table>

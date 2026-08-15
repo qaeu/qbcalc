@@ -49,6 +49,12 @@ export interface EvCellData {
 	 * names). The drill-down dialog sorts them for display.
 	 */
 	actions: readonly ActionAnalysis[];
+	/**
+	 * The same actions priced against the unadjusted shoe, in the engine's own
+	 * preference order. The drill-down dialog ranks these alongside `actions`
+	 * to show how the count has reordered them.
+	 */
+	baseActions: readonly ActionAnalysis[];
 }
 
 export interface EvComparisonRow extends EvCellData {
@@ -108,6 +114,7 @@ function buildEvComparison(
 				playerBustOnHitPercent: countCell.playerBustOnHitPercent,
 				dealerBustPercent: countCell.dealerBustPercent,
 				actions: countCell.actions,
+				baseActions: baseCell.actions,
 			});
 		}
 	}
@@ -144,6 +151,7 @@ function buildSplitEvComparison(
 				playerBustOnHitPercent: countCell.playerBustOnHitPercent,
 				dealerBustPercent: countCell.dealerBustPercent,
 				actions: countCell.actions,
+				baseActions: baseCell.actions,
 			});
 		}
 	}
