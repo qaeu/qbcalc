@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
 
@@ -46,6 +46,12 @@ async function closeDialog(): Promise<void> {
 }
 
 describe('EvTable', () => {
+	// The cell display mode is persisted, so one test's cycling would otherwise
+	// be the next test's starting mode.
+	beforeEach(() => {
+		localStorage.clear();
+	});
+
 	it('renders hard totals, soft totals, and splits grids for the given result', () => {
 		render(() => (
 			<EvTable
@@ -482,6 +488,128 @@ describe('EvTable', () => {
 		expect(dialog.textContent).toMatch(/EV covers both hands/);
 
 		await closeDialog();
+	});
+
+	describe('cell display mode', () => {
+		function renderTable() {
+			render(() => (
+				<EvTable
+					result={() => DEVIATION_RESULT}
+					isComputing={() => false}
+					error={() => null}
+					count={() => 15}
+				/>
+			));
+
+			return () =>
+				within(screen.getAllByRole('table')[0])
+					.getAllByRole('row')[1]
+					.querySelectorAll('td')[0];
+		}
+
+		const cycle = () => fireEvent.keyDown(document.body, { key: ' ' });
+
+		it('cycles the cells through action, EV and occurrence on space', () => {
+			const firstDataCell = renderTable();
+			const mode = () => document.querySelector('.ev-table__mode-name')?.textContent;
+
+			expect(firstDataCell().textContent).toMatch(/^[HSDPR]$/);
+			expect(mode()).toBe('Optimal action');
+
+			cycle();
+			// Signed, to one decimal -- three would not fit the cell.
+			expect(firstDataCell().textContent).toMatch(/^[+-]\d+\.\d$/);
+			expect(mode()).toBe('EV %');
+
+			cycle();
+			expect(firstDataCell().textContent).toMatch(/^\d+\.\d\d$/);
+			expect(mode()).toBe('Occurrence %');
+
+			cycle();
+			expect(firstDataCell().textContent).toMatch(/^[HSDPR]$/);
+			expect(mode()).toBe('Optimal action');
+		});
+
+		it('colours the cells by action, then by heat ramp', () => {
+			const firstDataCell = renderTable();
+
+			expect([...firstDataCell().classList]).toContain('is-hit');
+
+			cycle();
+			const evClasses = [...firstDataCell().classList];
+			expect(evClasses).toContain('is-numeric');
+			expect(
+				evClasses.some((name) => /^is-ev-(neg|pos)-\d+$|^is-ev-zero$/.test(name))
+			).toBe(true);
+
+			cycle();
+			expect(
+				[...firstDataCell().classList].some((name) => /^is-freq-\d+$/.test(name))
+			).toBe(true);
+		});
+
+		// The ring is an inset shadow rather than a fill, so it survives the heat
+		// colours -- and which cells the count has moved is worth as much while
+		// reading their numbers as while reading their letters.
+		it('keeps the deviation ring in the numeric modes', () => {
+			renderTable();
+
+			const ringed = () => document.querySelectorAll('td[class*="was-"]').length;
+			const inActionMode = ringed();
+			expect(inActionMode).toBeGreaterThan(0);
+
+			cycle();
+			expect(ringed()).toBe(inActionMode);
+			cycle();
+			expect(ringed()).toBe(inActionMode);
+		});
+
+		// Space is the select's own key for opening its list, and the Calculate
+		// button's for pressing it.
+		it('leaves space alone inside a control that has its own use for it', () => {
+			const firstDataCell = renderTable();
+
+			const button = document.createElement('button');
+			document.body.append(button);
+			fireEvent.keyDown(button, { key: ' ' });
+			expect(firstDataCell().textContent).toMatch(/^[HSDPR]$/);
+			button.remove();
+
+			const combobox = document.createElement('div');
+			combobox.setAttribute('role', 'combobox');
+			document.body.append(combobox);
+			fireEvent.keyDown(combobox, { key: ' ' });
+			expect(firstDataCell().textContent).toMatch(/^[HSDPR]$/);
+			combobox.remove();
+		});
+
+		// The cell keeps Enter for its drill-down; space belongs to the cycle,
+		// which stays available with a cell focused.
+		it('cycles from a focused cell, and still opens its dialog on enter', async () => {
+			const firstDataCell = renderTable();
+
+			fireEvent.keyDown(firstDataCell(), { key: ' ' });
+			expect(firstDataCell().textContent).toMatch(/^[+-]\d+\.\d$/);
+			expect(screen.queryByRole('dialog')).toBeNull();
+
+			fireEvent.keyDown(firstDataCell(), { key: 'Enter' });
+			await screen.findByRole('dialog');
+			await closeDialog();
+		});
+
+		it('restores the mode a previous session left the table in', () => {
+			localStorage.setItem('qbcalc:cell-display-mode', 'occurrence');
+			const firstDataCell = renderTable();
+
+			expect(firstDataCell().textContent).toMatch(/^\d+\.\d\d$/);
+		});
+
+		it('ignores a stored mode it does not recognise', () => {
+			localStorage.setItem('qbcalc:cell-display-mode', 'nonsense');
+			const firstDataCell = renderTable();
+
+			expect(firstDataCell().textContent).toMatch(/^[HSDPR]$/);
+		});
 	});
 
 	it('keeps the popover open when the pointer moves onto it, and hides it once the pointer leaves both', async () => {

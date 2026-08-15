@@ -14,6 +14,7 @@ import {
 	type Surrender,
 } from './ev/rules';
 import { isCountingSystemId, type CountingSystemId } from './countingSystems';
+import { isCellDisplayMode, type CellDisplayMode } from './cellDisplay';
 
 /**
  * Everything the sidebar owns: the engine's calculator params plus the
@@ -27,6 +28,17 @@ export const DEFAULT_CONFIG: CalculatorConfig = { ...DEFAULT_PARAMS, system: 'ac
 
 const STORAGE_KEY = 'qbcalc:calculator-config';
 const STORAGE_VERSION = 5;
+
+/**
+ * Kept out of `CalculatorConfig` and under a key of its own. The config decides
+ * what the worker computes and whether the sidebar considers itself dirty, and
+ * the display mode changes neither -- filing it there would leave the Calculate
+ * button reporting stale results after a mode switch.
+ *
+ * Stored as a bare string with no version envelope: anything unrecognised is
+ * simply dropped and the table falls back to its default mode.
+ */
+const DISPLAY_MODE_KEY = 'qbcalc:cell-display-mode';
 
 interface StoredConfig extends CalculatorConfig {
 	version: number;
@@ -279,5 +291,22 @@ export function saveCalculatorConfig(config: CalculatorConfig): void {
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
 	} catch {
 		// localStorage may be unavailable (private browsing, quota exceeded, etc.) — ignore.
+	}
+}
+
+export function loadCellDisplayMode(): CellDisplayMode | null {
+	try {
+		const raw = localStorage.getItem(DISPLAY_MODE_KEY);
+		return isCellDisplayMode(raw) ? raw : null;
+	} catch {
+		return null;
+	}
+}
+
+export function saveCellDisplayMode(mode: CellDisplayMode): void {
+	try {
+		localStorage.setItem(DISPLAY_MODE_KEY, mode);
+	} catch {
+		// As above -- a mode that can't be saved is not worth failing a render over.
 	}
 }

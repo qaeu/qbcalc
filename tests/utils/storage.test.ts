@@ -4,11 +4,14 @@ import { ACE_FIVE_TAGS, type TagValues } from '#utils/ev/composition';
 import {
 	DEFAULT_CONFIG,
 	loadCalculatorConfig,
+	loadCellDisplayMode,
 	saveCalculatorConfig,
+	saveCellDisplayMode,
 	type CalculatorConfig,
 } from '#utils/storage';
 
 const STORAGE_KEY = 'qbcalc:calculator-config';
+const DISPLAY_MODE_KEY = 'qbcalc:cell-display-mode';
 /** Mirrors the module's own constant: the schema `saveCalculatorConfig` writes. */
 const STORAGE_VERSION = 5;
 
@@ -203,5 +206,23 @@ describe('loadCalculatorConfig', () => {
 		);
 
 		expect(loadCalculatorConfig()).toBeNull();
+	});
+});
+
+describe('cell display mode', () => {
+	it('round-trips a saved mode', () => {
+		saveCellDisplayMode('occurrence');
+		expect(loadCellDisplayMode()).toBe('occurrence');
+	});
+
+	it('returns null when nothing has been saved', () => {
+		expect(loadCellDisplayMode()).toBeNull();
+	});
+
+	// Stored bare, with no version envelope: anything unrecognised is simply
+	// dropped and the table falls back to its default mode.
+	it('returns null for a stored value that is not a mode', () => {
+		localStorage.setItem(DISPLAY_MODE_KEY, 'nonsense');
+		expect(loadCellDisplayMode()).toBeNull();
 	});
 });

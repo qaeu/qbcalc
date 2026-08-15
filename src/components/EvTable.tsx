@@ -1,5 +1,6 @@
 import { HoverCard } from '@ark-ui/solid/hover-card';
 import {
+	createEffect,
 	createMemo,
 	createSignal,
 	For,
@@ -13,6 +14,16 @@ import { HARD_TOTALS, PAIR_RANKS, SOFT_TOTALS, type PlayerAction } from '#utils/
 import type { EvCellData } from '#utils/ev/tables';
 import { formatPairLabel, formatSoftTotalLabel } from '#utils/format';
 import { ACTION_CLASS } from '#utils/actionStyle';
+import {
+	CELL_DISPLAY_MODE_LABELS,
+	cellDisplayText,
+	evHeatClass,
+	nextCellDisplayMode,
+	occurrenceHeatClass,
+	type CellDisplayMode,
+} from '#utils/cellDisplay';
+import { createGlobalKeydown, isKeyConsumingTarget } from '#utils/keyboard';
+import { loadCellDisplayMode, saveCellDisplayMode } from '#utils/storage';
 import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 
 import EvCellDialog from '#c/EvCellDialog';
@@ -25,11 +36,23 @@ function cellKey(rowId: number | Rank, upcard: Rank): string {
 	return `${rowId}-${upcard}`;
 }
 
+/**
+ * The extremes the heat ramps are scaled against. Taken across all three grids
+ * at once rather than per grid, so a colour means the same number wherever it
+ * appears -- a pair's EV can be read against a hard total's without rescaling.
+ */
+interface HeatDomains {
+	ev: number;
+	occurrence: number;
+}
+
 interface EvCellProps {
 	row: EvCellData | undefined;
 	loading: boolean;
 	phase: number;
 	count: number;
+	mode: CellDisplayMode;
+	heat: HeatDomains;
 	/** The player's hand as the grid labels it, for the drill-down's heading. */
 	hand: string;
 	upcard: Rank;
@@ -62,14 +85,38 @@ const BASE_ACTION_CLASS: Record<PlayerAction, string> = {
 const EvCell: Component<EvCellProps> = (props) => {
 	const activeRow = createMemo(() => (props.loading ? undefined : props.row));
 
+	/**
+	 * The fill the mode calls for: the action's colour, or the cell's place on
+	 * one of the heat ramps. The numeric modes also take `is-numeric`, which
+	 * buys the wider strings their room back.
+	 */
+	const fillClass = createMemo(() => {
+		const row = props.row;
+		if (!row) return '';
+		switch (props.mode) {
+			case 'action':
+				return ACTION_CLASS[row.optimalAction];
+			case 'ev':
+				return `is-numeric ${evHeatClass(row.countEvPercent, props.heat.ev)}`;
+			case 'occurrence':
+				return `is-numeric ${occurrenceHeatClass(
+					row.occurrencePercent,
+					props.heat.occurrence
+				)}`;
+		}
+	});
+
 	const cellClass = createMemo(() => {
 		if (props.loading) return `is-loading ev-table__loading-phase-${props.phase}`;
 		const row = props.row;
 		if (!row) return '';
-		const action = ACTION_CLASS[row.optimalAction];
+		// The deviation ring rides along in every mode, not just the action one:
+		// it is an inset shadow rather than a fill, so it survives the heat
+		// colours, and knowing which cells the count has moved is worth as much
+		// while reading their numbers as while reading their letters.
 		return row.baseAction === row.optimalAction ?
-				action
-			:	`${action} ${BASE_ACTION_CLASS[row.baseAction]}`;
+				fillClass()
+			:	`${fillClass()} ${BASE_ACTION_CLASS[row.baseAction]}`;
 	});
 
 	const [hoverOpen, setHoverOpen] = createSignal(false);
@@ -126,9 +173,10 @@ const EvCell: Component<EvCellProps> = (props) => {
 						// declaring it again after the spread would replace theirs.
 						onPointerOver={() => setHoverSuppressed(false)}
 						onClick={openDialog}
+						// Enter alone: space belongs to the table-wide display mode
+						// cycle, which stays available with a cell focused.
 						onKeyDown={(event) => {
-							if (event.key !== 'Enter' && event.key !== ' ') return;
-							// Space would otherwise scroll the page out from under the dialog.
+							if (event.key !== 'Enter') return;
 							event.preventDefault();
 							openDialog();
 						}}
@@ -137,7 +185,7 @@ const EvCell: Component<EvCellProps> = (props) => {
 							when={!props.loading}
 							fallback={<span class="ev-table__cell-skeleton" aria-hidden="true" />}
 						>
-							{props.row?.optimalAction ?? '—'}
+							{props.row ? cellDisplayText(props.row, props.mode) : '—'}
 						</Show>
 					</td>
 				)}
@@ -213,6 +261,8 @@ interface EvGridProps {
 	loading: boolean;
 	seed: number;
 	count: number;
+	mode: CellDisplayMode;
+	heat: HeatDomains;
 	insuranceEvPercent?: number;
 	rowLabel?: (total: number) => string;
 	/**
@@ -246,6 +296,8 @@ const EvGrid: Component<EvGridProps> = (props) => (
 											loading={props.loading}
 											phase={loadingPhase(props.seed, rowIndex(), colIndex())}
 											count={props.count}
+											mode={props.mode}
+											heat={props.heat}
 											hand={
 												props.handLabel ? props.handLabel(total)
 												: props.rowLabel ?
@@ -274,6 +326,8 @@ interface SplitEvGridProps {
 	loading: boolean;
 	seed: number;
 	count: number;
+	mode: CellDisplayMode;
+	heat: HeatDomains;
 	insuranceEvPercent?: number;
 }
 
@@ -300,6 +354,8 @@ const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
 											loading={props.loading}
 											phase={loadingPhase(props.seed, rowIndex(), colIndex())}
 											count={props.count}
+											mode={props.mode}
+											heat={props.heat}
 											hand={formatPairLabel(pairRank)}
 											upcard={upcard}
 											insuranceEvPercent={props.insuranceEvPercent}
@@ -366,6 +422,37 @@ const EvTable: Component<EvTableProps> = (props) => {
 		return insurance?.offered ? insurance.countEvPercent : undefined;
 	});
 
+	const [mode, setMode] = createSignal<CellDisplayMode>(
+		loadCellDisplayMode() ?? 'action'
+	);
+	createEffect(() => saveCellDisplayMode(mode()));
+
+	createGlobalKeydown((event) => {
+		if (event.key !== ' ' || isKeyConsumingTarget(event.target)) return;
+		// Space scrolls the page by default, which would drag the grids out from
+		// under the very change the key just made.
+		event.preventDefault();
+		setMode(nextCellDisplayMode);
+	});
+
+	/**
+	 * Recomputed per result rather than fixed, so the ramps stretch to whatever
+	 * the count has done to the table instead of saturating at one end of a
+	 * hardcoded range.
+	 */
+	const heat = createMemo<HeatDomains>(() => {
+		const result = props.result();
+		let ev = 0;
+		let occurrence = 0;
+		for (const grid of [result?.hard, result?.soft, result?.split]) {
+			for (const row of grid?.rows ?? []) {
+				ev = Math.max(ev, Math.abs(row.countEvPercent));
+				occurrence = Math.max(occurrence, row.occurrencePercent);
+			}
+		}
+		return { ev, occurrence };
+	});
+
 	return (
 		<section class="ev-table">
 			<Show when={props.error()}>
@@ -378,6 +465,10 @@ const EvTable: Component<EvTableProps> = (props) => {
 					loading={props.isComputing()}
 					count={props.count()}
 				/>
+				<p class="ev-table__mode" aria-live="polite">
+					<span class="ev-table__mode-name">{CELL_DISPLAY_MODE_LABELS[mode()]}</span>
+					<span class="ev-table__mode-hint">space to cycle</span>
+				</p>
 				<EvGrid
 					title="Hard totals"
 					rowHeading="Hard total"
@@ -388,6 +479,8 @@ const EvTable: Component<EvTableProps> = (props) => {
 					loading={props.isComputing()}
 					seed={runSeed() ^ GRID_SALTS.hard}
 					count={props.count()}
+					mode={mode()}
+					heat={heat()}
 					insuranceEvPercent={insuranceEvPercent()}
 				/>
 				<EvGrid
@@ -401,6 +494,8 @@ const EvTable: Component<EvTableProps> = (props) => {
 					loading={props.isComputing()}
 					seed={runSeed() ^ GRID_SALTS.soft}
 					count={props.count()}
+					mode={mode()}
+					heat={heat()}
 					insuranceEvPercent={insuranceEvPercent()}
 				/>
 				<SplitEvGrid
@@ -411,6 +506,8 @@ const EvTable: Component<EvTableProps> = (props) => {
 					loading={props.isComputing()}
 					seed={runSeed() ^ GRID_SALTS.split}
 					count={props.count()}
+					mode={mode()}
+					heat={heat()}
 					insuranceEvPercent={insuranceEvPercent()}
 				/>
 			</Show>

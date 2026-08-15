@@ -7,6 +7,12 @@ $skeleton-pulse-duration: 1.4s;
 $cell-fade-duration: 0.5s;
 $cell-hover-duration: 0.1s;
 $deviation-ring-width: 3px;
+// Keep in sync with HEAT_STEPS in src/utils/cellDisplay.ts.
+$heat-steps: 8;
+// Alpha the top step of a heat ramp reaches. Held well short of opaque so the
+// cell's text keeps its contrast at both ends of the scale, in either theme.
+$heat-max-alpha: 45%;
+$heat-hover-alpha: 12%;
 $popover-action-opacity: 0.95;
 
 @layer screen {
@@ -114,6 +120,58 @@ $popover-action-opacity: 0.95;
 			@include action-colour($neutrals);
 		}
 
+		// One class per step rather than a gradient over the real value: a
+		// continuous scale would need an inline style per cell, and the ramp is
+		// read by comparing cells to each other rather than by decoding an exact
+		// shade, so discrete steps lose nothing.
+		@mixin heat-colour($colourset, $step) {
+			$alpha: math.div($step, $heat-steps) * $heat-max-alpha;
+			color: get($colourset, 'fg');
+			background-color: color-mix(in oklab, get($colourset, 'base') $alpha, transparent);
+
+			&:hover {
+				background-color: color-mix(
+					in oklab,
+					get($colourset, 'base') $alpha + $heat-hover-alpha,
+					transparent
+				);
+			}
+		}
+
+		// A cell sitting on zero EV keeps the bare cell background, so break-even
+		// reads as a pale band running between the two halves of the ramp.
+		td.is-ev-zero {
+			color: get($neutrals, 'fg');
+		}
+
+		@for $step from 1 through $heat-steps {
+			td.is-ev-neg-#{$step} {
+				@include heat-colour($errors, $step);
+			}
+
+			td.is-ev-pos-#{$step} {
+				@include heat-colour($successes, $step);
+			}
+		}
+
+		// Sequential rather than diverging: occurrence has no meaningful middle,
+		// so step 0 is simply the bare cell.
+		@for $step from 0 through $heat-steps {
+			td.is-freq-#{$step} {
+				@include heat-colour($primaries, $step);
+			}
+		}
+
+		// The numeric modes carry three or four characters where the action mode
+		// carried one, and cells are a fixed eleventh of the table with their
+		// overflow clipped.
+		td.is-numeric {
+			padding-left: 4px;
+			padding-right: 4px;
+			font-size: 11px;
+			font-variant-numeric: tabular-nums;
+		}
+
 		// A cell whose action the count has moved off basic strategy: the fill
 		// stays with the action to take now, and the ring names the action it
 		// replaced. Drawn as an inset shadow rather than a real border because
@@ -167,6 +225,28 @@ $popover-action-opacity: 0.95;
 					}
 				}
 			}
+		}
+
+		// Names the view the cells are currently in. Both numeric modes render
+		// bare numbers, so without it there is nothing on screen saying whether a
+		// cell reads as EV or as occurrence.
+		&__mode {
+			display: flex;
+			align-items: baseline;
+			justify-content: center;
+			gap: 8px;
+			margin: -14px 0 -12px;
+			font-size: 13px;
+		}
+
+		&__mode-name {
+			color: $foreground;
+			font-weight: 500;
+		}
+
+		&__mode-hint {
+			color: get($neutrals, 'fg-light');
+			font-size: 12px;
 		}
 
 		&__cell-skeleton {

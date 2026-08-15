@@ -18,6 +18,21 @@ export function formatOccurrencePercent(value: number): string {
 	return `${value.toFixed(2)}%`;
 }
 
+/**
+ * The same figure as `formatEvPercent`, cut to one decimal for a grid cell --
+ * cells are a fixed eleventh of the table's width and clip what overflows, so
+ * three decimals and a sign do not fit.
+ */
+export function formatCellEvPercent(value: number): string {
+	const rounded = value.toFixed(1);
+	return value > 0 ? `+${rounded}` : rounded;
+}
+
+/** As `formatOccurrencePercent`, without the `%` the mode caption already carries. */
+export function formatCellOccurrencePercent(value: number): string {
+	return value.toFixed(2);
+}
+
 export function formatCount(value: number): string {
 	return value >= 0 ? `+${value}` : `${value}`;
 }
