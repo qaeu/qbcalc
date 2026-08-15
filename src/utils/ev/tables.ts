@@ -16,6 +16,7 @@ import {
 	gridKey,
 	ShoeEv,
 	splitGridKey,
+	type AverageEvParts,
 	type CellAnalysis,
 	type EvGrids,
 } from './engine';
@@ -25,6 +26,7 @@ import {
 	HARD_TOTALS,
 	PAIR_RANKS,
 	SOFT_TOTALS,
+	type BlackjackPayout,
 	type PlayerAction,
 	type RuleSet,
 } from './rules';
@@ -79,6 +81,15 @@ export interface SplitEvComparisonResult {
 	rows: readonly SplitEvComparisonRow[];
 }
 
+/** What one round is worth on average, count-adjusted and beside the unadjusted shoe. */
+export interface AverageEvAnalysis {
+	baseEvPercent: number;
+	countEvPercent: number;
+	deltaPercentPoints: number;
+	/** Chance the deal hands the player a natural, count-adjusted. */
+	naturalPercent: number;
+}
+
 export interface EvTables {
 	hard: EvComparisonResult;
 	soft: EvComparisonResult;
@@ -88,6 +99,42 @@ export interface EvTables {
 	 * alone, so it rides along with the tables rather than through the engine.
 	 */
 	insurance: InsuranceAnalysis;
+	/** The whole of the three grids in one number -- see docs/ev-model.md §The average hand. */
+	average: AverageEvAnalysis;
+}
+
+/** What a natural returns per unit wagered, as the felt writes it. */
+const BLACKJACK_PAYOUT_VALUE: Record<BlackjackPayout, number> = {
+	'3:2': 1.5,
+	'6:5': 1.2,
+	'1:1': 1,
+};
+
+/**
+ * Prices the natural the engine set aside. This is the one place
+ * `blackjackPayout` reaches a number, which is what keeps it out of the grids and
+ * out of `ruleSetKey`.
+ */
+function averageEvPercent(parts: AverageEvParts, payout: BlackjackPayout): number {
+	return (
+		parts.evPercentExNatural
+		+ parts.naturalPayoutWeight * BLACKJACK_PAYOUT_VALUE[payout] * 100
+	);
+}
+
+function buildAverageEv(
+	baseParts: AverageEvParts,
+	countParts: AverageEvParts,
+	payout: BlackjackPayout
+): AverageEvAnalysis {
+	const baseEvPercent = averageEvPercent(baseParts, payout);
+	const countEvPercent = averageEvPercent(countParts, payout);
+	return {
+		baseEvPercent,
+		countEvPercent,
+		deltaPercentPoints: countEvPercent - baseEvPercent,
+		naturalPercent: countParts.naturalProbability * 100,
+	};
 }
 
 /** Pairs a base grid with a count-adjusted one into a hard/soft-totals table. */
@@ -200,6 +247,7 @@ export function computeSplitEvComparison(
  * the grids, and the caller is the one holding those.
  */
 export function combineEvTables(
+	ruleSet: RuleSet,
 	baseGrids: EvGrids,
 	countGrids: EvGrids,
 	insurance: InsuranceAnalysis
@@ -209,6 +257,11 @@ export function combineEvTables(
 		soft: buildEvComparison(baseGrids.soft, countGrids.soft, SOFT_TOTALS, RANKS),
 		split: buildSplitEvComparison(baseGrids.split, countGrids.split, PAIR_RANKS, RANKS),
 		insurance,
+		average: buildAverageEv(
+			baseGrids.average,
+			countGrids.average,
+			ruleSet.blackjackPayout
+		),
 	};
 }
 
@@ -226,6 +279,7 @@ export function computeAllEvTables(
 	const base = baseComposition(ruleSet);
 	const modified = applyCountToComposition(base, tags, count);
 	return combineEvTables(
+		ruleSet,
 		computeEvGrids(ruleSet, base),
 		computeEvGrids(ruleSet, modified),
 		analyzeInsurance(ruleSet, base, modified)

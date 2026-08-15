@@ -69,6 +69,7 @@ export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerRespo
 			requestId: request.requestId,
 			status: 'success',
 			result: combineEvTables(
+				ruleSet,
 				baseGrids,
 				unchanged ? baseGrids : computeEvGrids(ruleSet, modified),
 				analyzeInsurance(ruleSet, base, modified)

@@ -59,14 +59,19 @@ export function addValue(total: number, soft: boolean, rank: Rank): [number, boo
 	return [packed >> 1, (packed & 1) === 1];
 }
 
+/** The two-card hard/soft total of a starting hand, e.g. 8,T -> hard 18; A,7 -> soft 18. */
+export function handTotal(first: Rank, second: Rank): [number, boolean] {
+	const [afterFirst, softAfterFirst] = addValue(0, false, first);
+	return addValue(afterFirst, softAfterFirst, second);
+}
+
 /**
  * The two-card hard/soft total of a pair, e.g. 8,8 -> hard 16; A,A -> soft 12 (the
  * second ace drops to 1, but the first still counts as 11, so the hand cannot bust
  * on the next card).
  */
 export function pairTotal(rank: Rank): [number, boolean] {
-	const [afterFirst, softAfterFirst] = addValue(0, false, rank);
-	return addValue(afterFirst, softAfterFirst, rank);
+	return handTotal(rank, rank);
 }
 
 /**

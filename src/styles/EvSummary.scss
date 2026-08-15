@@ -1,0 +1,78 @@
+@use 'base' as *;
+
+$skeleton-pulse-duration: 1.4s;
+
+@layer screen {
+	.ev-summary {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 30px;
+		width: 100%;
+		max-width: 1000px;
+		margin-left: auto;
+		margin-right: auto;
+
+		&__card {
+			@include card;
+			// Each card carries one figure, so they share the row evenly rather
+			// than sizing to their own labels.
+			flex: 1 1 200px;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 4px;
+			margin-bottom: 0;
+		}
+
+		&__label {
+			font-size: 13px;
+			color: get($neutrals, 'fg-light');
+		}
+
+		&__value {
+			// Tabular figures so the number doesn't jitter its own width as the
+			// count is swept through.
+			font-variant-numeric: tabular-nums;
+			font-size: 26px;
+			font-weight: 600;
+			line-height: 1.2;
+			transition: color 300ms ease;
+
+			&.is-positive {
+				color: get($primaries, 'fg-light');
+			}
+
+			&.is-negative {
+				color: get($errors, 'fg-light');
+			}
+		}
+
+		&__unit {
+			margin-left: 1px;
+			font-size: 15px;
+			font-weight: 400;
+		}
+
+		// Sized to the figure it stands in for, so the card doesn't change height
+		// between the loading state and the result.
+		&__skeleton {
+			width: 96px;
+			height: 26px;
+			border-radius: 4px;
+			background-color: get($neutrals, 'sep');
+			opacity: 0.35;
+			animation: ev-summary-skeleton-pulse $skeleton-pulse-duration
+				cubic-bezier(0.2, 1, 0, 0.8) infinite;
+		}
+
+		@keyframes ev-summary-skeleton-pulse {
+			0%,
+			100% {
+				opacity: 0.35;
+			}
+			50% {
+				opacity: 0.8;
+			}
+		}
+	}
+}

@@ -17,6 +17,7 @@ import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 
 import EvCellDialog from '#c/EvCellDialog';
 import EvCellPopover from '#c/EvCellPopover';
+import EvSummary from '#c/EvSummary';
 
 import '#styles/EvTable';
 
@@ -372,6 +373,11 @@ const EvTable: Component<EvTableProps> = (props) => {
 			</Show>
 
 			<Show when={!props.error()}>
+				<EvSummary
+					average={props.result()?.average}
+					loading={props.isComputing()}
+					count={props.count()}
+				/>
 				<EvGrid
 					title="Hard totals"
 					rowHeading="Hard total"

@@ -75,23 +75,63 @@ column reports one at all.
 wherever it is offered, so the flag gates the recommendation rather than the maths. It is
 offered at no-hole-card tables too, where it is settled against the dealer's second card.
 
+## The average hand
+
+The figure above the grids is what one round is worth on average: every starting hand
+the shoe can deal, against every upcard it can show, played optimally and weighted by how
+likely it is. It is the one number in the app that answers "what is this game worth",
+where a cell answers "what is this spot worth".
+
+The weights come from `dealWeights` in `ev/deal.ts`, over three cards drawn without
+replacement. This is the one place the player's own cards _are_ removed as they are dealt
+(against simplification 1), because the chance of being dealt a hand is exactly the
+question those cards answer; they still stay in the shoe for the EV of playing it.
+
+Two things the grids leave out have to be put back, and `analyzeAverage` in `ev/engine.ts`
+does both:
+
+- **The dealer's natural.** A peeking table's cells are all priced conditional on the
+  dealer having missed it (§The dealer's natural), so the lost wager is mixed back in at
+  that upcard's natural odds. Note this is exactly the inverse of the rebasing
+  `surrenderEv` does, so an early surrender comes back out at its true flat −0.5. A
+  no-peek table's cells are unconditional and need no such correction.
+- **The player's natural.** It is no play at all, so it never enters the grids
+  (simplification 2). Here it is worth `blackjackPayout` per unit, except against a dealer
+  natural, which pushes it — at a no-hole-card table too, where the "all bets lost"
+  convention (simplification 5) governs a _losing_ hand's extra stakes and has nothing to
+  say about a hand that ties.
+
+Insurance is left out, as a side bet rather than a play of the hand (§Insurance).
+
+The average inherits the grids' simplifications, and simplification 1 is the one that
+shows. Leaving the player's cards in the shoe is most of what the deck count is worth, so
+the average separates a single deck from a six-deck shoe by far less than a published
+house-edge table does, and reads a shade optimistic in absolute terms (about a tenth of a
+percentage point on a standard six-deck game). What it tracks closely is the _differences_
+between rule sets — H17, 6:5, surrender, no-hole-card — since those move the play grids it
+sums rather than the removal effect it skips.
+
 ## Rules that don't reach the maths
 
-Every field of `RuleSet` reaches the EV computation except three, which cannot move a
+Every field of `RuleSet` reaches the EV computation except two, which cannot move a
 hit/stand/double/split table:
 
 - **`penetrationPercent`** sets how deep the shoe is dealt, which governs how often a
   given count occurs, not what a hand is worth once it has. It belongs to bet sizing and
   risk of ruin rather than to playing decisions.
-- **`blackjackPayout`** only prices a two-card natural, and these tables start after that
-  has been settled (simplification 2). Note that 21 made by drawing to a split ace is not
-  a natural, and is already paid as an ordinary 21 here.
 - **`insurance`** prices a side bet on the hole card, settled before the hand is played
   and independently of how it is played (§Insurance).
 
-`ruleSetKey` in `ev/rules.ts` covers exactly the fields the engine reads, so these two
-never needlessly invalidate a cached grid. Extend it alongside the models if a rule ever
-starts reaching the maths.
+**`blackjackPayout`** is a third that never reaches a grid: it only prices a two-card
+natural, and the tables start after that has been settled (simplification 2). Note that 21
+made by drawing to a split ace is not a natural, and is already paid as an ordinary 21
+here. It does reach the average, but not through the engine — `analyzeAverage` returns the
+natural's probability weight and `ev/tables.ts` multiplies the payout in afterwards, which
+is what keeps a payout change from invalidating a cached grid.
+
+`ruleSetKey` in `ev/rules.ts` covers exactly the fields the engine reads, so these never
+needlessly invalidate a cached grid. Extend it alongside the models if a rule ever starts
+reaching the maths.
 
 ## The dealer's natural
 

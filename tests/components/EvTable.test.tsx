@@ -5,6 +5,7 @@ import { createSignal } from 'solid-js';
 import EvTable from '#c/EvTable';
 import { DEFAULT_RULE_SET } from '#utils/ev/rules';
 import { computeAllEvTables } from '#utils/ev/tables';
+import { formatEvPercent } from '#utils/format';
 import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 
 // Real (not mocked) exact-enumeration result, computed once and reused as a
@@ -15,6 +16,9 @@ const SAMPLE_RESULT: EvWorkerResult = computeAllEvTables(DEFAULT_RULE_SET, 1);
 // what the deviation ring marks. At +1 the hard grid has a single deviation;
 // this one has several, in more than one direction.
 const DEVIATION_RESULT: EvWorkerResult = computeAllEvTables(DEFAULT_RULE_SET, 15);
+
+// An unadjusted shoe, for the summary row at a count with no delta to report.
+const NEUTRAL_RESULT: EvWorkerResult = computeAllEvTables(DEFAULT_RULE_SET, 0);
 
 // The HoverCard content isn't unmounted while closed (it's hidden via the
 // `hidden` attribute instead), so look it up by the id HoverCard pairs with
@@ -64,6 +68,59 @@ describe('EvTable', () => {
 		expect(within(tables[1]).getAllByRole('row')).toHaveLength(9);
 		// 10 splittable pairs (2,2-A,A) as rows.
 		expect(within(tables[2]).getAllByRole('row')).toHaveLength(11);
+	});
+
+	it('heads the grids with the average EV, and its delta once the count moves', () => {
+		render(() => (
+			<EvTable
+				result={() => SAMPLE_RESULT}
+				isComputing={() => false}
+				error={() => null}
+				count={() => 1}
+			/>
+		));
+
+		const cards = document.querySelectorAll('.ev-summary__card');
+		expect(cards).toHaveLength(2);
+		expect(cards[0].textContent).toContain('Player Edge');
+		expect(cards[0].querySelector('.ev-summary__value')?.textContent).toBe(
+			`${formatEvPercent(SAMPLE_RESULT.average.countEvPercent)}%`
+		);
+		expect(cards[1].textContent).toContain('+1 EVΔ');
+		expect(cards[1].querySelector('.ev-summary__value')?.textContent).toBe(
+			`${formatEvPercent(SAMPLE_RESULT.average.deltaPercentPoints)} pts`
+		);
+	});
+
+	it('drops the delta card at a neutral count, where it is always zero', () => {
+		render(() => (
+			<EvTable
+				result={() => NEUTRAL_RESULT}
+				isComputing={() => false}
+				error={() => null}
+				count={() => 0}
+			/>
+		));
+
+		const cards = document.querySelectorAll('.ev-summary__card');
+		expect(cards).toHaveLength(1);
+		expect(cards[0].textContent).toContain('Player Edge');
+	});
+
+	it('shows a skeleton in place of the average while computing', () => {
+		render(() => (
+			<EvTable
+				result={() => SAMPLE_RESULT}
+				isComputing={() => true}
+				error={() => null}
+				count={() => 1}
+			/>
+		));
+
+		// The previous result is still in hand, so the figure has to be withheld
+		// deliberately rather than merely being absent.
+		expect(document.querySelectorAll('.ev-summary__skeleton')).toHaveLength(2);
+		expect(document.querySelectorAll('.ev-summary__value')).toHaveLength(0);
 	});
 
 	it('reports insurance EV in the ace column popovers, and nowhere else', async () => {
