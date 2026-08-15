@@ -324,6 +324,8 @@ describe('EvTable', () => {
 		expect(popover.textContent).not.toMatch(/Optimal play:/);
 		expect(popover.textContent).toMatch(/Hit bust%\d+\.\d%/);
 		expect(popover.textContent).toMatch(/Dealer bust%\d+\.\d%/);
+		// Two decimals: the rarest cells run to hundredths of a percent.
+		expect(popover.textContent).toMatch(/Occurrence\d+\.\d\d%/);
 	});
 
 	it('hides the delta stat line when the count is zero', async () => {

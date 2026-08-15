@@ -14,7 +14,7 @@ import {
 } from './cards';
 import { type Composition } from './composition';
 import { DealerModel } from './dealer';
-import { dealIndex, dealWeights } from './deal';
+import { dealIndex, dealWeights, type DealWeights } from './deal';
 import {
 	bestAction,
 	outcomeFromEv,
@@ -38,7 +38,28 @@ export interface CellAnalysis {
 	optimalAction: PlayerAction;
 	playerBustOnHitPercent: number;
 	dealerBustPercent: number;
+	/**
+	 * Chance the opening deal produces this cell -- the player's total against
+	 * this upcard -- as a percentage of rounds played. See `handOccurrence`.
+	 */
+	occurrencePercent: number;
 	actions: readonly ActionAnalysis[];
+}
+
+/**
+ * How often the opening deal lands on each grid cell, in percent of rounds, keyed
+ * as the grids themselves are.
+ *
+ * A hand is counted under the total it actually holds, so a pair appears both in
+ * its own splits-table cell and under its total in the hard/soft table: T,T is
+ * both the T,T cell and part of hard 20, which is what each of those cells is
+ * asking about. Totals no grid draws (hard 4-7 and 18-21, soft 12 and 21) are
+ * still summed here and simply never looked up.
+ */
+export interface HandOccurrence {
+	hard: Map<string, number>;
+	soft: Map<string, number>;
+	split: Map<string, number>;
 }
 
 /**
@@ -83,6 +104,42 @@ export function splitGridKey(rank: Rank, upcard: Rank): string {
 	return `${rank}-${upcard}`;
 }
 
+function addOccurrence(grid: Map<string, number>, key: string, percent: number): void {
+	grid.set(key, (grid.get(key) ?? 0) + percent);
+}
+
+/** Buckets the opening deal's weights into the grids' own keys -- see `HandOccurrence`. */
+function handOccurrence(weights: DealWeights): HandOccurrence {
+	const occurrence: HandOccurrence = {
+		hard: new Map(),
+		soft: new Map(),
+		split: new Map(),
+	};
+	const rankCount = RANKS.length;
+
+	for (let upcardIndex = 0; upcardIndex < rankCount; upcardIndex += 1) {
+		const upcard = RANKS[upcardIndex];
+		for (let low = 0; low < rankCount; low += 1) {
+			for (let high = low; high < rankCount; high += 1) {
+				const weight = weights[dealIndex(low, high, upcardIndex)];
+				if (weight === 0) continue;
+				const [total, soft] = handTotal(RANKS[low], RANKS[high]);
+				const percent = weight * 100;
+				addOccurrence(
+					soft ? occurrence.soft : occurrence.hard,
+					gridKey(total, upcard),
+					percent
+				);
+				if (low === high) {
+					addOccurrence(occurrence.split, splitGridKey(RANKS[low], upcard), percent);
+				}
+			}
+		}
+	}
+
+	return occurrence;
+}
+
 /**
  * One engine walks one shoe composition, holding the models that share its shoe.
  * Its memos are keyed on removals from whichever root composition it was last
@@ -95,6 +152,13 @@ export class ShoeEv {
 	private readonly split: SplitModel;
 	private readonly splitLimit: number;
 	private readonly peek: boolean;
+	/** The opening deal against the current root, and that deal bucketed per grid. */
+	private weights: DealWeights = new Float64Array(0);
+	private occurrence: HandOccurrence = {
+		hard: new Map(),
+		soft: new Map(),
+		split: new Map(),
+	};
 
 	constructor(ruleSet: RuleSet) {
 		this.dealer = new DealerModel(this.shoe, ruleSet);
@@ -105,7 +169,13 @@ export class ShoeEv {
 	}
 
 	private setRoot(comp0: Composition): void {
-		if (!this.shoe.setRoot(comp0)) return;
+		const stale = this.shoe.setRoot(comp0);
+		// A thousand-odd multiplications against grids that walk millions of nodes,
+		// so it is redone on every entry point rather than tracked as another root
+		// key of its own.
+		this.weights = dealWeights(comp0);
+		this.occurrence = handOccurrence(this.weights);
+		if (!stale) return;
 		this.dealer.clear();
 		this.player.clear();
 	}
@@ -215,6 +285,7 @@ export class ShoeEv {
 		const comp = this.shoe.comp;
 		const out = new Map<string, CellAnalysis>();
 		const totCards = this.shoe.totCardsAfterUpcard();
+		const occurrence = soft ? this.occurrence.soft : this.occurrence.hard;
 
 		for (const upcard of upcards) {
 			const upcardIndex = RANK_INDEX[upcard];
@@ -223,6 +294,7 @@ export class ShoeEv {
 			const dealerBustPercent = this.dealer.bustProb(upcardIndex, totCards, key) * 100;
 
 			for (const total of totals) {
+				const occurrencePercent = occurrence.get(gridKey(total, upcard)) ?? 0;
 				// A made 21 (e.g. soft A,T) is always stood on -- hitting it is not a
 				// real decision, so there is no optimal-play comparison to make.
 				if (total >= 21) {
@@ -232,6 +304,7 @@ export class ShoeEv {
 						optimalAction: 'S',
 						playerBustOnHitPercent: 0,
 						dealerBustPercent,
+						occurrencePercent,
 						actions: [stand],
 					});
 					continue;
@@ -253,6 +326,7 @@ export class ShoeEv {
 					optimalAction: best.action,
 					playerBustOnHitPercent: this.player.bustOnHitProb(total, soft, totCards) * 100,
 					dealerBustPercent,
+					occurrencePercent,
 					actions,
 				});
 			}
@@ -280,6 +354,7 @@ export class ShoeEv {
 			const dealerBustPercent = this.dealer.bustProb(upcardIndex, totCards, key) * 100;
 
 			for (const rank of pairRanks) {
+				const cellKey = splitGridKey(rank, upcard);
 				const [total, soft] = pairTotal(rank);
 				const actions = this.handActions(
 					total,
@@ -292,11 +367,12 @@ export class ShoeEv {
 				);
 				const best = bestAction(actions);
 
-				out.set(splitGridKey(rank, upcard), {
+				out.set(cellKey, {
 					evPercent: best.evPercent,
 					optimalAction: best.action,
 					playerBustOnHitPercent: this.player.bustOnHitProb(total, soft, totCards) * 100,
 					dealerBustPercent,
+					occurrencePercent: this.occurrence.split.get(cellKey) ?? 0,
 					actions,
 				});
 			}
@@ -325,7 +401,7 @@ export class ShoeEv {
 		this.setRoot(comp0);
 		const comp = this.shoe.comp;
 		const totCards = this.shoe.totCardsAfterUpcard();
-		const weights = dealWeights(comp0);
+		const weights = this.weights;
 		const rankCount = RANKS.length;
 
 		let evPercentExNatural = 0;

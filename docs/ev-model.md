@@ -111,6 +111,19 @@ percentage point on a standard six-deck game). What it tracks closely is the _di
 between rule sets — H17, 6:5, surrender, no-hole-card — since those move the play grids it
 sums rather than the removal effect it skips.
 
+## How often a cell comes up
+
+Each cell also reports how often the deal produces it — the popover's occurrence figure.
+`handOccurrence` in `ev/engine.ts` buckets the same `dealWeights` the average is summed
+under into the grids' own keys, so the two stats always describe the same opening deal, and
+the shoe it is computed from is the count-adjusted one the rest of the cell is priced
+against.
+
+A hand is counted under the total it actually holds, which means a pair is reported twice
+over: 8,8 is its own cell in the splits table and part of hard 16 in the totals table. Both
+are the honest answer to the question the reader is asking of that table, so neither is
+netted off the other, and the occurrence column does not sum to 100% across the three grids.
+
 ## Rules that don't reach the maths
 
 Every field of `RuleSet` reaches the EV computation except two, which cannot move a

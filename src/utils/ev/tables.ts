@@ -46,6 +46,11 @@ export interface EvCellData {
 	playerBustOnHitPercent: number;
 	dealerBustPercent: number;
 	/**
+	 * Chance the opening deal produces this cell -- this hand against this upcard --
+	 * as a percentage of rounds played, count-adjusted like the rest of the cell.
+	 */
+	occurrencePercent: number;
+	/**
 	 * Every action the table offers this hand, priced individually, in the engine's
 	 * own preference order (the first of two equal EVs is the one `optimalAction`
 	 * names). The drill-down dialog sorts them for display.
@@ -160,6 +165,7 @@ function buildEvComparison(
 				baseAction: baseCell.optimalAction,
 				playerBustOnHitPercent: countCell.playerBustOnHitPercent,
 				dealerBustPercent: countCell.dealerBustPercent,
+				occurrencePercent: countCell.occurrencePercent,
 				actions: countCell.actions,
 				baseActions: baseCell.actions,
 			});
@@ -197,6 +203,7 @@ function buildSplitEvComparison(
 				baseAction: baseCell.optimalAction,
 				playerBustOnHitPercent: countCell.playerBustOnHitPercent,
 				dealerBustPercent: countCell.dealerBustPercent,
+				occurrencePercent: countCell.occurrencePercent,
 				actions: countCell.actions,
 				baseActions: baseCell.actions,
 			});

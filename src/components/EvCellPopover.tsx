@@ -7,6 +7,7 @@ import {
 	formatActionLabel,
 	formatCount,
 	formatEvPercent,
+	formatOccurrencePercent,
 	formatPercent,
 } from '#utils/format';
 import { ACTION_CLASS, signClass } from '#utils/actionStyle';
@@ -46,6 +47,8 @@ const EvCellPopover: Component<EvCellPopoverProps> = (props) => (
 							{formatEvPercent(props.row.deltaPercentPoints)} pts
 						</span>
 					</Show>
+					<span>Occurrence</span>
+					<span>{formatOccurrencePercent(props.row.occurrencePercent)}</span>
 					<span>Hit bust%</span>
 					<span>{formatPercent(props.row.playerBustOnHitPercent)}</span>
 					<span>Dealer bust%</span>

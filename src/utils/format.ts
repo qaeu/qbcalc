@@ -9,6 +9,15 @@ export function formatPercent(value: number): string {
 	return `${value.toFixed(1)}%`;
 }
 
+/**
+ * Odds of one opening deal, which run from a few percent down to the 0.04% of the
+ * rarest pair against a given upcard -- so it takes two decimals where the other
+ * percentages take one, or every pair cell would read 0.0%.
+ */
+export function formatOccurrencePercent(value: number): string {
+	return `${value.toFixed(2)}%`;
+}
+
 export function formatCount(value: number): string {
 	return value >= 0 ? `+${value}` : `${value}`;
 }

@@ -832,6 +832,60 @@ describe('bust percentages', () => {
 	});
 });
 
+describe('hand occurrence', () => {
+	/** Total chance of a hand over every upcard, i.e. the upcard marginalised away. */
+	const overAllUpcards = (rows: readonly { occurrencePercent: number }[]) =>
+		rows.reduce((sum, row) => sum + row.occurrencePercent, 0);
+
+	it('matches the combinatorics of the pair it reports, over every upcard', () => {
+		// 4 decks: 64 tens in 208 cards, and both cards must be one.
+		const expected = (64 / 208) * (63 / 207) * 100;
+		const pairs = computeSplitEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, ['T'], RANKS);
+		expect(overAllUpcards(pairs.rows)).toBeCloseTo(expected, 6);
+	});
+
+	it('counts both orders of an unpaired hand', () => {
+		// A,8 arrives as either card first, hence the factor of two.
+		const expected = 2 * (16 / 208) * (16 / 207) * 100;
+		const soft = computeEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, [19], RANKS, true);
+		expect(overAllUpcards(soft.rows)).toBeCloseTo(expected, 6);
+	});
+
+	it('counts a pair under its total as well as in the splits table', () => {
+		// Hard 16 is 8,8 as well as 7,9 and 6,T, so the total is the wider bucket;
+		// hard 20 is only ever T,T, so there the two agree exactly.
+		const hard = new Map(
+			computeEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, [16, 20], RANKS).rows.map((row) => [
+				`${row.total}-${row.upcard}`,
+				row,
+			])
+		);
+		const pairs = new Map(
+			computeSplitEvComparison(RULE_SET, 0, ACE_FIVE_TAGS, ['8', 'T'], RANKS).rows.map(
+				(row) => [`${row.pairRank}-${row.upcard}`, row]
+			)
+		);
+
+		expect(hard.get('16-6')!.occurrencePercent).toBeGreaterThan(
+			pairs.get('8-6')!.occurrencePercent
+		);
+		expect(hard.get('20-6')!.occurrencePercent).toBeCloseTo(
+			pairs.get('T-6')!.occurrencePercent,
+			9
+		);
+	});
+
+	it('follows the count, which is what makes it a count-adjusted stat', () => {
+		const forCount = (count: number) =>
+			overAllUpcards(
+				computeSplitEvComparison(RULE_SET, count, ACE_FIVE_TAGS, ['A'], RANKS).rows
+			);
+		// A high ace-five count is a shoe short of fives and rich in aces, so A,A
+		// is dealt more often than the unadjusted shoe deals it.
+		expect(forCount(10)).toBeGreaterThan(forCount(0));
+	});
+});
+
 describe('action breakdown', () => {
 	// One grid per rule set, shared across the cases below: each cell already
 	// carries every action's price, so there is nothing left to ask the engine
