@@ -163,6 +163,17 @@ const SettingsRulesTab: Component<SettingsRulesTabProps> = (props) => {
 					/>
 				</SettingsItem>
 				<SettingsItem
+					label="INS"
+					helptext="Insurance offered against a dealer ace"
+					layout="row"
+				>
+					<input
+						type="checkbox"
+						checked={props.config.insurance}
+						onInput={(event) => props.setConfig('insurance', event.currentTarget.checked)}
+					/>
+				</SettingsItem>
+				<SettingsItem
 					label="ENHC"
 					helptext="European no hole card; dealer natural takes all bets"
 					layout="row"

@@ -53,9 +53,28 @@ These are deliberate, and they are what the numbers should be read against.
    splits included — "all bets lost", not the "original bets only" variant some no-peek
    tables use.
 
+## Insurance
+
+Insurance is a side bet on the dealer's hole card, not a play of the hand, so it never
+enters the recursion: `ev/insurance.ts` reads it straight off the shoe composition. With
+the ace upcard removed and nothing else (simplification 1 keeps the player's own cards
+in), the chance the hole card is a ten is `comp[T] / (totalCards - 1)`, and a bet paying
+2:1 is worth `3p - 1` per unit staked. It breaks even at `p = 1/3` — the reason a count
+that lifts ten density is the only thing that ever makes insurance correct.
+
+The EV is reported per unit staked _on the insurance bet_, which is the frame the 2:1
+payout and the 1/3 break-even both live in. A full insurance stakes half the main wager,
+so its contribution to the round is half that figure. Nothing else in the tables is in
+this frame, which is why the number is displayed in a panel of its own rather than beside
+the play EVs.
+
+`RuleSet.insurance` says only whether the table offers the bet; the price is the same
+wherever it is offered, so the flag gates the recommendation rather than the maths. It is
+offered at no-hole-card tables too, where it is settled against the dealer's second card.
+
 ## Rules that don't reach the maths
 
-Every field of `RuleSet` reaches the EV computation except two, which cannot move a
+Every field of `RuleSet` reaches the EV computation except three, which cannot move a
 hit/stand/double/split table:
 
 - **`penetrationPercent`** sets how deep the shoe is dealt, which governs how often a
@@ -64,6 +83,8 @@ hit/stand/double/split table:
 - **`blackjackPayout`** only prices a two-card natural, and these tables start after that
   has been settled (simplification 2). Note that 21 made by drawing to a split ace is not
   a natural, and is already paid as an ordinary 21 here.
+- **`insurance`** prices a side bet on the hole card, settled before the hand is played
+  and independently of how it is played (§Insurance).
 
 `ruleSetKey` in `ev/rules.ts` covers exactly the fields the engine reads, so these two
 never needlessly invalidate a cached grid. Extend it alongside the models if a rule ever

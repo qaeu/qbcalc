@@ -11,6 +11,7 @@ import {
 	type TagValues,
 } from './ev/composition';
 import { computeEvGrids, type EvGrids } from './ev/engine';
+import { analyzeInsurance } from './ev/insurance';
 import { ruleSetKey, type RuleSet } from './ev/rules';
 import { combineEvTables, type EvTables } from './ev/tables';
 
@@ -69,7 +70,8 @@ export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerRespo
 			status: 'success',
 			result: combineEvTables(
 				baseGrids,
-				unchanged ? baseGrids : computeEvGrids(ruleSet, modified)
+				unchanged ? baseGrids : computeEvGrids(ruleSet, modified),
+				analyzeInsurance(ruleSet, base, modified)
 			),
 		};
 	} catch (err) {

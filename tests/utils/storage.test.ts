@@ -10,7 +10,7 @@ import {
 
 const STORAGE_KEY = 'qbcalc:calculator-config';
 /** Mirrors the module's own constant: the schema `saveCalculatorConfig` writes. */
-const STORAGE_VERSION = 4;
+const STORAGE_VERSION = 5;
 
 const CUSTOM_TAGS: TagValues = {
 	'2': 1,
@@ -48,6 +48,7 @@ describe('loadCalculatorConfig', () => {
 			resplitAces: true,
 			hitSplitAces: true,
 			dealerPeek: false,
+			insurance: false,
 			system: 'custom',
 			tags: CUSTOM_TAGS,
 		};
@@ -104,6 +105,7 @@ describe('loadCalculatorConfig', () => {
 			resplitAces: true,
 		};
 		delete v3.hitSplitAces;
+		delete v3.insurance;
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(v3));
 
 		expect(loadCalculatorConfig()).toEqual({
@@ -111,8 +113,28 @@ describe('loadCalculatorConfig', () => {
 			decks: 6,
 			splitLimit: 2,
 			resplitAces: true,
-			// Filled in from the current default, whichever way it points.
+			// Filled in from the current defaults, whichever way they point.
 			hitSplitAces: DEFAULT_CONFIG.hitSplitAces,
+			insurance: DEFAULT_CONFIG.insurance,
+		});
+	});
+
+	it('migrates a v4 config by defaulting the insurance rule it predates', () => {
+		const v4: Record<string, unknown> = {
+			...DEFAULT_CONFIG,
+			version: 4,
+			decks: 2,
+			hitSplitAces: false,
+		};
+		delete v4.insurance;
+		localStorage.setItem(STORAGE_KEY, JSON.stringify(v4));
+
+		expect(loadCalculatorConfig()).toEqual({
+			...DEFAULT_CONFIG,
+			decks: 2,
+			hitSplitAces: false,
+			// Filled in from the current default, whichever way it points.
+			insurance: DEFAULT_CONFIG.insurance,
 		});
 	});
 
@@ -134,6 +156,9 @@ describe('loadCalculatorConfig', () => {
 			STORAGE_KEY,
 			JSON.stringify({ ...stored, hitSplitAces: 'sometimes' })
 		);
+		expect(loadCalculatorConfig()).toBeNull();
+
+		localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...stored, insurance: 'yes' }));
 		expect(loadCalculatorConfig()).toBeNull();
 	});
 

@@ -47,6 +47,7 @@ src/
     │   ├── dealer.ts            # Dealer distribution, stand-EV table
     │   ├── player.ts            # Hit/double/surrender EVs and push odds
     │   ├── split.ts             # Split draw enumeration, resplit ladder
+    │   ├── insurance.ts         # Insurance side bet, priced off the composition
     │   ├── engine.ts            # Action pricing, the three analysis grids
     │   └── tables.ts            # Base/count comparison tables, entry points
     └── *.ts                     # Worker protocol and utility scripts

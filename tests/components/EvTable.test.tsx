@@ -27,6 +27,17 @@ function popoverFor(trigger: Element): HTMLElement {
 }
 
 /**
+ * The insurance panel, looked up by class: every cell popover stays mounted
+ * (hidden) with figures of its own, so panel assertions have to be scoped to it
+ * rather than made against the whole document.
+ */
+function insurancePanel(): HTMLElement {
+	const panel = document.querySelector<HTMLElement>('.insurance-panel');
+	if (!panel) throw new Error('No insurance panel rendered');
+	return panel;
+}
+
+/**
  * Dismisses the open drill-down dialog with its close button.
  *
  * Not with Escape, even though the dialog answers it: Escape is handled by a
@@ -64,6 +75,70 @@ describe('EvTable', () => {
 		expect(within(tables[1]).getAllByRole('row')).toHaveLength(9);
 		// 10 splittable pairs (2,2-A,A) as rows.
 		expect(within(tables[2]).getAllByRole('row')).toHaveLength(11);
+	});
+
+	it('prices insurance beside the grids, and advises declining a normal shoe', () => {
+		render(() => (
+			<EvTable
+				result={() => SAMPLE_RESULT}
+				isComputing={() => false}
+				error={() => null}
+				count={() => 1}
+			/>
+		));
+
+		const panel = insurancePanel();
+		expect(within(panel).getByText('Insurance')).toBeDefined();
+		expect(within(panel).getByText('Decline')).toBeDefined();
+		// A fresh six-deck shoe is a bit under a third tens, so the bet loses.
+		expect(SAMPLE_RESULT.insurance.countEvPercent).toBeLessThan(0);
+		expect(within(panel).getByText(/^-\d+\.\d+%$/)).toBeDefined();
+	});
+
+	it('advises taking insurance once the tens are dense enough', () => {
+		const richResult: EvWorkerResult = {
+			...SAMPLE_RESULT,
+			insurance: {
+				offered: true,
+				tenPercent: 40,
+				baseEvPercent: -7.4,
+				countEvPercent: 20,
+				deltaPercentPoints: 27.4,
+			},
+		};
+
+		render(() => (
+			<EvTable
+				result={() => richResult}
+				isComputing={() => false}
+				error={() => null}
+				count={() => 10}
+			/>
+		));
+
+		const panel = insurancePanel();
+		expect(within(panel).getByText('Take')).toBeDefined();
+		expect(within(panel).getByText('+20.000%')).toBeDefined();
+		expect(within(panel).getByText('40.0%')).toBeDefined();
+	});
+
+	it('drops the panel entirely when the table does not offer insurance', () => {
+		const noInsurance: EvWorkerResult = {
+			...SAMPLE_RESULT,
+			insurance: { ...SAMPLE_RESULT.insurance, offered: false },
+		};
+
+		render(() => (
+			<EvTable
+				result={() => noInsurance}
+				isComputing={() => false}
+				error={() => null}
+				count={() => 1}
+			/>
+		));
+
+		expect(document.querySelector('.insurance-panel')).toBeNull();
+		expect(screen.queryByText('Insurance')).toBeNull();
 	});
 
 	it('shows an error instead of a table when given an error', () => {

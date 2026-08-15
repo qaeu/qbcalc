@@ -1,0 +1,74 @@
+@use 'base' as *;
+
+$fade-duration: 0.5s;
+
+@layer screen {
+	.insurance-panel {
+		@include card;
+		max-width: 1000px;
+		margin-bottom: 0;
+		margin-left: auto;
+		margin-right: auto;
+
+		// Matches the grids easing between one calculation and the next, so the
+		// panel dims and lifts with them instead of snapping.
+		transition: opacity $fade-duration ease;
+
+		&.is-loading {
+			opacity: 0.5;
+		}
+
+		h3 {
+			margin: 4px 0;
+		}
+
+		&__head {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+		}
+
+		&__verdict {
+			padding: 4px 12px;
+			border-radius: 6px;
+			font-size: 13px;
+			font-weight: 600;
+
+			&.is-take {
+				color: get($primaries, 'fg-light');
+				background-color: get($primaries, 'fade-less');
+			}
+
+			&.is-decline {
+				color: get($errors, 'fg-light');
+				background-color: get($errors, 'fade-less');
+			}
+		}
+
+		&__stats {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 12px 32px;
+			margin: 16px 0 0;
+
+			dt {
+				color: get($neutrals, 'fg-light');
+				font-size: 12px;
+			}
+
+			dd {
+				margin: 2px 0 0;
+				font-size: 15px;
+			}
+
+			.is-positive {
+				color: get($primaries, 'fg-light');
+			}
+
+			.is-negative {
+				color: get($errors, 'fg-light');
+			}
+		}
+	}
+}

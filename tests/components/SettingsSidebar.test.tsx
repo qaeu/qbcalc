@@ -188,6 +188,27 @@ describe('SettingsSidebar', () => {
 		);
 	});
 
+	it('submits the insurance rule', () => {
+		cleanup();
+		const onSubmit = vi.fn();
+		render(() => (
+			<SettingsSidebar
+				initialConfig={DEFAULT_CONFIG}
+				calcTimeMs={null}
+				onSubmit={onSubmit}
+			/>
+		));
+
+		const insurance = screen.getByLabelText('INS') as HTMLInputElement;
+		expect(insurance.checked).toBe(DEFAULT_CONFIG.insurance);
+		fireEvent.click(insurance);
+		fireEvent.submit(screen.getByLabelText('Decks').closest('form')!);
+
+		expect(onSubmit).toHaveBeenCalledWith(
+			expect.objectContaining({ insurance: !DEFAULT_CONFIG.insurance })
+		);
+	});
+
 	it('restores the saved game rules into their controls', () => {
 		cleanup();
 		render(() => (

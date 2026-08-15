@@ -20,9 +20,9 @@ export type BlackjackPayout = '3:2' | '6:5' | '1:1';
 export type Surrender = 'early' | 'es10' | 'late' | 'none';
 
 /**
- * The table variations the calculator knows about. All of them reach the EV maths
- * except `penetrationPercent` and `blackjackPayout` -- see docs/ev-model.md
- * §Rules that don't reach the maths.
+ * The table variations the calculator knows about. All of them reach the play
+ * grids except `penetrationPercent`, `blackjackPayout` and `insurance` -- see
+ * docs/ev-model.md §Rules that don't reach the maths.
  */
 export interface RuleSet {
 	decks: number;
@@ -44,6 +44,12 @@ export interface RuleSet {
 	hitSplitAces: boolean;
 	/** Dealer checks for blackjack against a ten or ace upcard. */
 	dealerPeek: boolean;
+	/**
+	 * The table offers insurance against a dealer ace. A side bet on the hole
+	 * card, so it prices itself off the composition rather than through the
+	 * play grids -- see docs/ev-model.md §Insurance.
+	 */
+	insurance: boolean;
 }
 
 export const HARD_TOTALS: readonly number[] = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
@@ -69,6 +75,7 @@ export const DEFAULT_RULE_SET: RuleSet = {
 	resplitAces: false,
 	hitSplitAces: true,
 	dealerPeek: false,
+	insurance: true,
 };
 
 /**

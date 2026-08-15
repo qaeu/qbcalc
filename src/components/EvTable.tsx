@@ -17,6 +17,7 @@ import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 
 import EvCellDialog from '#c/EvCellDialog';
 import EvCellPopover from '#c/EvCellPopover';
+import InsurancePanel from '#c/InsurancePanel';
 
 import '#styles/EvTable';
 
@@ -379,6 +380,21 @@ const EvTable: Component<EvTableProps> = (props) => {
 					seed={runSeed() ^ GRID_SALTS.split}
 					count={props.count()}
 				/>
+				{/*
+				 * Kept mounted across recalculations for the same reason the cell
+				 * popovers are: the previous numbers stay on screen, dimmed, so the
+				 * panel eases into the new ones rather than being torn down. A table
+				 * that doesn't offer the bet has no panel at all.
+				 */}
+				<Show when={props.result()?.insurance.offered ? props.result()?.insurance : null}>
+					{(insurance) => (
+						<InsurancePanel
+							insurance={insurance()}
+							count={props.count()}
+							loading={props.isComputing()}
+						/>
+					)}
+				</Show>
 			</Show>
 		</section>
 	);

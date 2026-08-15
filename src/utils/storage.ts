@@ -26,7 +26,7 @@ export interface CalculatorConfig extends CalculatorParams {
 export const DEFAULT_CONFIG: CalculatorConfig = { ...DEFAULT_PARAMS, system: 'ace-five' };
 
 const STORAGE_KEY = 'qbcalc:calculator-config';
-const STORAGE_VERSION = 4;
+const STORAGE_VERSION = 5;
 
 interface StoredConfig extends CalculatorConfig {
 	version: number;
@@ -54,7 +54,12 @@ interface StoredConfigV2 {
  * The v3 schema: every table rule the sidebar has today except `hitSplitAces`,
  * which v4 added. Structurally a `CalculatorConfig` minus that one field.
  */
-type StoredConfigV3 = Omit<CalculatorConfig, 'hitSplitAces'> & { version: 3 };
+type StoredConfigV3 = Omit<CalculatorConfig, 'hitSplitAces' | 'insurance'> & {
+	version: 3;
+};
+
+/** The v4 schema: every rule the sidebar has today except `insurance`. */
+type StoredConfigV4 = Omit<CalculatorConfig, 'insurance'> & { version: 4 };
 
 function isTagValues(value: unknown): value is TagValues {
 	if (typeof value !== 'object' || value === null) return false;
@@ -94,10 +99,15 @@ function hasV4Fields(config: Record<string, unknown>): boolean {
 	return hasV3Fields(config) && typeof config.hitSplitAces === 'boolean';
 }
 
+/** The single rule v5 added on top of v4. */
+function hasV5Fields(config: Record<string, unknown>): boolean {
+	return hasV4Fields(config) && typeof config.insurance === 'boolean';
+}
+
 function isStoredConfig(value: unknown): value is StoredConfig {
 	if (typeof value !== 'object' || value === null) return false;
 	const config = value as Record<string, unknown>;
-	return config.version === STORAGE_VERSION && hasV2Fields(config) && hasV4Fields(config);
+	return config.version === STORAGE_VERSION && hasV2Fields(config) && hasV5Fields(config);
 }
 
 function isStoredConfigV1(value: unknown): value is StoredConfigV1 {
@@ -116,6 +126,12 @@ function isStoredConfigV3(value: unknown): value is StoredConfigV3 {
 	if (typeof value !== 'object' || value === null) return false;
 	const config = value as Record<string, unknown>;
 	return config.version === 3 && hasV2Fields(config) && hasV3Fields(config);
+}
+
+function isStoredConfigV4(value: unknown): value is StoredConfigV4 {
+	if (typeof value !== 'object' || value === null) return false;
+	const config = value as Record<string, unknown>;
+	return config.version === 4 && hasV2Fields(config) && hasV4Fields(config);
 }
 
 export function loadCalculatorConfig(): CalculatorConfig | null {
@@ -150,8 +166,8 @@ export function loadCalculatorConfig(): CalculatorConfig | null {
 			};
 		}
 
-		// v3 is v4 without the hit-split-aces rule, so it survives intact with
-		// that one field taking its default.
+		// v3 and v4 each lack one later rule and are otherwise intact, so they
+		// survive with those fields taking their defaults.
 		if (isStoredConfigV3(parsed)) {
 			return {
 				decks: parsed.decks,
@@ -165,6 +181,26 @@ export function loadCalculatorConfig(): CalculatorConfig | null {
 				resplitAces: parsed.resplitAces,
 				hitSplitAces: DEFAULT_RULE_SET.hitSplitAces,
 				dealerPeek: parsed.dealerPeek,
+				insurance: DEFAULT_RULE_SET.insurance,
+				system: parsed.system,
+				tags: parsed.tags,
+			};
+		}
+
+		if (isStoredConfigV4(parsed)) {
+			return {
+				decks: parsed.decks,
+				count: parsed.count,
+				dealerHitsSoft17: parsed.dealerHitsSoft17,
+				penetrationPercent: parsed.penetrationPercent,
+				blackjackPayout: parsed.blackjackPayout,
+				surrender: parsed.surrender,
+				splitLimit: parsed.splitLimit,
+				doubleAfterSplit: parsed.doubleAfterSplit,
+				resplitAces: parsed.resplitAces,
+				hitSplitAces: parsed.hitSplitAces,
+				dealerPeek: parsed.dealerPeek,
+				insurance: DEFAULT_RULE_SET.insurance,
 				system: parsed.system,
 				tags: parsed.tags,
 			};
@@ -184,6 +220,7 @@ export function loadCalculatorConfig(): CalculatorConfig | null {
 			resplitAces: parsed.resplitAces,
 			hitSplitAces: parsed.hitSplitAces,
 			dealerPeek: parsed.dealerPeek,
+			insurance: parsed.insurance,
 			system: parsed.system,
 			tags: parsed.tags,
 		};
@@ -213,6 +250,7 @@ export function calculatorConfigsEqual(
 		&& a.resplitAces === b.resplitAces
 		&& a.hitSplitAces === b.hitSplitAces
 		&& a.dealerPeek === b.dealerPeek
+		&& a.insurance === b.insurance
 		&& a.system === b.system
 		&& RANKS.every((rank) => a.tags[rank] === b.tags[rank])
 	);
@@ -231,6 +269,7 @@ export function ruleSetFromConfig(config: CalculatorConfig): RuleSet {
 		resplitAces: config.resplitAces,
 		hitSplitAces: config.hitSplitAces,
 		dealerPeek: config.dealerPeek,
+		insurance: config.insurance,
 	};
 }
 

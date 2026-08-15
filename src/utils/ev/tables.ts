@@ -19,6 +19,7 @@ import {
 	type CellAnalysis,
 	type EvGrids,
 } from './engine';
+import { analyzeInsurance, type InsuranceAnalysis } from './insurance';
 import type { ActionAnalysis } from './outcome';
 import {
 	HARD_TOTALS,
@@ -76,6 +77,11 @@ export interface EvTables {
 	hard: EvComparisonResult;
 	soft: EvComparisonResult;
 	split: SplitEvComparisonResult;
+	/**
+	 * Not a grid: insurance is one number per shoe, priced off the composition
+	 * alone, so it rides along with the tables rather than through the engine.
+	 */
+	insurance: InsuranceAnalysis;
 }
 
 /** Pairs a base grid with a count-adjusted one into a hard/soft-totals table. */
@@ -180,12 +186,21 @@ export function computeSplitEvComparison(
 	);
 }
 
-/** Reads a count-adjusted set of grids against the unadjusted ones. */
-export function combineEvTables(baseGrids: EvGrids, countGrids: EvGrids): EvTables {
+/**
+ * Reads a count-adjusted set of grids against the unadjusted ones. Insurance is
+ * passed in already priced: it comes from the two compositions rather than from
+ * the grids, and the caller is the one holding those.
+ */
+export function combineEvTables(
+	baseGrids: EvGrids,
+	countGrids: EvGrids,
+	insurance: InsuranceAnalysis
+): EvTables {
 	return {
 		hard: buildEvComparison(baseGrids.hard, countGrids.hard, HARD_TOTALS, RANKS),
 		soft: buildEvComparison(baseGrids.soft, countGrids.soft, SOFT_TOTALS, RANKS),
 		split: buildSplitEvComparison(baseGrids.split, countGrids.split, PAIR_RANKS, RANKS),
+		insurance,
 	};
 }
 
@@ -204,6 +219,7 @@ export function computeAllEvTables(
 	const modified = applyCountToComposition(base, tags, count);
 	return combineEvTables(
 		computeEvGrids(ruleSet, base),
-		computeEvGrids(ruleSet, modified)
+		computeEvGrids(ruleSet, modified),
+		analyzeInsurance(ruleSet, base, modified)
 	);
 }
