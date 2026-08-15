@@ -14,6 +14,10 @@ $heat-steps: 8;
 $heat-max-alpha: 45%;
 $heat-hover-alpha: 12%;
 $popover-action-opacity: 0.95;
+// The grid cells read the action colour at a glance across the whole board,
+// so they lean on a stronger fill than the popover's single-row chip.
+$action-cell-opacity: 1.5;
+$deviation-ring-opacity: 1.4;
 
 @layer screen {
 	.ev-table {
@@ -101,23 +105,23 @@ $popover-action-opacity: 0.95;
 		}
 
 		td.is-hit {
-			@include action-colour($primaries);
+			@include action-colour($primaries, $action-cell-opacity);
 		}
 
 		td.is-stand {
-			@include action-colour($errors);
+			@include action-colour($errors, $action-cell-opacity);
 		}
 
 		td.is-double {
-			@include action-colour($infos);
+			@include action-colour($infos, $action-cell-opacity);
 		}
 
 		td.is-split {
-			@include action-colour($warnings);
+			@include action-colour($warnings, $action-cell-opacity);
 		}
 
 		td.is-surrender {
-			@include action-colour($neutrals);
+			@include action-colour($neutrals, $action-cell-opacity);
 		}
 
 		// One class per step rather than a gradient over the real value: a
@@ -178,14 +182,16 @@ $popover-action-opacity: 0.95;
 		// `border-collapse: collapse` makes adjacent cells share an edge -- two
 		// neighbouring deviations would have to agree on its colour -- and
 		// because a border would nudge the text by its own width.
-		@mixin deviation-ring($colourset) {
-			box-shadow: inset 0 0 0 $deviation-ring-width get($colourset, 'fade-less');
+		@mixin deviation-ring($colourset, $opacity: $deviation-ring-opacity) {
+			box-shadow: inset 0 0 0 $deviation-ring-width
+				oklch(from get($colourset, 'fade-less') l c h / calc(alpha * #{$opacity}));
 
 			// Hovering raises the fill to alpha-3 as well, which would leave the
 			// ring and the cell it rings at the same weight. Step 5 lifts the ring
 			// just clear of that without reading as a drawn border.
 			&:hover {
-				box-shadow: inset 0 0 0 $deviation-ring-width get($colourset, 'highlight-dark');
+				box-shadow: inset 0 0 0 $deviation-ring-width
+					oklch(from get($colourset, 'highlight-dark') l c h / calc(alpha * #{$opacity}));
 			}
 		}
 

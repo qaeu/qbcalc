@@ -110,13 +110,12 @@ const EvCell: Component<EvCellProps> = (props) => {
 		if (props.loading) return `is-loading ev-table__loading-phase-${props.phase}`;
 		const row = props.row;
 		if (!row) return '';
-		// The deviation ring rides along in every mode, not just the action one:
-		// it is an inset shadow rather than a fill, so it survives the heat
-		// colours, and knowing which cells the count has moved is worth as much
-		// while reading their numbers as while reading their letters.
-		return row.baseAction === row.optimalAction ?
-				fillClass()
-			:	`${fillClass()} ${BASE_ACTION_CLASS[row.baseAction]}`;
+		// The deviation ring only makes sense in the action mode: it marks a
+		// change in letter, which is meaningless dressing on top of the EV and
+		// occurrence heat ramps.
+		return props.mode === 'action' && row.baseAction !== row.optimalAction ?
+				`${fillClass()} ${BASE_ACTION_CLASS[row.baseAction]}`
+			:	fillClass();
 	});
 
 	const [hoverOpen, setHoverOpen] = createSignal(false);
