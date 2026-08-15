@@ -4,7 +4,8 @@ import { createStore } from 'solid-js/store';
 
 import { LayoutGrid, SlidersHorizontal } from 'lucide-solid';
 
-import { type Rank, type TagValues } from '#utils/blackjackEv';
+import { type Rank } from '#utils/ev/cards';
+import { type TagValues } from '#utils/ev/composition';
 import { tagsForSystem, type CountingSystemId } from '#utils/countingSystems';
 import { formatDuration } from '#utils/format';
 import {

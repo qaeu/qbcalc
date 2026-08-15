@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen, cleanup, waitFor } from '@solidjs/testing-library';
 
 import SettingsSidebar from '#c/SettingsSidebar';
-import { ACE_FIVE_TAGS } from '#utils/blackjackEv';
+import { ACE_FIVE_TAGS } from '#utils/ev/composition';
 import {
 	DEFAULT_CONFIG,
 	loadCalculatorConfig,

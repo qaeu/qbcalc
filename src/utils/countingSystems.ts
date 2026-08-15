@@ -1,12 +1,11 @@
 /**
  * Counting system presets for the settings UI.
  *
- * Kept out of `blackjackEv.ts` so the engine stays a pure tag-vector
- * consumer with no notion of named systems; it only carries `ACE_FIVE_TAGS`
- * as its own default.
+ * Kept out of `ev/` so the engine stays a pure tag-vector consumer with no
+ * notion of named systems; it only carries `ACE_FIVE_TAGS` as its own default.
  */
 
-import { ACE_FIVE_TAGS, type TagValues } from './blackjackEv';
+import { ACE_FIVE_TAGS, type TagValues } from './ev/composition';
 
 export type CountingSystemId = 'ace-five' | 'custom';
 

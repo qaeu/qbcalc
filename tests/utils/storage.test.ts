@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 
-import { ACE_FIVE_TAGS, type TagValues } from '#utils/blackjackEv';
+import { ACE_FIVE_TAGS, type TagValues } from '#utils/ev/composition';
 import {
 	DEFAULT_CONFIG,
 	loadCalculatorConfig,

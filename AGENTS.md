@@ -2,7 +2,7 @@
 
 qbcalc is a client-side blackjack expected value (EV) calculator. It's a single-page static app built with **SolidJS** and **Vite**, performing all EV computation locally in the browser.
 
-> **Status**: early scaffold. `src/App.tsx` renders the first EV engine component (`EvTable`, backed by `src/utils/blackjackEv.ts`); most other functionality has not been implemented yet.
+> **Status**: early scaffold. `src/App.tsx` renders the first EV engine component (`EvTable`, backed by `src/utils/ev/`); most other functionality has not been implemented yet.
 
 ### Key Architectural Principles
 
@@ -38,7 +38,18 @@ src/
 ├── components/
 │   └── *.tsx                    # SolidJS components
 └── utils/
-    └── *.ts                     # EV engine and utility scripts
+    ├── ev/
+    │   ├── cards.ts             # Rank vocabulary, hand arithmetic
+    │   ├── rules.ts             # RuleSet, hand sets, rule-set cache key
+    │   ├── composition.ts       # Shoe compositions, count adjustment
+    │   ├── outcome.ts           # Win/push/lose algebra, per-action shape
+    │   ├── shoe.ts              # The mutable composition models draw against
+    │   ├── dealer.ts            # Dealer distribution, stand-EV table
+    │   ├── player.ts            # Hit/double/surrender EVs and push odds
+    │   ├── split.ts             # Split draw enumeration, resplit ladder
+    │   ├── engine.ts            # Action pricing, the three analysis grids
+    │   └── tables.ts            # Base/count comparison tables, entry points
+    └── *.ts                     # Worker protocol and utility scripts
 tests/
 └── **/*.test.ts(x)              # Mirrors the src/ tree
 ```
@@ -119,6 +130,7 @@ Formatting is enforced by Prettier (`.prettierrc`): tabs, single quotes, 90 colu
 
 ### EV Engine Guidelines
 
+- **Read the model doc first**: [docs/ev-model.md](./docs/ev-model.md) records the method, the simplifications the numbers rest on, and why the engine is shaped the way it is. Reasoning belongs there; the modules under `src/utils/ev/` keep short comments that point at it.
 - **Pure functions**: EV calculation must be side-effect free and independent of SolidJS so it is directly unit testable.
 - **Rules as data**: Table variations (deck count, dealer hits soft 17, blackjack payout, DAS, surrender) belong in a `RuleSet` object passed in — never hardcoded.
 - **Exact over sampled**: Prefer exact combinatorial computation; if simulation is ever used, seed it so tests are deterministic.

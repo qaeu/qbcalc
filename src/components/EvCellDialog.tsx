@@ -10,7 +10,9 @@ import { createMemo, For, Show, type Component } from 'solid-js';
 
 import { X } from 'lucide-solid';
 
-import type { ActionAnalysis, EvCellData, Rank } from '#utils/blackjackEv';
+import type { Rank } from '#utils/ev/cards';
+import type { ActionAnalysis } from '#utils/ev/outcome';
+import type { EvCellData } from '#utils/ev/tables';
 import {
 	formatActionLabel,
 	formatCount,

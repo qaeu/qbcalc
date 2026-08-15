@@ -8,15 +8,9 @@ import {
 	type Component,
 } from 'solid-js';
 
-import {
-	HARD_TOTALS,
-	PAIR_RANKS,
-	RANKS,
-	SOFT_TOTALS,
-	type EvCellData,
-	type PlayerAction,
-	type Rank,
-} from '#utils/blackjackEv';
+import { RANKS, type Rank } from '#utils/ev/cards';
+import { HARD_TOTALS, PAIR_RANKS, SOFT_TOTALS, type PlayerAction } from '#utils/ev/rules';
+import type { EvCellData } from '#utils/ev/tables';
 import { formatPairLabel, formatSoftTotalLabel } from '#utils/format';
 import { ACTION_CLASS } from '#utils/actionStyle';
 import type { EvWorkerResult } from '#utils/evWorkerProtocol';

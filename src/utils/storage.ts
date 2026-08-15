@@ -1,16 +1,18 @@
+import { RANKS } from './ev/cards';
 import {
 	ACE_FIVE_TAGS,
-	BLACKJACK_PAYOUTS,
 	DEFAULT_PARAMS,
+	type CalculatorParams,
+	type TagValues,
+} from './ev/composition';
+import {
+	BLACKJACK_PAYOUTS,
 	DEFAULT_RULE_SET,
-	RANKS,
 	SURRENDERS,
 	type BlackjackPayout,
-	type CalculatorParams,
 	type RuleSet,
 	type Surrender,
-	type TagValues,
-} from './blackjackEv';
+} from './ev/rules';
 import { isCountingSystemId, type CountingSystemId } from './countingSystems';
 
 /**

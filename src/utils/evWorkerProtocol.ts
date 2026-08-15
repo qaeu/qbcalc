@@ -8,14 +8,11 @@
 import {
 	applyCountToComposition,
 	baseComposition,
-	combineEvTables,
-	computeEvGrids,
-	ruleSetKey,
-	type EvGrids,
-	type EvTables,
-	type RuleSet,
 	type TagValues,
-} from './blackjackEv';
+} from './ev/composition';
+import { computeEvGrids, type EvGrids } from './ev/engine';
+import { ruleSetKey, type RuleSet } from './ev/rules';
+import { combineEvTables, type EvTables } from './ev/tables';
 
 export interface EvWorkerRequest {
 	/**

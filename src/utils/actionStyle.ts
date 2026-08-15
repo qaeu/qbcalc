@@ -1,4 +1,4 @@
-import type { PlayerAction } from '#utils/blackjackEv';
+import type { PlayerAction } from '#utils/ev/rules';
 
 /**
  * Colours a signed figure by its direction. Returned as a bare state class

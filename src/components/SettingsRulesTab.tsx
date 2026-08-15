@@ -6,7 +6,7 @@ import {
 	SURRENDERS,
 	type BlackjackPayout,
 	type Surrender,
-} from '#utils/blackjackEv';
+} from '#utils/ev/rules';
 import type { CalculatorConfig } from '#utils/storage';
 
 import SettingSelect, { type SettingOption } from '#c/SettingSelect';

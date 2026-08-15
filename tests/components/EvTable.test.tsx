@@ -3,7 +3,8 @@ import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-lib
 import { createSignal } from 'solid-js';
 
 import EvTable from '#c/EvTable';
-import { DEFAULT_RULE_SET, computeAllEvTables } from '#utils/blackjackEv';
+import { DEFAULT_RULE_SET } from '#utils/ev/rules';
+import { computeAllEvTables } from '#utils/ev/tables';
 import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 
 // Real (not mocked) exact-enumeration result, computed once and reused as a

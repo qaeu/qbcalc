@@ -2,7 +2,8 @@
 
 import { For, type Component } from 'solid-js';
 
-import { RANKS, type Rank, type TagValues } from '#utils/blackjackEv';
+import { RANKS, type Rank } from '#utils/ev/cards';
+import type { TagValues } from '#utils/ev/composition';
 
 import '#styles/TagValueGrid';
 

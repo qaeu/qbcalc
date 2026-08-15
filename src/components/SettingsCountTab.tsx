@@ -1,6 +1,7 @@
 import type { Component } from 'solid-js';
 
-import type { Rank, TagValues } from '#utils/blackjackEv';
+import type { Rank } from '#utils/ev/cards';
+import type { TagValues } from '#utils/ev/composition';
 import { COUNTING_SYSTEMS, type CountingSystemId } from '#utils/countingSystems';
 
 import SettingSelect, { type SettingOption } from '#c/SettingSelect';

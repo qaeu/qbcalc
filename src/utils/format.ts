@@ -1,4 +1,4 @@
-import type { PlayerAction } from '#utils/blackjackEv';
+import type { PlayerAction } from '#utils/ev/rules';
 
 export function formatEvPercent(value: number): string {
 	const rounded = value.toFixed(3);

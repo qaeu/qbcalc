@@ -2,7 +2,7 @@ import { HoverCard } from '@ark-ui/solid/hover-card';
 import { Portal } from 'solid-js/web';
 import { Show, type Component } from 'solid-js';
 
-import type { EvCellData } from '#utils/blackjackEv';
+import type { EvCellData } from '#utils/ev/tables';
 import {
 	formatActionLabel,
 	formatCount,

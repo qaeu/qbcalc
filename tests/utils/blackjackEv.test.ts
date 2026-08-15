@@ -1,19 +1,19 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 
+import { RANKS, type Rank } from '#utils/ev/cards';
 import {
 	ACE_FIVE_TAGS,
+	applyCountToComposition,
+	baseComposition,
+	type TagValues,
+} from '#utils/ev/composition';
+import {
 	DEFAULT_RULE_SET,
-	RANKS,
 	SOFT_TOTALS,
-	type Rank,
 	type RuleSet,
 	type Surrender,
-	type TagValues,
-	baseComposition,
-	applyCountToComposition,
-	computeEvComparison,
-	computeSplitEvComparison,
-} from '#utils/blackjackEv';
+} from '#utils/ev/rules';
+import { computeEvComparison, computeSplitEvComparison } from '#utils/ev/tables';
 
 /**
  * The baseline the golden EV values below belong to: no peek (a dealer
