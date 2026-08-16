@@ -1,4 +1,4 @@
-import type { Component } from 'solid-js';
+import { createMemo, type Component } from 'solid-js';
 import type { SetStoreFunction } from 'solid-js/store';
 
 import {
@@ -7,7 +7,13 @@ import {
 	type BlackjackPayout,
 	type Surrender,
 } from '#utils/ev/rules';
-import type { CalculatorConfig } from '#utils/storage';
+import {
+	presetForRules,
+	RULE_PRESETS,
+	rulesForPreset,
+	type RulePresetId,
+} from '#utils/rulePresets';
+import { ruleSetFromConfig, type CalculatorConfig } from '#utils/storage';
 
 import SettingSelect, { type SettingOption } from '#c/SettingSelect';
 import SettingsItem from '#c/SettingsItem';
@@ -21,6 +27,18 @@ interface SettingsRulesTabProps {
 
 const PAYOUT_OPTIONS: readonly SettingOption<BlackjackPayout>[] = BLACKJACK_PAYOUTS.map(
 	(payout) => ({ value: payout, label: payout })
+);
+
+/**
+ * 'Custom' is shown but never selectable: it is the name the rules go by once
+ * they match no preset, and it has no rule set of its own to switch to.
+ */
+const PRESET_OPTIONS: readonly SettingOption<RulePresetId>[] = RULE_PRESETS.map(
+	(preset) => ({
+		value: preset.id,
+		label: preset.label,
+		disabled: preset.rules === null,
+	})
 );
 
 const SURRENDER_LABELS: Record<Surrender, string> = {
@@ -62,9 +80,25 @@ const SettingsRulesTab: Component<SettingsRulesTabProps> = (props) => {
 		}
 	};
 
+	// Derived rather than stored: the rules are the single source of truth for
+	// which preset is selected, so editing any one of them drops the select to
+	// 'Custom' on its own.
+	const preset = createMemo(() => presetForRules(ruleSetFromConfig(props.config)));
+
+	const setPreset = (id: RulePresetId) => {
+		const rules = rulesForPreset(id);
+		if (rules) props.setConfig(rules);
+	};
+
 	return (
 		<div class="settings-rules-tab">
 			<h3>Game Rules</h3>
+			<SettingsItem
+				label="Preset"
+				helptext="A named table's rules, or Custom once any rule is hand-edited"
+			>
+				<SettingSelect options={PRESET_OPTIONS} value={preset()} onChange={setPreset} />
+			</SettingsItem>
 			<div class="settings-rules-tab__field-grid">
 				<SettingsItem label="Decks" helptext="Number of decks in the shoe">
 					<input

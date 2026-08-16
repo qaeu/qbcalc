@@ -173,6 +173,72 @@ describe('SettingsSidebar', () => {
 		);
 	});
 
+	describe('the rule preset', () => {
+		const renderSidebar = (onSettingsChange = vi.fn()) => {
+			cleanup();
+			render(() => (
+				<SettingsSidebar
+					initialConfig={DEFAULT_CONFIG}
+					calcTimeMs={null}
+					onSettingsChange={onSettingsChange}
+					bankroll={DEFAULT_BANKROLL_CONFIG}
+					bankrollAnalysis={undefined}
+					onBankrollChange={() => {}}
+				/>
+			));
+			return screen.getByRole('combobox', { name: 'Preset' });
+		};
+
+		it('starts on the preset the default rules describe', () => {
+			expect(renderSidebar().textContent).toBe('UK');
+		});
+
+		it('applies and reports a selected preset‘s rules', async () => {
+			const onSettingsChange = vi.fn();
+			const trigger = renderSidebar(onSettingsChange);
+
+			fireEvent.click(trigger);
+			fireEvent.click(await screen.findByRole('option', { name: 'Vegas' }));
+			await waitFor(() => expect(trigger.textContent).toBe('Vegas'));
+
+			expect((screen.getByLabelText('S17') as HTMLInputElement).checked).toBe(false);
+			expect((screen.getByLabelText('ENHC') as HTMLInputElement).checked).toBe(false);
+			await settledWith(
+				onSettingsChange,
+				expect.objectContaining({
+					dealerHitsSoft17: true,
+					dealerPeek: true,
+					surrender: 'late',
+					hitSplitAces: false,
+				})
+			);
+		});
+
+		// The preset is read back off the rules, so any edit that leaves a
+		// named table's rule set shows up here without being told.
+		it('drops to Custom once a rule is hand-edited', async () => {
+			const trigger = renderSidebar();
+
+			fireEvent.click(screen.getByLabelText('RSA'));
+			await waitFor(() => expect(trigger.textContent).toBe('Custom'));
+
+			// And back again: the rules are all the selection ever depended on.
+			fireEvent.click(screen.getByLabelText('RSA'));
+			await waitFor(() => expect(trigger.textContent).toBe('UK'));
+		});
+
+		it('does not offer Custom as a choice', async () => {
+			const trigger = renderSidebar();
+
+			fireEvent.click(trigger);
+			expect(
+				(await screen.findByRole('option', { name: 'Custom' })).hasAttribute(
+					'data-disabled'
+				)
+			).toBe(true);
+		});
+	});
+
 	it('reports the hit-split-aces rule', async () => {
 		cleanup();
 		const onSettingsChange = vi.fn();
