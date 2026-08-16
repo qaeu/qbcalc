@@ -234,14 +234,24 @@ const CountEvGraph: Component<CountEvGraphProps> = (props) => {
 			<Show
 				when={!props.loading && props.profile}
 				fallback={
-					<div
-						class={`count-ev-graph__skeleton count-ev-graph__loading-phase-${loadingPhase(
-							props.seed,
-							0,
-							0
-						)}`}
-						aria-hidden="true"
-					/>
+					<>
+						<div
+							class={`count-ev-graph__skeleton count-ev-graph__loading-phase-${loadingPhase(
+								props.seed,
+								0,
+								0
+							)}`}
+							aria-hidden="true"
+						/>
+						{/*
+						 * Empty but otherwise identical to the real reading paragraph, so
+						 * its line box reserves the same space and the card doesn't grow
+						 * once the reading appears.
+						 */}
+						<p class="count-ev-graph__reading" aria-hidden="true">
+							&nbsp;
+						</p>
+					</>
 				}
 			>
 				<svg

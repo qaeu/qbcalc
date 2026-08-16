@@ -113,22 +113,34 @@ $skeleton-pulse-duration: 1.4s;
 			min-height: 1.4em;
 		}
 
-		// Twice the height of the other cards' value skeletons (EvSummary.scss),
-		// rather than matching the plot's own height.
+		// Reserves exactly the plot's own box -- the same aspect ratio as
+		// VIEW_WIDTH x VIEW_HEIGHT -- so the card doesn't resize between the
+		// loading state and the result. The bar drawn inside it, via ::after, is
+		// smaller than that box on purpose: twice the height of the other cards'
+		// value skeletons (EvSummary.scss).
 		&__skeleton {
 			margin-top: 8px;
-			height: 40px;
-			border-radius: 6px;
-			background-color: get($neutrals, 'sep');
-			opacity: 0.35;
-			animation: count-ev-skeleton-pulse $skeleton-pulse-duration
-				cubic-bezier(0.2, 1, 0, 0.8) infinite;
+			aspect-ratio: 960 / 190;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+
+			&::after {
+				content: '';
+				width: 160px;
+				height: 40px;
+				border-radius: 6px;
+				background-color: get($neutrals, 'sep');
+				opacity: 0.35;
+				animation: count-ev-skeleton-pulse $skeleton-pulse-duration
+					cubic-bezier(0.2, 1, 0, 0.8) infinite;
+			}
 		}
 
 		// A negative delay starts the block mid-cycle, so it is already twinkling
 		// with the summary cards rather than fading up after them.
 		@for $phase from 0 through $skeleton-phase-count - 1 {
-			&__loading-phase-#{$phase} {
+			&__loading-phase-#{$phase}::after {
 				animation-delay: math.div($phase, $skeleton-phase-count) *
 					-$skeleton-pulse-duration;
 			}
