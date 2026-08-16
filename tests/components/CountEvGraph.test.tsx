@@ -70,7 +70,7 @@ describe('CountEvGraph', () => {
 		));
 
 		const reading = container.querySelector('.count-ev-graph__reading')!;
-		expect(reading.textContent).toMatch(/^[+-]£\d+\.\d\d per \d+ hands shoe$/);
+		expect(reading.textContent).toMatch(/^[+-]£\d+\.\d\d per \d+ hand shoe$/);
 
 		const bands = container.querySelectorAll('.count-ev-graph__band');
 		// The buckets run from -6, so +2 is the ninth of them.
@@ -78,7 +78,7 @@ describe('CountEvGraph', () => {
 		expect(reading.textContent).toMatch(/^\d+(\.\d)? hands @[+-]\d+\.\d+% EV$/);
 
 		fireEvent.mouseLeave(screen.getByRole('img'));
-		expect(reading.textContent).toMatch(/^[+-]£\d+\.\d\d per \d+ hands shoe$/);
+		expect(reading.textContent).toMatch(/^[+-]£\d+\.\d\d per \d+ hand shoe$/);
 	});
 
 	const shoeEvUnder = (profile: CountEvProfile) => {
