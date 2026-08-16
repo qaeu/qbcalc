@@ -14,7 +14,7 @@ import {
 	type Surrender,
 } from './ev/rules';
 import { RAMP_TRUE_COUNTS } from './bankroll';
-import { isCountingSystemId, type CountingSystemId } from './countingSystems';
+import { HI_LO_TAGS, isCountingSystemId, type CountingSystemId } from './countingSystems';
 import { isCellDisplayMode, type CellDisplayMode } from './cellDisplay';
 
 /**
@@ -25,7 +25,11 @@ export interface CalculatorConfig extends CalculatorParams {
 	system: CountingSystemId;
 }
 
-export const DEFAULT_CONFIG: CalculatorConfig = { ...DEFAULT_PARAMS, system: 'ace-five' };
+export const DEFAULT_CONFIG: CalculatorConfig = {
+	...DEFAULT_PARAMS,
+	system: 'hi-lo',
+	tags: HI_LO_TAGS,
+};
 
 /**
  * A config minus the true count. The count is driven by the arrow keys and
@@ -58,10 +62,10 @@ export interface BankrollConfig {
 }
 
 export const DEFAULT_BANKROLL_CONFIG: BankrollConfig = {
-	bankroll: 10000,
+	bankroll: 40000,
 	unit: 25,
-	roundsPerHour: 100,
-	ramp: [1, 1, 2, 4, 8, 12, 12],
+	roundsPerHour: 80,
+	ramp: [1, 1, 2, 3, 5, 8, 12],
 };
 
 const STORAGE_KEY = 'qbcalc:calculator-config';

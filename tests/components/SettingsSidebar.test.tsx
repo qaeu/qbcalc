@@ -3,6 +3,7 @@ import { fireEvent, render, screen, cleanup, waitFor } from '@solidjs/testing-li
 
 import SettingsSidebar from '#c/SettingsSidebar';
 import { ACE_FIVE_TAGS } from '#utils/ev/composition';
+import { HI_LO_TAGS } from '#utils/countingSystems';
 import {
 	DEFAULT_BANKROLL_CONFIG,
 	DEFAULT_CONFIG,
@@ -300,7 +301,7 @@ describe('SettingsSidebar', () => {
 			'-1'
 		);
 		expect((screen.getByLabelText('Tag value for 10') as HTMLInputElement).value).toBe(
-			'0'
+			'-1'
 		);
 	});
 
@@ -317,13 +318,13 @@ describe('SettingsSidebar', () => {
 			/>
 		));
 
-		const tenTag = screen.getByLabelText('Tag value for 10');
-		fireEvent.input(tenTag, { target: { value: '-1' } });
+		const sevenTag = screen.getByLabelText('Tag value for 7');
+		fireEvent.input(sevenTag, { target: { value: '-1' } });
 
 		await settledWith(onSettingsChange, {
 			...DEFAULT_SETTINGS,
 			system: 'custom',
-			tags: { ...ACE_FIVE_TAGS, T: -1 },
+			tags: { ...HI_LO_TAGS, '7': -1 },
 		} satisfies CalculatorSettings);
 
 		fireEvent.click(screen.getByRole('tab', { name: 'Count' }));
@@ -521,7 +522,7 @@ describe('SettingsSidebar', () => {
 				}
 			);
 
-			expect(onBankrollChange).toHaveBeenCalledWith('ramp', [1, 1, 2, 4, 8, 12, 20]);
+			expect(onBankrollChange).toHaveBeenCalledWith('ramp', [1, 1, 2, 3, 5, 8, 20]);
 		});
 
 		// The whole reason the bankroll settings are owned by the app rather than
