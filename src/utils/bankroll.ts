@@ -137,6 +137,8 @@ export interface BankrollAnalysis {
 	edgePercent: number;
 	/** Mean units wagered per round, i.e. the spread the ramp actually achieves. */
 	averageBetUnits: number;
+	/** `averageBetUnits` converted to currency, at the same unit size as `winRatePerHour`. */
+	averageBetCurrency: number;
 	/** Expected win per round, in units. */
 	evUnitsPerRound: number;
 	/** Variance of one round's result under the ramp, in units². */
@@ -368,6 +370,7 @@ export function analyzeBankroll(
 		// under weights of frequency times bet.
 		edgePercent: averageBetUnits > 0 ? (evUnitsPerRound / averageBetUnits) * 100 : 0,
 		averageBetUnits,
+		averageBetCurrency: averageBetUnits * inputs.unit,
 		evUnitsPerRound,
 		varianceUnitsPerRound,
 		winRatePerHour: evUnitsPerRound * inputs.roundsPerHour * inputs.unit,
