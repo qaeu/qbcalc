@@ -138,7 +138,7 @@ describe('EvTable', () => {
 		));
 
 		const cards = document.querySelectorAll('.ev-summary__card');
-		expect(cards).toHaveLength(5);
+		expect(cards).toHaveLength(6);
 
 		// The edge over the whole shoe under the bet spread, not the EV at the
 		// count on screen -- the cells already answer that question.
@@ -192,7 +192,7 @@ describe('EvTable', () => {
 
 		// The previous result is still in hand, so the figure has to be withheld
 		// deliberately rather than merely being absent.
-		expect(document.querySelectorAll('.ev-summary__skeleton')).toHaveLength(5);
+		expect(document.querySelectorAll('.ev-summary__skeleton')).toHaveLength(6);
 		expect(document.querySelectorAll('.ev-summary__value')).toHaveLength(0);
 	});
 
@@ -213,7 +213,7 @@ describe('EvTable', () => {
 		));
 
 		expect(document.querySelectorAll('.ev-summary__skeleton')).toHaveLength(0);
-		expect(document.querySelectorAll('.ev-summary__value')).toHaveLength(5);
+		expect(document.querySelectorAll('.ev-summary__value')).toHaveLength(6);
 	});
 
 	it('reports insurance EV in the ace column popovers, and nowhere else', async () => {

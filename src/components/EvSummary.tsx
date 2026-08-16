@@ -101,6 +101,16 @@ const EvSummary: Component<EvSummaryProps> = (props) => (
 			phase={loadingPhase(props.seed, 0, 1)}
 		/>
 		<SummaryCard
+			label="Average Bet"
+			value={
+				props.bankroll === undefined ?
+					undefined
+				:	formatCurrency(props.bankroll.averageBetCurrency).replace('+', '')
+			}
+			loading={props.loading}
+			phase={loadingPhase(props.seed, 0, 2)}
+		/>
+		<SummaryCard
 			label="Std Dev"
 			value={
 				props.bankroll === undefined ?
@@ -109,7 +119,7 @@ const EvSummary: Component<EvSummaryProps> = (props) => (
 			}
 			unit=" /hr"
 			loading={props.loading}
-			phase={loadingPhase(props.seed, 0, 2)}
+			phase={loadingPhase(props.seed, 0, 3)}
 		/>
 		<SummaryCard
 			label="N0"
@@ -118,7 +128,7 @@ const EvSummary: Component<EvSummaryProps> = (props) => (
 			}
 			unit=" rounds"
 			loading={props.loading}
-			phase={loadingPhase(props.seed, 0, 3)}
+			phase={loadingPhase(props.seed, 0, 4)}
 		/>
 		<SummaryCard
 			label="Risk of Ruin"
@@ -128,7 +138,7 @@ const EvSummary: Component<EvSummaryProps> = (props) => (
 				:	formatProbabilityPercent(props.bankroll.riskOfRuin)
 			}
 			loading={props.loading}
-			phase={loadingPhase(props.seed, 0, 4)}
+			phase={loadingPhase(props.seed, 0, 5)}
 		/>
 	</div>
 );
