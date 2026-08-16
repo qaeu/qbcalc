@@ -90,6 +90,11 @@ export function isCountingSystemId(value: unknown): value is CountingSystemId {
 	return COUNTING_SYSTEMS.some((system) => system.id === value);
 }
 
+/** The preset's display name, for captions outside the settings form. */
+export function labelForSystem(id: CountingSystemId): string {
+	return COUNTING_SYSTEMS.find((system) => system.id === id)?.label ?? 'Custom';
+}
+
 /** The preset's tag values, or `null` if the system has no fixed tags. */
 export function tagsForSystem(id: CountingSystemId): TagValues | null {
 	return COUNTING_SYSTEMS.find((system) => system.id === id)?.tags ?? null;

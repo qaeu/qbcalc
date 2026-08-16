@@ -1,0 +1,130 @@
+@use 'base' as *;
+@use 'sass:math';
+
+// Keep in sync with LOADING_PHASE_COUNT in src/utils/loadingPhase.ts.
+$skeleton-phase-count: 12;
+$skeleton-pulse-duration: 1.4s;
+
+@layer screen {
+	.count-frequency-graph {
+		@include card;
+		// Sized like the summary card grid above it, so the two read as one block.
+		// The spacing below comes from `.ev-table`'s own gap, as the grids' does.
+		width: 100%;
+		max-width: 1000px;
+		margin-bottom: 0;
+		margin-left: auto;
+		margin-right: auto;
+
+		&__header {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			gap: 12px;
+			flex-wrap: wrap;
+		}
+
+		&__title {
+			@include panel-title;
+		}
+
+		&__caption {
+			font-size: 13px;
+			color: get($neutrals, 'fg-light');
+		}
+
+		&__plot {
+			display: block;
+			width: 100%;
+			height: auto;
+			margin-top: 8px;
+			// Columns are pointed at through their whole band, so the pointer only
+			// ever changes what the caption reads -- never a selection.
+			user-select: none;
+		}
+
+		&__baseline {
+			stroke: get($neutrals, 'sep');
+			stroke-width: 1;
+		}
+
+		&__hit {
+			fill: transparent;
+		}
+
+		// One series, in two weights: the rounds a counter is betting into stand
+		// in the brand colour, the rest of the shoe in a muted one. Nothing is
+		// being compared, so this is emphasis rather than a second category.
+		&__column {
+			fill: get($neutrals, 'sep-dark');
+			transition: fill 150ms ease;
+
+			&.is-advantage {
+				fill: get($primaries, 'base');
+			}
+
+			&.is-hovered {
+				fill: get($neutrals, 'fg-light');
+			}
+
+			&.is-advantage.is-hovered {
+				fill: get($primaries, 'base-dark');
+			}
+		}
+
+		// Axis text wears text colours rather than the column's, so it stays
+		// legible whatever the fill does.
+		&__tick {
+			fill: get($neutrals, 'fg-light');
+			font-size: 13px;
+			font-variant-numeric: tabular-nums;
+		}
+
+		&__peak {
+			fill: get($neutrals, 'fg');
+			font-size: 14px;
+			font-weight: 600;
+			font-variant-numeric: tabular-nums;
+		}
+
+		&__reading {
+			margin: 8px 0 0;
+			font-size: 13px;
+			color: get($neutrals, 'fg-light');
+			// Held to one line's height so the card doesn't resize as the pointer
+			// moves between readings of different lengths.
+			min-height: 1.4em;
+		}
+
+		// Matches the plot's own height at the widths the card is drawn at, so the
+		// card doesn't jump when the figures land.
+		&__skeleton {
+			margin-top: 8px;
+			height: 180px;
+			border-radius: 6px;
+			background-color: get($neutrals, 'sep');
+			opacity: 0.35;
+			animation: count-frequency-skeleton-pulse $skeleton-pulse-duration
+				cubic-bezier(0.2, 1, 0, 0.8) infinite;
+		}
+
+		// A negative delay starts the block mid-cycle, so it is already twinkling
+		// with the summary cards rather than fading up after them.
+		@for $phase from 0 through $skeleton-phase-count - 1 {
+			&__loading-phase-#{$phase} {
+				animation-delay: math.div($phase, $skeleton-phase-count) *
+					-$skeleton-pulse-duration;
+			}
+		}
+
+		@keyframes count-frequency-skeleton-pulse {
+			0%,
+			100% {
+				opacity: 0.35;
+			}
+			50% {
+				opacity: 0.8;
+			}
+		}
+	}
+}

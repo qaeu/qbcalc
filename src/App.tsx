@@ -1,6 +1,8 @@
 import { createMemo, createSignal, onCleanup, type Component } from 'solid-js';
 
 import { analyzeBankroll, type BankrollAnalysis } from '#utils/bankroll';
+import { labelForSystem } from '#utils/countingSystems';
+import { simulateRoundFrequency } from '#utils/countRounds';
 import {
 	calculatorSettingsEqual,
 	DEFAULT_BANKROLL_CONFIG,
@@ -24,6 +26,7 @@ import type {
 import { createGlobalKeydown, isKeyConsumingTarget } from '#utils/keyboard';
 import { INPUT_SETTLE_MS } from '#utils/settle';
 
+import type { CountFrequencyProfile } from '#c/CountFrequencyGraph';
 import EvTable from '#c/EvTable';
 import SettingsSidebar from '#c/SettingsSidebar';
 
@@ -101,6 +104,24 @@ const App: Component = () => {
 			edgeSlopePointsPerTrueCount: basis.result.edgeSlopePointsPerTrueCount,
 			variancePerRound: basis.result.average.variancePerRound,
 		});
+	});
+
+	// Needs no EV result at all -- where a shoe's count gets to is settled by the
+	// counting system, the shoe size and the penetration alone. It is still read
+	// off the summary basis rather than the live config, so that the graph
+	// changes in step with the cards beside it instead of jumping ahead of a
+	// calculation they are still waiting on. The simulation behind it takes tens
+	// of milliseconds, which is why it hangs off a settled basis rather than
+	// rerunning as a setting is typed.
+	const countFrequency = createMemo<CountFrequencyProfile | undefined>(() => {
+		const config = summaryBasis()?.config;
+		if (!config) return undefined;
+		return {
+			rounds: simulateRoundFrequency(ruleSetFromConfig(config), config.tags),
+			decks: config.decks,
+			penetrationPercent: config.penetrationPercent,
+			systemLabel: labelForSystem(config.system),
+		};
 	});
 
 	/**
@@ -273,6 +294,7 @@ const App: Component = () => {
 					error={error}
 					trueCount={trueCount}
 					bankroll={bankrollAnalysis}
+					countFrequency={countFrequency}
 				/>
 			</div>
 		</main>

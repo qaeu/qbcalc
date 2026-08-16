@@ -2,8 +2,10 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
 
+import type { CountFrequencyProfile } from '#c/CountFrequencyGraph';
 import EvTable from '#c/EvTable';
 import { analyzeBankroll, type BankrollAnalysis } from '#utils/bankroll';
+import { simulateRoundFrequency } from '#utils/countRounds';
 import { DEFAULT_PARAMS } from '#utils/ev/composition';
 import { DEFAULT_RULE_SET } from '#utils/ev/rules';
 import { DEFAULT_BANKROLL_CONFIG } from '#utils/storage';
@@ -42,6 +44,15 @@ const SAMPLE_BANKROLL: BankrollAnalysis = analyzeBankroll(
 		variancePerRound: SAMPLE_RESULT.average.variancePerRound,
 	}
 );
+
+// What the frequency graph draws, on the same rules. It needs no EV result of
+// its own -- the shoe and the tags settle it entirely.
+const SAMPLE_FREQUENCY: CountFrequencyProfile = {
+	rounds: simulateRoundFrequency(DEFAULT_RULE_SET, DEFAULT_PARAMS.tags),
+	decks: DEFAULT_RULE_SET.decks,
+	penetrationPercent: DEFAULT_RULE_SET.penetrationPercent,
+	systemLabel: 'Ace-Five',
+};
 
 // The HoverCard content isn't unmounted while closed (it's hidden via the
 // `hidden` attribute instead), so look it up by the id HoverCard pairs with
@@ -83,6 +94,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
+				countFrequency={() => SAMPLE_FREQUENCY}
 				trueCount={() => 1}
 			/>
 		));
@@ -109,6 +121,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => SAMPLE_BANKROLL}
+				countFrequency={() => SAMPLE_FREQUENCY}
 				trueCount={() => 1}
 			/>
 		));
@@ -141,6 +154,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
+				countFrequency={() => SAMPLE_FREQUENCY}
 				trueCount={() => 1}
 			/>
 		));
@@ -160,6 +174,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => true}
 				error={() => null}
 				bankroll={() => undefined}
+				countFrequency={() => SAMPLE_FREQUENCY}
 				trueCount={() => 1}
 			/>
 		));
@@ -181,6 +196,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => SAMPLE_BANKROLL}
+				countFrequency={() => SAMPLE_FREQUENCY}
 				trueCount={() => 1}
 			/>
 		));
@@ -197,6 +213,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
+				countFrequency={() => SAMPLE_FREQUENCY}
 				trueCount={() => 1}
 			/>
 		));
@@ -233,6 +250,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
+				countFrequency={() => SAMPLE_FREQUENCY}
 				trueCount={() => 1}
 			/>
 		));
@@ -259,6 +277,7 @@ describe('EvTable', () => {
 				error={() => 'Count too extreme for this shoe'}
 				trueCount={() => 0}
 				bankroll={() => undefined}
+				countFrequency={() => SAMPLE_FREQUENCY}
 			/>
 		));
 
@@ -274,6 +293,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => true}
 				error={() => null}
 				bankroll={() => undefined}
+				countFrequency={() => SAMPLE_FREQUENCY}
 				trueCount={() => 0}
 			/>
 		));
@@ -301,6 +321,7 @@ describe('EvTable', () => {
 				isSummaryComputing={isComputing}
 				error={() => null}
 				bankroll={() => undefined}
+				countFrequency={() => SAMPLE_FREQUENCY}
 				trueCount={() => 1}
 			/>
 		));
@@ -337,6 +358,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
+				countFrequency={() => SAMPLE_FREQUENCY}
 				trueCount={() => 2.5}
 			/>
 		));
@@ -382,6 +404,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
+				countFrequency={() => SAMPLE_FREQUENCY}
 				trueCount={() => 1}
 			/>
 		));
@@ -416,6 +439,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
+				countFrequency={() => SAMPLE_FREQUENCY}
 				trueCount={() => 0}
 			/>
 		));
@@ -443,6 +467,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
+				countFrequency={() => SAMPLE_FREQUENCY}
 				trueCount={() => 1}
 			/>
 		));
@@ -497,6 +522,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
+				countFrequency={() => SAMPLE_FREQUENCY}
 				trueCount={() => 1}
 			/>
 		));
@@ -535,6 +561,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
+				countFrequency={() => SAMPLE_FREQUENCY}
 				trueCount={() => 1}
 			/>
 		));
@@ -556,6 +583,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
+				countFrequency={() => SAMPLE_FREQUENCY}
 				trueCount={() => 1}
 			/>
 		));
@@ -583,6 +611,7 @@ describe('EvTable', () => {
 					isSummaryComputing={() => false}
 					error={() => null}
 					bankroll={() => undefined}
+					countFrequency={() => SAMPLE_FREQUENCY}
 					trueCount={() => 2.5}
 				/>
 			));
@@ -713,6 +742,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
+				countFrequency={() => SAMPLE_FREQUENCY}
 				trueCount={() => 1}
 			/>
 		));
