@@ -113,11 +113,11 @@ $skeleton-pulse-duration: 1.4s;
 			min-height: 1.4em;
 		}
 
-		// Matches the plot's own height at the widths the card is drawn at, so the
-		// card doesn't jump when the figures land.
+		// Twice the height of the other cards' value skeletons (EvSummary.scss),
+		// rather than matching the plot's own height.
 		&__skeleton {
 			margin-top: 8px;
-			height: 180px;
+			height: 40px;
 			border-radius: 6px;
 			background-color: get($neutrals, 'sep');
 			opacity: 0.35;
