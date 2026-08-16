@@ -11,6 +11,8 @@ import {
 	type Composition,
 	type TagValues,
 } from './ev/composition';
+import { hiLoCountScale } from './bankroll';
+import { RANKS } from './ev/cards';
 import { computeEvGrids, type EvGrids } from './ev/engine';
 import { analyzeInsurance } from './ev/insurance';
 import { ruleSetKey, type RuleSet } from './ev/rules';
@@ -32,13 +34,19 @@ export interface EvWorkerRequest {
 
 export interface EvWorkerResult extends EvTables {
 	/**
-	 * How many percentage points of player edge one unit of true count is worth,
-	 * from a straight line through the baseline and one count-adjusted shoe. Bet
-	 * sizing needs the edge at counts other than the one on screen, and a line is
-	 * what this app is willing to spend on that -- see docs/bankroll-model.md
-	 * §The edge line.
+	 * How many percentage points of player edge one unit of this system's true
+	 * count is worth: the linear term of the edge curve fitted symmetrically about
+	 * the baseline. Bet sizing needs the edge at counts other than the one on
+	 * screen -- see docs/bankroll-model.md §The edge curve.
 	 */
 	edgeSlopePointsPerTrueCount: number;
+	/**
+	 * The curve's squared term, per squared unit of the same count. Small beside
+	 * the slope and positive for every real system: the edge accelerates away from
+	 * the line at the counts furthest from zero, which is where a bet spread has
+	 * most of its money.
+	 */
+	edgeCurvaturePointsPerTrueCountSquared: number;
 }
 
 export type EvWorkerResponse =
@@ -65,47 +73,101 @@ function baseGridsFor(ruleSet: RuleSet): EvGrids {
 }
 
 /**
- * True count the edge line is measured over when the count on screen is no use
- * for it. Far enough out that the half-card rounding in
- * `applyTrueCountToComposition` is a rounding error rather than the whole signal,
- * and well inside what any shoe can represent.
+ * How far either side of zero the edge curve is probed, in Hi-Lo-equivalent true
+ * counts -- converted to the system's own counts through `hiLoCountScale`, so
+ * that every system is fitted over the same range of *shoes* rather than the same
+ * range of its own numbers. A level-two count runs on twice Hi-Lo's axis, and
+ * probing it at a bare ±8 would cover half the shoe range and read a bend that
+ * had not yet cleared the noise.
+ *
+ * Two pairs rather than one, because the two coefficients want different lever
+ * arms. The half-card rounding in `applyTrueCountToComposition` puts about a
+ * tenth of a point of noise on any one probe however far out it sits, so the
+ * inner pair is already far enough to read a slope through it -- while the
+ * curvature, which is a second difference, needs the wider pair before the bend
+ * clears that same noise. Both are well inside what a shoe can represent, and the
+ * inner one sits where the ramp's own buckets have their money.
  */
-const SLOPE_PROBE_TRUE_COUNT = 2;
+const EDGE_PROBE_HI_LO_COUNTS: readonly number[] = [4, 8];
+
+/** The edge curve's two coefficients, in the system's own true counts. */
+interface EdgeCurve {
+	slope: number;
+	curvature: number;
+}
 
 /**
- * The smallest true count whose own delta is trusted to set the edge line. A
- * fraction of a true count moves an eight-deck shoe by a half-card or not at all,
- * and dividing that by a true count near zero magnifies the rounding into a slope
- * that is mostly noise -- so those probe instead.
- */
-const MIN_SLOPE_TRUE_COUNT = 1;
-
-/**
- * Percentage points of player edge per unit of true count.
+ * Fits `edge(TC) = baseEv + slope·TC + curvature·TC²` by least squares over
+ * shoes at `±EDGE_PROBE_TRUE_COUNTS`.
  *
  * The grids the app asks for are already priced at a true count (the engine sizes
- * a count's removals as `tc · decks`, see `applyTrueCountToComposition`), so a
- * second shoe at a known count fixes the line directly. See
- * docs/bankroll-model.md §The edge line.
+ * a count's removals as `tc · decks`, see `applyTrueCountToComposition`), so
+ * shoes at known counts fit the curve directly. The intercept is not fitted: the
+ * full shoe's own EV is exact, so it is pinned and only the shape is measured.
+ *
+ * Probing symmetrically is what lets the fit come apart into two independent
+ * one-parameter fits, since across a `±P` pair the odd half of the difference is
+ * all slope and the even half all curvature. See docs/bankroll-model.md
+ * §The edge curve.
  */
-function edgeSlope(
+function fitEdgeCurve(
 	ruleSet: RuleSet,
 	base: Composition,
 	tags: TagValues,
-	baseGrids: EvGrids,
-	countGrids: EvGrids,
-	trueCount: number
-): number {
+	baseEv: number
+): EdgeCurve {
 	const payout = ruleSet.blackjackPayout;
-	const baseEv = averageEvPercent(baseGrids.average, payout);
+	const evAt = (trueCount: number) =>
+		averageEvPercent(
+			computeEvGrids(ruleSet, applyTrueCountToComposition(base, tags, trueCount)).average,
+			payout
+		);
 
-	if (countGrids !== baseGrids && Math.abs(trueCount) >= MIN_SLOPE_TRUE_COUNT) {
-		return (averageEvPercent(countGrids.average, payout) - baseEv) / trueCount;
+	// A count that tells no rank from another has no curve to fit, and no probe
+	// count to fit it at either -- every one of them is zero.
+	const scale = hiLoCountScale(base, tags);
+	if (scale <= 0) return { slope: 0, curvature: 0 };
+
+	let slopeNumerator = 0;
+	let slopeDenominator = 0;
+	let curvatureNumerator = 0;
+	let curvatureDenominator = 0;
+	for (const probe of EDGE_PROBE_HI_LO_COUNTS.map((count) => count * scale)) {
+		const high = evAt(probe);
+		const low = evAt(-probe);
+		slopeNumerator += probe * ((high - low) / 2);
+		slopeDenominator += probe * probe;
+		curvatureNumerator += probe * probe * ((high + low) / 2 - baseEv);
+		curvatureDenominator += probe ** 4;
 	}
 
-	const probeComp = applyTrueCountToComposition(base, tags, SLOPE_PROBE_TRUE_COUNT);
-	const probeEv = averageEvPercent(computeEvGrids(ruleSet, probeComp).average, payout);
-	return (probeEv - baseEv) / SLOPE_PROBE_TRUE_COUNT;
+	return {
+		slope: slopeNumerator / slopeDenominator,
+		curvature: curvatureNumerator / curvatureDenominator,
+	};
+}
+
+/**
+ * The edge curve for the rule set and tag vector most recently asked about.
+ *
+ * The curve describes the whole shoe, not the count on screen, so sweeping the
+ * count would otherwise pay for the same four probe shoes over and over. Keyed on
+ * both the rules and the tags, since either moves it. One entry, for the same
+ * reason `cachedBaseGrids` keeps one.
+ */
+let cachedEdgeCurve: { key: string; curve: EdgeCurve } | null = null;
+
+function edgeCurveFor(
+	ruleSet: RuleSet,
+	base: Composition,
+	tags: TagValues,
+	baseEv: number
+): EdgeCurve {
+	const key = `${ruleSetKey(ruleSet)}|${RANKS.map((rank) => tags[rank]).join(',')}`;
+	if (cachedEdgeCurve?.key === key) return cachedEdgeCurve.curve;
+	const curve = fitEdgeCurve(ruleSet, base, tags, baseEv);
+	cachedEdgeCurve = { key, curve };
+	return curve;
 }
 
 export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerResponse {
@@ -120,24 +182,20 @@ export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerRespo
 		// move a whole half-card -- is the baseline, already computed.
 		const unchanged = modified.every((halfCards, index) => halfCards === base[index]);
 		const countGrids = unchanged ? baseGrids : computeEvGrids(ruleSet, modified);
+		const tables = combineEvTables(
+			ruleSet,
+			baseGrids,
+			countGrids,
+			analyzeInsurance(ruleSet, base, modified)
+		);
+		const curve = edgeCurveFor(ruleSet, base, tags, tables.average.baseEvPercent);
 		return {
 			requestId: request.requestId,
 			status: 'success',
 			result: {
-				...combineEvTables(
-					ruleSet,
-					baseGrids,
-					countGrids,
-					analyzeInsurance(ruleSet, base, modified)
-				),
-				edgeSlopePointsPerTrueCount: edgeSlope(
-					ruleSet,
-					base,
-					tags,
-					baseGrids,
-					countGrids,
-					trueCount
-				),
+				...tables,
+				edgeSlopePointsPerTrueCount: curve.slope,
+				edgeCurvaturePointsPerTrueCountSquared: curve.curvature,
 			},
 		};
 	} catch (err) {

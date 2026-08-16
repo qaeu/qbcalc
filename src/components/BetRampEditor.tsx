@@ -1,4 +1,9 @@
-/** A grid of per-true-count bet size inputs: the bet spread, one bucket a column. */
+/**
+ * A grid of per-true-count bet size inputs: the bet spread, one bucket a column.
+ * The columns are Hi-Lo-equivalent true counts whatever system is selected (see
+ * `hiLoCountScale` in `bankroll.ts`), so the same spread describes the same
+ * betting behaviour under a level-two count as under Hi-Lo.
+ */
 
 import { For, type Component } from 'solid-js';
 
@@ -22,7 +27,7 @@ const BetRampEditor: Component<BetRampEditorProps> = (props) => (
 						type="number"
 						min="0"
 						step="1"
-						aria-label={`Units bet at true count ${label}`}
+						aria-label={`Units bet at Hi-Lo-equivalent true count ${label}`}
 						value={props.ramp[index()]}
 						onInput={(event) =>
 							props.onRampChange(index(), Number(event.currentTarget.value))

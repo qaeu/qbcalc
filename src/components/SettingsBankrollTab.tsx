@@ -76,7 +76,7 @@ const SettingsBankrollTab: Component<SettingsBankrollTabProps> = (props) => {
 			</SettingsItem>
 			<SettingsItem
 				label="Bet spread"
-				helptext="Units wagered at each true count; the end columns cover everything beyond them"
+				helptext="Units wagered at each Hi-Lo-equivalent true count, so a spread means the same advantage under every system; the end columns cover everything beyond them"
 			>
 				<BetRampEditor ramp={props.config.ramp} onRampChange={setRampUnits} />
 			</SettingsItem>

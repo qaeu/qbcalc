@@ -7,16 +7,19 @@
 import {
 	baseComposition,
 	CARDS_PER_DECK,
+	type Composition,
 	tagSpread,
 	type TagValues,
 } from './ev/composition';
 import type { RuleSet } from './ev/rules';
+import { HI_LO_TAGS } from './countingSystems';
 
 /**
- * The true counts the bet ramp is indexed by. The first bucket catches every
- * count at or below it and the last every count at or above, so the ramp covers
- * the whole line with a fixed seven entries -- which is what keeps both the
- * stored shape and the editor grid simple.
+ * The true counts the bet ramp is indexed by, in Hi-Lo-equivalent units -- see
+ * `hiLoCountScale`. The first bucket catches every count at or below it and the
+ * last every count at or above, so the ramp covers the whole line with a fixed
+ * seven entries -- which is what keeps both the stored shape and the editor grid
+ * simple.
  */
 export const RAMP_TRUE_COUNTS: readonly number[] = [0, 1, 2, 3, 4, 5, 6];
 
@@ -29,12 +32,19 @@ export interface CountFrequency {
 	trueCount: number;
 	frequency: number;
 	/**
-	 * The average true count actually seen inside the bucket, which is what the
-	 * edge is priced at. It is not the label: the two end buckets are open, so
-	 * the bottom one averages well below zero however it is labelled, and pricing
-	 * it at its label would quietly forgive the whole negative half of the shoe.
+	 * The average Hi-Lo-equivalent true count actually seen inside the bucket,
+	 * which is what the edge is priced at. It is not the label: the two end
+	 * buckets are open, so the bottom one averages well below zero however it is
+	 * labelled, and pricing it at its label would quietly forgive the whole
+	 * negative half of the shoe.
 	 */
 	meanTrueCount: number;
+	/**
+	 * The mean *square* of the same count, which the edge curve's squared term is
+	 * priced against. Always at least `meanTrueCount²`, and much more in the open
+	 * end buckets, where the counts inside are spread widely about their mean.
+	 */
+	meanSquaredTrueCount: number;
 }
 
 export interface BankrollInputs {
@@ -47,8 +57,19 @@ export interface BankrollInputs {
 	ramp: readonly number[];
 	/** Player edge at a true count of zero, in percent -- `average.baseEvPercent`. */
 	baseEvPercent: number;
-	/** Percentage points of edge per unit of true count. */
+	/**
+	 * Percentage points of edge per unit of true count, in the counting system's
+	 * own units -- not the ramp's Hi-Lo-equivalent ones, which `hiLoCountScale`
+	 * converts between.
+	 */
 	edgeSlopePointsPerTrueCount: number;
+	/**
+	 * Percentage points of edge per squared unit of the system's own true count:
+	 * the edge curve's squared term. Positive for every real system -- the curve
+	 * bends upwards, since a shoe is played better the more the count says about
+	 * it -- and a straight line is the special case of passing zero.
+	 */
+	edgeCurvaturePointsPerTrueCountSquared: number;
 	/** Variance of one flat-bet round, in units² -- `average.variancePerRound`. */
 	variancePerRound: number;
 }
@@ -61,9 +82,10 @@ export interface BankrollAnalysis {
 	 *
 	 * This is the figure that answers "what is this game worth to me", where the
 	 * grids' own EV answers "what is this spot worth right now". Under a flat bet
-	 * it comes back to exactly the count-zero edge, since the count is mean-zero;
-	 * a spread is what pulls it positive, by putting more money on the counts
-	 * that are worth more.
+	 * it comes back to the count-zero edge plus the curve's bend over the count
+	 * distribution -- the count being mean-zero leaves only that term -- and a
+	 * spread is what pulls it positive, by putting more money on the counts that
+	 * are worth more.
 	 */
 	edgePercent: number;
 	/** Mean units wagered per round, i.e. the spread the ramp actually achieves. */
@@ -127,16 +149,27 @@ function partialExpectationBelow(cut: number, sd: number): number {
 }
 
 /**
+ * `E[X² · 1{X ≤ x}]` for the same distribution, which the edge curve's squared
+ * term is priced against. Goes to `sd²` as the cut runs off to the right, the
+ * whole distribution's second moment.
+ */
+function partialSecondMomentBelow(cut: number, sd: number): number {
+	const z = cut / sd;
+	return sd * sd * (normalCdf(z) - z * normalPdf(z));
+}
+
+/**
  * Splits one normal true-count distribution of the given spread across the ramp's
- * buckets, adding both the probability and the count mass into `weights` and
- * `moments`. Integer buckets take the half-open unit interval around them; the
- * two end buckets take everything past their edge.
+ * buckets, adding the probability and both count moments into `weights`,
+ * `moments` and `squares`. Integer buckets take the half-open unit interval
+ * around them; the two end buckets take everything past their edge.
  */
 function accumulateBuckets(
 	sd: number,
 	weight: number,
 	weights: number[],
-	moments: number[]
+	moments: number[],
+	squares: number[]
 ): void {
 	const last = RAMP_TRUE_COUNTS.length - 1;
 	// A shoe barely dealt into cannot have moved: all of it sits at zero.
@@ -147,23 +180,51 @@ function accumulateBuckets(
 
 	let belowP = normalCdf((RAMP_TRUE_COUNTS[0] + 0.5) / sd);
 	let belowE = partialExpectationBelow(RAMP_TRUE_COUNTS[0] + 0.5, sd);
+	let belowS = partialSecondMomentBelow(RAMP_TRUE_COUNTS[0] + 0.5, sd);
 	weights[0] += weight * belowP;
 	moments[0] += weight * belowE;
+	squares[0] += weight * belowS;
 
 	for (let index = 1; index < last; index += 1) {
 		const cut = RAMP_TRUE_COUNTS[index] + 0.5;
 		const upperP = normalCdf(cut / sd);
 		const upperE = partialExpectationBelow(cut, sd);
+		const upperS = partialSecondMomentBelow(cut, sd);
 		weights[index] += weight * (upperP - belowP);
 		moments[index] += weight * (upperE - belowE);
+		squares[index] += weight * (upperS - belowS);
 		belowP = upperP;
 		belowE = upperE;
+		belowS = upperS;
 	}
 
 	weights[last] += weight * (1 - belowP);
 	// The whole distribution has mean zero, so what is left above the last cut is
-	// exactly what the cuts below it did not take.
+	// exactly what the cuts below it did not take -- and likewise its second
+	// moment is the whole `sd²` less the part they took.
 	moments[last] += weight * -belowE;
+	squares[last] += weight * (sd * sd - belowS);
+}
+
+/**
+ * How many of the system's own true counts one Hi-Lo true count is worth, i.e.
+ * the ratio of the two tag vectors' per-card spreads.
+ *
+ * A true count means nothing until the tags it was kept with are named: doubling
+ * every tag doubles every count without adding a scrap of information. Nothing
+ * else in this file cares -- the edge slope falls as `1/tagSpread` exactly as
+ * fast as the count's spread rises as `√tagSpread` -- but `RAMP_TRUE_COUNTS` is a
+ * fixed set of integers, and a ramp indexed by a stretched count reaches its top
+ * bets far more often for no better reason than the tags being bigger. So the
+ * ramp is denominated in Hi-Lo counts and each system's own counts are converted
+ * through this. See docs/bankroll-model.md §The ramp's count axis.
+ *
+ * Zero for a tag vector that distinguishes no rank from any other, whose count
+ * carries no information to rescale.
+ */
+export function hiLoCountScale(comp: Composition, tags: TagValues): number {
+	const spread = Math.max(0, tagSpread(comp, tags));
+	return Math.sqrt(spread / tagSpread(comp, HI_LO_TAGS));
 }
 
 /**
@@ -173,6 +234,10 @@ function accumulateBuckets(
  * `Var(RC) = n·σ_t²·(N−n)/(N−1)`; dividing by the `(N−n)/52` decks left gives the
  * true count's spread at that depth. Depth is then averaged uniformly over the
  * dealt portion. See docs/bankroll-model.md §How often a count comes up.
+ *
+ * The buckets are Hi-Lo-equivalent, so the spread is converted through
+ * `hiLoCountScale` before it is bucketed -- which leaves this distribution the
+ * same for every system, a function of the shoe and the penetration alone.
  */
 export function trueCountFrequencies(
 	ruleSet: RuleSet,
@@ -182,11 +247,14 @@ export function trueCountFrequencies(
 	const totalCards = ruleSet.decks * CARDS_PER_DECK;
 	// `tagSpread` is N·σ_t² over the full shoe, centred on the system's own pivot
 	// -- which is what lets an unbalanced count still be read as mean-zero.
-	const tagSd = Math.sqrt(Math.max(0, tagSpread(comp, tags)) / totalCards);
+	const scale = hiLoCountScale(comp, tags);
+	const tagSd =
+		scale > 0 ? Math.sqrt(Math.max(0, tagSpread(comp, tags)) / totalCards) / scale : 0;
 	const dealtCards = totalCards * (ruleSet.penetrationPercent / 100);
 
 	const weights = new Array<number>(RAMP_TRUE_COUNTS.length).fill(0);
 	const moments = new Array<number>(RAMP_TRUE_COUNTS.length).fill(0);
+	const squares = new Array<number>(RAMP_TRUE_COUNTS.length).fill(0);
 	const sliceWeight = 1 / DEPTH_SLICES;
 	for (let slice = 0; slice < DEPTH_SLICES; slice += 1) {
 		// Slice midpoints, so neither an undealt shoe nor an exhausted one -- where
@@ -196,13 +264,15 @@ export function trueCountFrequencies(
 		const sd =
 			(CARDS_PER_DECK * tagSd * Math.sqrt(seen))
 			/ Math.sqrt((totalCards - 1) * remaining);
-		accumulateBuckets(sd, sliceWeight, weights, moments);
+		accumulateBuckets(sd, sliceWeight, weights, moments, squares);
 	}
 
 	return RAMP_TRUE_COUNTS.map((trueCount, index) => ({
 		trueCount,
 		frequency: weights[index],
 		meanTrueCount: weights[index] > 0 ? moments[index] / weights[index] : trueCount,
+		meanSquaredTrueCount:
+			weights[index] > 0 ? squares[index] / weights[index] : trueCount * trueCount,
 	}));
 }
 
@@ -212,17 +282,28 @@ export function analyzeBankroll(
 	inputs: BankrollInputs
 ): BankrollAnalysis {
 	const frequencies = trueCountFrequencies(ruleSet, tags);
+	// The buckets are Hi-Lo-equivalent while the slope is per unit of the system's
+	// own count, so the two meet here.
+	const scale = hiLoCountScale(baseComposition(ruleSet), tags);
 
 	let averageBetUnits = 0;
 	let evUnitsPerRound = 0;
 	let secondMoment = 0;
-	frequencies.forEach(({ meanTrueCount, frequency }, index) => {
+	frequencies.forEach(({ meanTrueCount, meanSquaredTrueCount, frequency }, index) => {
 		const bet = inputs.ramp[index] ?? 0;
-		// Priced at the bucket's mean count, not its label. The edge is linear in
-		// the true count, so this makes the sum exact rather than approximate --
-		// and a flat bet then earns precisely the count-zero edge.
+		// Priced at the bucket's own moments, not at its label: each term of the
+		// curve is averaged over the counts the bucket actually holds, which makes
+		// the sum exact rather than a curve read off at an average count. The
+		// squared term is what keeps the open end buckets -- whose counts run far
+		// past their own mean -- from being priced as though they all sat on it.
 		const edge =
-			(inputs.baseEvPercent + inputs.edgeSlopePointsPerTrueCount * meanTrueCount) / 100;
+			(inputs.baseEvPercent
+				+ inputs.edgeSlopePointsPerTrueCount * scale * meanTrueCount
+				+ inputs.edgeCurvaturePointsPerTrueCountSquared
+					* scale
+					* scale
+					* meanSquaredTrueCount)
+			/ 100;
 		averageBetUnits += frequency * bet;
 		evUnitsPerRound += frequency * bet * edge;
 		// The round's own variance scales with the square of the bet; the spread of

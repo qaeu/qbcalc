@@ -15,13 +15,15 @@ import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 
 // Real (not mocked) exact-enumeration result, computed once and reused as a
 // fixture -- deterministic, and keeps these tests independent of the worker.
-// The slope only feeds the bankroll figures, which these tests pass in directly,
-// so a fixed stand-in keeps the fixtures a complete `EvWorkerResult`.
+// The edge curve only feeds the bankroll figures, which these tests pass in
+// directly, so fixed stand-ins keep the fixtures a complete `EvWorkerResult`.
 const EDGE_SLOPE = 0.7;
+const EDGE_CURVATURE = 0.005;
 
 const SAMPLE_RESULT: EvWorkerResult = {
 	...computeAllEvTables(DEFAULT_RULE_SET, 1),
 	edgeSlopePointsPerTrueCount: EDGE_SLOPE,
+	edgeCurvaturePointsPerTrueCountSquared: EDGE_CURVATURE,
 };
 
 // A count high enough to move some hard totals off basic strategy, which is
@@ -30,6 +32,7 @@ const SAMPLE_RESULT: EvWorkerResult = {
 const DEVIATION_RESULT: EvWorkerResult = {
 	...computeAllEvTables(DEFAULT_RULE_SET, 2.5),
 	edgeSlopePointsPerTrueCount: EDGE_SLOPE,
+	edgeCurvaturePointsPerTrueCountSquared: EDGE_CURVATURE,
 };
 
 // A real analysis of the default spread against the same rules, so the summary
@@ -41,6 +44,7 @@ const SAMPLE_BANKROLL: BankrollAnalysis = analyzeBankroll(
 		...DEFAULT_BANKROLL_CONFIG,
 		baseEvPercent: SAMPLE_RESULT.average.baseEvPercent,
 		edgeSlopePointsPerTrueCount: EDGE_SLOPE,
+		edgeCurvaturePointsPerTrueCountSquared: EDGE_CURVATURE,
 		variancePerRound: SAMPLE_RESULT.average.variancePerRound,
 	}
 );

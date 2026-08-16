@@ -2,17 +2,27 @@ import { describe, it, expect } from 'vitest';
 
 import {
 	analyzeBankroll,
+	hiLoCountScale,
 	trueCountFrequencies,
 	RAMP_TRUE_COUNTS,
 	type BankrollInputs,
 } from '#utils/bankroll';
-import { ACE_FIVE_TAGS, type TagValues } from '#utils/ev/composition';
+import { RANKS } from '#utils/ev/cards';
+import { ACE_FIVE_TAGS, baseComposition, type TagValues } from '#utils/ev/composition';
 import { DEFAULT_RULE_SET, type RuleSet } from '#utils/ev/rules';
 import { tagsForSystem } from '#utils/countingSystems';
 
 const SIX_DECK: RuleSet = { ...DEFAULT_RULE_SET, decks: 6, penetrationPercent: 75 };
 
 const HI_LO: TagValues = tagsForSystem('hi-lo')!;
+const RPC: TagValues = tagsForSystem('rpc')!;
+
+/** The same counting system written on a bigger axis: every tag multiplied. */
+function scaleTags(tags: TagValues, factor: number): TagValues {
+	const scaled = {} as TagValues;
+	for (const rank of RANKS) scaled[rank] = tags[rank] * factor;
+	return scaled;
+}
 
 /** A flat one-unit bet in every bucket: the ramp that spreads nothing. */
 const FLAT_RAMP = RAMP_TRUE_COUNTS.map(() => 1);
@@ -27,7 +37,13 @@ const BASE_INPUTS: Omit<BankrollInputs, 'ramp'> = {
 	roundsPerHour: 100,
 	baseEvPercent: -0.42,
 	edgeSlopePointsPerTrueCount: 0.71,
+	edgeCurvaturePointsPerTrueCountSquared: 0.005,
 	variancePerRound: 1.22,
+};
+
+/** The same inputs with the edge curve straightened back out. */
+const STRAIGHT: Partial<BankrollInputs> = {
+	edgeCurvaturePointsPerTrueCountSquared: 0,
 };
 
 function analyse(
@@ -49,6 +65,31 @@ function totalFrequency(ruleSet: RuleSet, tags: TagValues): number {
 	);
 }
 
+describe('hiLoCountScale', () => {
+	const comp = baseComposition(SIX_DECK);
+
+	it('is one for Hi-Lo itself', () => {
+		expect(hiLoCountScale(comp, HI_LO)).toBeCloseTo(1, 12);
+	});
+
+	it('follows the tag axis, so a doubled system counts twice as fast', () => {
+		expect(hiLoCountScale(comp, scaleTags(HI_LO, 2))).toBeCloseTo(2, 12);
+		// A level-two count runs on roughly twice Hi-Lo's axis: its +6 is about a
+		// Hi-Lo +3, which is the whole reason the ramp is denominated in Hi-Lo.
+		expect(hiLoCountScale(comp, RPC)).toBeGreaterThan(1.8);
+		expect(hiLoCountScale(comp, RPC)).toBeLessThan(2.1);
+	});
+
+	it('is zero for tags that tell no rank from another', () => {
+		const flat = scaleTags(HI_LO, 0);
+		expect(hiLoCountScale(comp, flat)).toBe(0);
+		// And the count that carries no information puts everything at zero rather
+		// than dividing by its own missing spread.
+		const [atOrBelowZero] = trueCountFrequencies(SIX_DECK, flat);
+		expect(atOrBelowZero.frequency).toBeCloseTo(1, 10);
+	});
+});
+
 describe('trueCountFrequencies', () => {
 	it('is a probability distribution over the ramp buckets', () => {
 		const buckets = trueCountFrequencies(SIX_DECK, HI_LO);
@@ -57,6 +98,21 @@ describe('trueCountFrequencies', () => {
 		for (const bucket of buckets) {
 			expect(bucket.frequency).toBeGreaterThanOrEqual(0);
 		}
+	});
+
+	it('carries a mean square that outruns the square of the mean', () => {
+		// Jensen, and the whole reason the curvature is priced off a second moment
+		// rather than off `meanTrueCount²`: the gap is the spread of counts inside
+		// the bucket, and it is widest in the two open-ended ends.
+		const buckets = trueCountFrequencies(SIX_DECK, HI_LO);
+		for (const bucket of buckets) {
+			expect(bucket.meanSquaredTrueCount).toBeGreaterThanOrEqual(
+				bucket.meanTrueCount * bucket.meanTrueCount
+			);
+		}
+		const spreadIn = (bucket: (typeof buckets)[number]) =>
+			bucket.meanSquaredTrueCount - bucket.meanTrueCount * bucket.meanTrueCount;
+		expect(spreadIn(buckets[buckets.length - 1])).toBeGreaterThan(spreadIn(buckets[3]));
 	});
 
 	it('puts about half the mass at or below zero for a balanced system', () => {
@@ -86,19 +142,33 @@ describe('trueCountFrequencies', () => {
 		expect(high(6)).toBeLessThan(high(2));
 	});
 
+	it('is the same distribution for every system, the axis being Hi-Lo-equivalent', () => {
+		// The buckets are Hi-Lo counts whatever the tags, so how often the ramp's
+		// top bucket comes up is a fact about the shoe and the penetration -- not
+		// about how big the numbers a system happens to write on its cards are.
+		for (const tags of [RPC, ACE_FIVE_TAGS, scaleTags(HI_LO, 7)]) {
+			trueCountFrequencies(SIX_DECK, tags).forEach((bucket, index) => {
+				const reference = trueCountFrequencies(SIX_DECK, HI_LO)[index];
+				expect(bucket.frequency).toBeCloseTo(reference.frequency, 10);
+				expect(bucket.meanTrueCount).toBeCloseTo(reference.meanTrueCount, 10);
+			});
+		}
+	});
+
 	it('still totals one under a count that barely moves', () => {
-		// Ace-Five tags almost every rank at zero, so the distribution is narrow
-		// enough that nearly everything lands in the first bucket.
+		// Ace-Five tags all but two ranks at zero, so its own count is a fraction
+		// of Hi-Lo's -- the conversion to the Hi-Lo axis has the smallest spread of
+		// any preset to divide back up.
 		expect(totalFrequency(SIX_DECK, ACE_FIVE_TAGS)).toBeCloseTo(1, 10);
 	});
 });
 
 describe('analyzeBankroll', () => {
-	it('reproduces the flat-bet edge when the ramp does not spread', () => {
-		const flat = analyse();
+	it('reproduces the flat-bet edge on a straight line when the ramp does not spread', () => {
+		const flat = analyse(STRAIGHT);
 		expect(flat.averageBetUnits).toBeCloseTo(1, 10);
 		// Exactly the count-zero edge, not merely near it: the count is mean-zero
-		// and the edge is linear in it, so a bet that ignores the count collects
+		// and this edge is linear in it, so a bet that ignores the count collects
 		// the edge at the mean. This is what pins the bucket means down -- pricing
 		// a bucket at its label instead leaves this visibly too high.
 		expect(flat.evUnitsPerRound).toBeCloseTo(BASE_INPUTS.baseEvPercent / 100, 10);
@@ -106,6 +176,43 @@ describe('analyzeBankroll', () => {
 		// And the headline edge is that same figure per unit wagered, which at a
 		// flat bet is the round's EV unchanged.
 		expect(flat.edgePercent).toBeCloseTo(BASE_INPUTS.baseEvPercent, 10);
+	});
+
+	it('pays a flat bet the curvature over the whole count distribution', () => {
+		// A curved edge breaks the identity above, and correctly so: the counts a
+		// shoe passes through are worth more on average than the count at their
+		// average, because a shoe is played better the further the count is from
+		// zero either way. What a flat bet collects is the curvature against the
+		// distribution's own second moment, which is what the bucket squares carry.
+		const curved = analyse();
+		const straight = analyse(STRAIGHT);
+		const secondMoment = trueCountFrequencies(SIX_DECK, HI_LO).reduce(
+			(sum, bucket) => sum + bucket.frequency * bucket.meanSquaredTrueCount,
+			0
+		);
+
+		expect(secondMoment).toBeGreaterThan(0);
+		expect(curved.edgePercent).toBeCloseTo(
+			straight.edgePercent
+				+ BASE_INPUTS.edgeCurvaturePointsPerTrueCountSquared * secondMoment,
+			10
+		);
+		// Small, but the right side of zero: flat-betting a counted game is worth a
+		// shade more than the house edge, because the hands are still played off it.
+		expect(curved.edgePercent).toBeGreaterThan(straight.edgePercent);
+		expect(curved.edgePercent - straight.edgePercent).toBeLessThan(0.05);
+	});
+
+	it('pays the curvature most where the ramp bets most', () => {
+		// The end buckets hold the counts furthest from zero, so they carry by far
+		// the largest squares -- which is exactly where a spread has its money, and
+		// why leaving the term out understates a steep ramp more than a flat one.
+		const ramp = [1, 1, 2, 4, 8, 12, 12];
+		const flatGain = analyse().edgePercent - analyse(STRAIGHT).edgePercent;
+		const rampGain =
+			analyse({ ramp }).edgePercent - analyse({ ...STRAIGHT, ramp }).edgePercent;
+
+		expect(rampGain).toBeGreaterThan(flatGain);
 	});
 
 	it('reports the edge per unit wagered, weighted by frequency and bet', () => {
@@ -123,6 +230,51 @@ describe('analyzeBankroll', () => {
 			10
 		);
 		expect(result.edgePercent).toBeLessThan(result.evUnitsPerRound * 100);
+	});
+
+	it('reads the same game off a counting system written on a bigger axis', () => {
+		const ramp = [1, 1, 2, 4, 8, 12, 12];
+		// Doubling every tag doubles every count and adds no information: the same
+		// shoe is worth the same edge per count, so the slope halves. Before the
+		// ramp was denominated in Hi-Lo counts this rescaling alone moved the win
+		// rate by half again, which is what let a level-two count be ranked against
+		// a level-one one on nothing but the size of its tags.
+		const hiLo = analyse({ ramp });
+		const doubled = analyse(
+			{
+				ramp,
+				edgeSlopePointsPerTrueCount: BASE_INPUTS.edgeSlopePointsPerTrueCount / 2,
+				// And the curvature, being per squared count, falls by the square.
+				edgeCurvaturePointsPerTrueCountSquared:
+					BASE_INPUTS.edgeCurvaturePointsPerTrueCountSquared / 4,
+			},
+			SIX_DECK,
+			scaleTags(HI_LO, 2)
+		);
+
+		expect(doubled.edgePercent).toBeCloseTo(hiLo.edgePercent, 10);
+		expect(doubled.winRatePerHour).toBeCloseTo(hiLo.winRatePerHour, 10);
+		expect(doubled.averageBetUnits).toBeCloseTo(hiLo.averageBetUnits, 10);
+		expect(doubled.riskOfRuin).toBeCloseTo(hiLo.riskOfRuin, 10);
+	});
+
+	it('separates two systems by the information their tags carry, not their scale', () => {
+		const ramp = [1, 1, 2, 4, 8, 12, 12];
+		// What is left once the axis is normalised is `slope · scale`. Hi-Lo at its
+		// own slope against a doubled axis carrying a slope that has not halved to
+		// match is a strictly better system, and only then does it read better.
+		const comp = baseComposition(SIX_DECK);
+		const better = analyse(
+			{
+				ramp,
+				edgeSlopePointsPerTrueCount: BASE_INPUTS.edgeSlopePointsPerTrueCount / 1.5,
+			},
+			SIX_DECK,
+			scaleTags(HI_LO, 2)
+		);
+		expect(hiLoCountScale(comp, scaleTags(HI_LO, 2))).toBeCloseTo(2, 12);
+		expect(better.edgePercent).toBeGreaterThan(analyse({ ramp }).edgePercent);
+		expect(better.winRatePerHour).toBeGreaterThan(analyse({ ramp }).winRatePerHour);
 	});
 
 	it('reads the edge off the spread and penetration, not the bankroll', () => {

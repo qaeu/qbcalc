@@ -102,6 +102,8 @@ const App: Component = () => {
 			...bankroll(),
 			baseEvPercent: basis.result.average.baseEvPercent,
 			edgeSlopePointsPerTrueCount: basis.result.edgeSlopePointsPerTrueCount,
+			edgeCurvaturePointsPerTrueCountSquared:
+				basis.result.edgeCurvaturePointsPerTrueCountSquared,
 			variancePerRound: basis.result.average.variancePerRound,
 		});
 	});

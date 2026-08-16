@@ -46,6 +46,21 @@ function tags(nonNeutral: Partial<TagValues>): TagValues {
 	};
 }
 
+/**
+ * Exported on its own because Hi-Lo is more than one preset among several: it is
+ * the yardstick the bet ramp's true-count axis is denominated in, so
+ * `bankroll.ts` needs these tags by name rather than by lookup.
+ */
+export const HI_LO_TAGS: TagValues = tags({
+	'2': 1,
+	'3': 1,
+	'4': 1,
+	'5': 1,
+	'6': 1,
+	T: -1,
+	A: -1,
+});
+
 export const COUNTING_SYSTEMS: readonly CountingSystem[] = [
 	{ id: 'ace-five', label: 'Ace-Five', tags: ACE_FIVE_TAGS },
 	{
@@ -53,11 +68,7 @@ export const COUNTING_SYSTEMS: readonly CountingSystem[] = [
 		label: 'KO',
 		tags: tags({ '2': 1, '3': 1, '4': 1, '5': 1, '6': 1, '7': 1, T: -1, A: -1 }),
 	},
-	{
-		id: 'hi-lo',
-		label: 'Hi-Lo',
-		tags: tags({ '2': 1, '3': 1, '4': 1, '5': 1, '6': 1, T: -1, A: -1 }),
-	},
+	{ id: 'hi-lo', label: 'Hi-Lo', tags: HI_LO_TAGS },
 	{
 		id: 'hi-opt-i',
 		label: 'Hi-Opt I',
