@@ -53,7 +53,7 @@ export function formatUnits(value: number): string {
 
 /**
  * Money, to the nearest whole unit and grouped. Bankroll figures run from a few
- * dollars an hour to five-figure bankrolls, and cents are noise at either end.
+ * pounds an hour to five-figure bankrolls, and pence are noise at either end.
  */
 export function formatCurrency(value: number): string {
 	const rounded = Math.round(Math.abs(value)).toLocaleString('en-US');
@@ -61,7 +61,7 @@ export function formatCurrency(value: number): string {
 		value < 0 ? '-'
 		: value > 0 ? '+'
 		: '';
-	return `${sign}$${rounded}`;
+	return `${sign}£${rounded}`;
 }
 
 /**
