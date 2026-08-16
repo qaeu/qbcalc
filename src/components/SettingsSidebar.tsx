@@ -29,7 +29,7 @@ interface SettingsSidebarProps {
 	calcTimeMs: number | null;
 	/**
 	 * Called once the settings have stopped moving for `INPUT_SETTLE_MS`.
-	 * Handed the settings alone: the running count is the app's, moved by the
+	 * Handed the settings alone: the true count is the app's, moved by the
 	 * arrow keys and recalculated without this form's involvement.
 	 */
 	onSettingsChange: (settings: CalculatorSettings) => void;

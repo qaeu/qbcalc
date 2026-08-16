@@ -26,18 +26,16 @@ The edge is modelled as a straight line in the true count:
 edge(TC) = baseEvPercent + slope · TC
 ```
 
-The conversion between the app's count and a true count is exact rather than a
-convention. `applyCountToComposition` shifts each rank's density in proportion to
-`count / decks` (see ev-model.md §Simplifications (3)), so a set of grids computed at
-`count` describes a shoe whose true count is `count / decks`. One count-adjusted shoe
-beside the baseline therefore fixes the line.
+No conversion is needed: the app works in true counts throughout, and
+`applyTrueCountToComposition` sizes a count's removals as `TC · decks` (see ev-model.md
+§Simplifications (3)), so a set of grids is already priced at the true count it was asked
+for. One count-adjusted shoe beside the baseline therefore fixes the line.
 
 `edgeSlope` in `evWorkerProtocol.ts` measures it from the count the user asked for
-whenever that count has a true count of at least 1. Below that, the half-card rounding in
-`applyCountToComposition` is most of what separates the two shoes — a running count of 1
-or 2 on an eight-deck shoe moves the composition by half a card or not at all — and
-dividing that by a true count near zero magnifies the rounding into a slope that is mostly
-noise. Those cases compute one extra shoe at a true count of +2 instead. So a calculation
+whenever that count is at least 1. Below that, the half-card rounding in
+`applyTrueCountToComposition` is most of what separates the two shoes — a fraction of a
+true count moves an eight-deck shoe by half a card or not at all — and dividing that by a
+true count near zero magnifies the rounding into a slope that is mostly noise. Those cases compute one extra shoe at a true count of +2 instead. So a calculation
 walks the grids once (neutral or small counts, plus the probe), twice (the ordinary case,
 where the count itself sets the line), or three times (a small but shoe-moving count). The
 full-shoe baseline is cached per rule set and is usually free.
@@ -60,7 +58,7 @@ Var(RC | n) = n · σ_t² · (N − n) / (N − 1)
 ```
 
 with `σ_t²` the per-card variance of the tag vector. That is `tagSpread / N`, reusing the
-same quantity `applyCountToComposition` divides by. `tagSpread` centres the tags on their
+same quantity `applyTrueCountToComposition` divides by. `tagSpread` centres the tags on their
 frequency-weighted mean, which is what lets an unbalanced system be read as mean-zero
 around its own pivot rather than drifting.
 
@@ -144,7 +142,7 @@ it stays in the same units as the cells and can be read beside them.
 
 Two consequences follow from the count being mean-zero. Under a flat bet the weights
 collapse to the frequencies alone and the edge comes back to exactly `baseEvPercent` — the
-house edge, as it should. And the card does not move when the running count is changed: the
+house edge, as it should. And the card does not move when the count on screen is changed: the
 count sets which shoe the grids describe, while the edge is averaged over every shoe the
 penetration reaches. What moves it is the rules, the counting system, the penetration and
 the spread.

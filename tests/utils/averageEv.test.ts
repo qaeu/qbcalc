@@ -26,19 +26,19 @@ const PEEK_S17: RuleSet = {
 
 /** Averages are the expensive half of a full table, so each variation is computed once. */
 const cache = new Map<string, EvTables>();
-function tablesFor(overrides: Partial<RuleSet> = {}, count = 0): EvTables {
-	const key = JSON.stringify([overrides, count]);
+function tablesFor(overrides: Partial<RuleSet> = {}, trueCount = 0): EvTables {
+	const key = JSON.stringify([overrides, trueCount]);
 	let tables = cache.get(key);
 	if (!tables) {
-		tables = computeAllEvTables({ ...PEEK_S17, ...overrides }, count);
+		tables = computeAllEvTables({ ...PEEK_S17, ...overrides }, trueCount);
 		cache.set(key, tables);
 	}
 	return tables;
 }
 
 /** The average EV of one round, in percentage points of a unit wagered. */
-function averageEv(overrides: Partial<RuleSet> = {}, count = 0): number {
-	return tablesFor(overrides, count).average.countEvPercent;
+function averageEv(overrides: Partial<RuleSet> = {}, trueCount = 0): number {
+	return tablesFor(overrides, trueCount).average.countEvPercent;
 }
 
 describe('dealWeights', () => {
@@ -87,12 +87,12 @@ describe('average EV', () => {
 	});
 
 	it('rises with the count and falls against it', () => {
-		expect(averageEv({}, 5)).toBeGreaterThan(averageEv());
-		expect(averageEv({}, -5)).toBeLessThan(averageEv());
+		expect(averageEv({}, 2)).toBeGreaterThan(averageEv());
+		expect(averageEv({}, -2)).toBeLessThan(averageEv());
 	});
 
 	it('reports the delta against the unadjusted shoe', () => {
-		const { average } = tablesFor({}, 5);
+		const { average } = tablesFor({}, 2);
 		expect(average.baseEvPercent).toBeCloseTo(averageEv(), 10);
 		expect(average.deltaPercentPoints).toBeCloseTo(
 			average.countEvPercent - average.baseEvPercent,

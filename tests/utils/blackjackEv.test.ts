@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { RANKS, type Rank } from '#utils/ev/cards';
 import {
 	ACE_FIVE_TAGS,
-	applyCountToComposition,
+	applyTrueCountToComposition,
 	baseComposition,
 	type TagValues,
 } from '#utils/ev/composition';
@@ -65,7 +65,7 @@ describe('baseComposition', () => {
 	});
 });
 
-describe('applyCountToComposition', () => {
+describe('applyTrueCountToComposition', () => {
 	const HI_LO_TAGS: TagValues = {
 		'2': 1,
 		'3': 1,
@@ -81,17 +81,21 @@ describe('applyCountToComposition', () => {
 
 	const totalCards = (comp: readonly number[]) => comp.reduce((sum, n) => sum + n, 0);
 
-	it('shifts half a card of five density into aces per count unit under Ace-Five', () => {
+	it('shifts half a card of five density per deck into aces per count unit under Ace-Five', () => {
 		const base = baseComposition({ ...RULE_SET, decks: 1 });
-		const adjusted = applyCountToComposition(base, ACE_FIVE_TAGS, 2);
+		const adjusted = applyTrueCountToComposition(base, ACE_FIVE_TAGS, 2);
 		expect(adjusted[RANKS.indexOf('5')]).toBe(base[RANKS.indexOf('5')] - 2);
 		expect(adjusted[RANKS.indexOf('A')]).toBe(base[RANKS.indexOf('A')] + 2);
 		// Neutral ranks are untouched, whatever the deck count.
 		expect(adjusted[RANKS.indexOf('T')]).toBe(base[RANKS.indexOf('T')]);
-		expect(applyCountToComposition(baseComposition(RULE_SET), ACE_FIVE_TAGS, 2)).toEqual(
+		// A true count is a density, so the same count on four decks removes four
+		// times the cards -- the shoe it describes looks the same either way.
+		expect(
+			applyTrueCountToComposition(baseComposition(RULE_SET), ACE_FIVE_TAGS, 2)
+		).toEqual(
 			baseComposition(RULE_SET).map((n, index) =>
-				index === RANKS.indexOf('5') ? n - 2
-				: index === RANKS.indexOf('A') ? n + 2
+				index === RANKS.indexOf('5') ? n - 8
+				: index === RANKS.indexOf('A') ? n + 8
 				: n
 			)
 		);
@@ -99,12 +103,12 @@ describe('applyCountToComposition', () => {
 
 	it('leaves the composition alone at a count of zero', () => {
 		const base = baseComposition(RULE_SET);
-		expect(applyCountToComposition(base, HI_LO_TAGS, 0)).toEqual(base.slice());
+		expect(applyTrueCountToComposition(base, HI_LO_TAGS, 0)).toEqual(base.slice());
 	});
 
 	it('depletes low cards and enriches high cards on a positive Hi-Lo count', () => {
 		const base = baseComposition({ ...RULE_SET, decks: 6 });
-		const adjusted = applyCountToComposition(base, HI_LO_TAGS, 6);
+		const adjusted = applyTrueCountToComposition(base, HI_LO_TAGS, 1);
 
 		expect(adjusted[RANKS.indexOf('2')]).toBeLessThan(base[RANKS.indexOf('2')]);
 		expect(adjusted[RANKS.indexOf('6')]).toBeLessThan(base[RANKS.indexOf('6')]);
@@ -115,8 +119,8 @@ describe('applyCountToComposition', () => {
 
 	it('preserves the shoe size and stays integral', () => {
 		const base = baseComposition({ ...RULE_SET, decks: 6 });
-		for (const count of [-9, -4, 1, 5, 13]) {
-			const adjusted = applyCountToComposition(base, HI_LO_TAGS, count);
+		for (const trueCount of [-4, -1.5, 0.5, 2, 6]) {
+			const adjusted = applyTrueCountToComposition(base, HI_LO_TAGS, trueCount);
 			expect(totalCards(adjusted)).toBe(totalCards(base));
 			expect(adjusted.every(Number.isInteger)).toBe(true);
 		}
@@ -124,7 +128,7 @@ describe('applyCountToComposition', () => {
 
 	it('reverses the direction of the shift when the count flips sign', () => {
 		const base = baseComposition({ ...RULE_SET, decks: 6 });
-		const negative = applyCountToComposition(base, HI_LO_TAGS, -6);
+		const negative = applyTrueCountToComposition(base, HI_LO_TAGS, -1);
 
 		expect(negative[RANKS.indexOf('2')]).toBeGreaterThan(base[RANKS.indexOf('2')]);
 		expect(negative[RANKS.indexOf('T')]).toBeLessThan(base[RANKS.indexOf('T')]);
@@ -134,15 +138,15 @@ describe('applyCountToComposition', () => {
 	it('throws when every rank carries the same tag', () => {
 		const base = baseComposition(RULE_SET);
 		const zeroTags = Object.fromEntries(RANKS.map((rank) => [rank, 0])) as TagValues;
-		expect(() => applyCountToComposition(base, zeroTags, 3)).toThrow(/no effect/i);
+		expect(() => applyTrueCountToComposition(base, zeroTags, 3)).toThrow(/no effect/i);
 	});
 
 	it('throws once the count removes more cards of a rank than exist', () => {
 		const base = baseComposition({ ...RULE_SET, decks: 1 });
-		expect(() => applyCountToComposition(base, ACE_FIVE_TAGS, 100)).toThrow(
+		expect(() => applyTrueCountToComposition(base, ACE_FIVE_TAGS, 100)).toThrow(
 			/too extreme/i
 		);
-		expect(() => applyCountToComposition(base, ACE_FIVE_TAGS, -100)).toThrow(
+		expect(() => applyTrueCountToComposition(base, ACE_FIVE_TAGS, -100)).toThrow(
 			/too extreme/i
 		);
 	});
@@ -876,13 +880,13 @@ describe('hand occurrence', () => {
 	});
 
 	it('follows the count, which is what makes it a count-adjusted stat', () => {
-		const forCount = (count: number) =>
+		const forCount = (trueCount: number) =>
 			overAllUpcards(
-				computeSplitEvComparison(RULE_SET, count, ACE_FIVE_TAGS, ['A'], RANKS).rows
+				computeSplitEvComparison(RULE_SET, trueCount, ACE_FIVE_TAGS, ['A'], RANKS).rows
 			);
 		// A high ace-five count is a shoe short of fives and rich in aces, so A,A
 		// is dealt more often than the unadjusted shoe deals it.
-		expect(forCount(10)).toBeGreaterThan(forCount(0));
+		expect(forCount(2)).toBeGreaterThan(forCount(0));
 	});
 });
 

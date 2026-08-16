@@ -15,8 +15,10 @@ Card counts are tracked in **half-card units**: one card is two units. This keep
 dealt.
 
 The engine computes each table twice: once for the full shoe, once for a shoe adjusted to
-represent a given running count. The tables display the second, with the delta against
-the first.
+represent a given **true count**. The tables display the second, with the delta against
+the first. The count is true rather than running throughout the app: the shoe a count
+describes is a density, so a true count means the same thing at every depth and at every
+shoe size, while a running count of +6 is a different shoe on one deck than on six.
 
 ## Simplifications
 
@@ -35,12 +37,14 @@ These are deliberate, and they are what the numbers should be read against.
    matters at the two-card stage, which is outside the scope of a hit/stand/double/split
    table.
 
-3. **A running count is translated into a shoe composition by spreading the implied
+3. **A true count is translated into a shoe composition by spreading the implied
    removals across every rank**, in proportion to that rank's shoe frequency and its
-   tag's deviation from the frequency-weighted mean tag (see `applyCountToComposition` in
-   `ev/composition.ts`). Shoe size is held fixed. This is one reasonable way to collapse a
-   count value into a composition — it is not the only shoe that produces a given running
-   count, since the same count can arise from many different actual removal histories.
+   tag's deviation from the frequency-weighted mean tag (see
+   `applyTrueCountToComposition` in `ev/composition.ts`). The removals are sized to the
+   running count the true count implies over the whole shoe, `TC · decks`, and shoe size
+   is held fixed. This is one reasonable way to collapse a count value into a composition
+   — it is not the only shoe that produces a given count, since the same count can arise
+   from many different actual removal histories.
 
 4. **`splitLimit` is a genuine per-round cap** — the hands a split produces share one
    budget and can never exceed it — but because simplification 1 keeps sibling split hands

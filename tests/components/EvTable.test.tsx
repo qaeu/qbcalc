@@ -26,7 +26,7 @@ const SAMPLE_RESULT: EvWorkerResult = {
 // what the deviation ring marks. At +1 the hard grid has a single deviation;
 // this one has several, in more than one direction.
 const DEVIATION_RESULT: EvWorkerResult = {
-	...computeAllEvTables(DEFAULT_RULE_SET, 15),
+	...computeAllEvTables(DEFAULT_RULE_SET, 2.5),
 	edgeSlopePointsPerTrueCount: EDGE_SLOPE,
 };
 
@@ -83,7 +83,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				count={() => 1}
+				trueCount={() => 1}
 			/>
 		));
 
@@ -101,7 +101,7 @@ describe('EvTable', () => {
 		expect(within(tables[2]).getAllByRole('row')).toHaveLength(11);
 	});
 
-	it('heads the grids with the shoe-wide edge, and names the running count', () => {
+	it('heads the grids with the shoe-wide edge, and names the true count', () => {
 		render(() => (
 			<EvTable
 				result={() => SAMPLE_RESULT}
@@ -109,7 +109,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => SAMPLE_BANKROLL}
-				count={() => 1}
+				trueCount={() => 1}
 			/>
 		));
 
@@ -129,7 +129,7 @@ describe('EvTable', () => {
 		// The count has no field in the sidebar any more, so the line above the
 		// grids is where it is read off.
 		expect(document.querySelector('.ev-table__mode')?.textContent).toContain(
-			'Running count +1'
+			'True count +1'
 		);
 	});
 
@@ -141,7 +141,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				count={() => 1}
+				trueCount={() => 1}
 			/>
 		));
 
@@ -160,7 +160,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => true}
 				error={() => null}
 				bankroll={() => undefined}
-				count={() => 1}
+				trueCount={() => 1}
 			/>
 		));
 
@@ -170,7 +170,7 @@ describe('EvTable', () => {
 		expect(document.querySelectorAll('.ev-summary__value')).toHaveLength(0);
 	});
 
-	// A recalculation at a new running count redraws the grids but says nothing
+	// A recalculation at a new true count redraws the grids but says nothing
 	// new about the shoe as a whole, so the cards keep their figures rather than
 	// blinking to skeletons on every press of an arrow key.
 	it('keeps the summary figures while only the grids are computing', () => {
@@ -181,7 +181,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => SAMPLE_BANKROLL}
-				count={() => 1}
+				trueCount={() => 1}
 			/>
 		));
 
@@ -197,7 +197,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				count={() => 1}
+				trueCount={() => 1}
 			/>
 		));
 
@@ -233,7 +233,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				count={() => 1}
+				trueCount={() => 1}
 			/>
 		));
 
@@ -257,7 +257,7 @@ describe('EvTable', () => {
 				isComputing={() => false}
 				isSummaryComputing={() => false}
 				error={() => 'Count too extreme for this shoe'}
-				count={() => 0}
+				trueCount={() => 0}
 				bankroll={() => undefined}
 			/>
 		));
@@ -274,7 +274,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => true}
 				error={() => null}
 				bankroll={() => undefined}
-				count={() => 0}
+				trueCount={() => 0}
 			/>
 		));
 
@@ -301,7 +301,7 @@ describe('EvTable', () => {
 				isSummaryComputing={isComputing}
 				error={() => null}
 				bankroll={() => undefined}
-				count={() => 1}
+				trueCount={() => 1}
 			/>
 		));
 
@@ -337,7 +337,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				count={() => 15}
+				trueCount={() => 2.5}
 			/>
 		));
 
@@ -382,7 +382,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				count={() => 1}
+				trueCount={() => 1}
 			/>
 		));
 
@@ -416,7 +416,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				count={() => 0}
+				trueCount={() => 0}
 			/>
 		));
 
@@ -443,7 +443,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				count={() => 1}
+				trueCount={() => 1}
 			/>
 		));
 
@@ -497,7 +497,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				count={() => 1}
+				trueCount={() => 1}
 			/>
 		));
 
@@ -535,7 +535,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				count={() => 1}
+				trueCount={() => 1}
 			/>
 		));
 
@@ -556,7 +556,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				count={() => 1}
+				trueCount={() => 1}
 			/>
 		));
 
@@ -583,7 +583,7 @@ describe('EvTable', () => {
 					isSummaryComputing={() => false}
 					error={() => null}
 					bankroll={() => undefined}
-					count={() => 15}
+					trueCount={() => 2.5}
 				/>
 			));
 
@@ -713,7 +713,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				count={() => 1}
+				trueCount={() => 1}
 			/>
 		));
 

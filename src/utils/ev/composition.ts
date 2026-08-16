@@ -1,6 +1,6 @@
 /**
  * Shoe compositions and the counting systems that adjust them: building a full
- * shoe from a rule set, and collapsing a running count into a composition.
+ * shoe from a rule set, and collapsing a true count into a composition.
  */
 
 import { RANKS, RANK_INDEX, type Rank } from './cards';
@@ -27,15 +27,18 @@ export const ACE_FIVE_TAGS: TagValues = {
 };
 
 export interface CalculatorParams extends RuleSet {
-	count: number;
+	trueCount: number;
 	tags: TagValues;
 }
 
 export const DEFAULT_PARAMS: CalculatorParams = {
 	...DEFAULT_RULE_SET,
-	count: 0,
+	trueCount: 0,
 	tags: ACE_FIVE_TAGS,
 };
+
+/** Cards in one deck -- the divisor that turns a running count into a true count. */
+export const CARDS_PER_DECK = 52;
 
 /**
  * Rounds a vector of fractional deltas to integers while preserving its sum
@@ -75,7 +78,7 @@ export function baseComposition(ruleSet: RuleSet): Composition {
  * `w_r` the cards of rank `r` and `t̄` the frequency-weighted mean tag.
  *
  * Equivalently `N · σ_t²` for a shoe of `N` cards, which is the form the
- * count-frequency model wants (docs/bankroll-model.md); `applyCountToComposition`
+ * count-frequency model wants (docs/bankroll-model.md); `applyTrueCountToComposition`
  * below wants it as the divisor that turns a count into per-rank removals. Zero
  * -- to floating-point tolerance -- means the system cannot distinguish any rank
  * from any other, and no count value has any meaning under it.
@@ -92,10 +95,16 @@ export function tagSpread(comp: Composition, tags: TagValues): number {
 }
 
 /**
- * Adjusts a composition to represent a given running count under an arbitrary
+ * Adjusts a composition to represent a given true count under an arbitrary
  * counting system.
  *
- * The count value `N` is spread across every rank at once: each rank is shifted in
+ * The count is what a player actually plays off, and a true count is the form of
+ * it that means the same thing at every depth: it is a density, so the shoe it
+ * describes does not depend on how many decks are left to divide by. The running
+ * count it implies over the whole shoe -- `N = tc · decks` -- is what the removals
+ * below are sized to.
+ *
+ * That count value `N` is spread across every rank at once: each rank is shifted in
  * proportion to how many of it the shoe holds (`w_r`) and to how far its tag sits
  * from the frequency-weighted mean tag (`t̄`), i.e. `d_r = -λ · w_r · (t_r - t̄)`
  * in real cards, with `λ` picked so the removals really do produce a running count
@@ -104,15 +113,14 @@ export function tagSpread(comp: Composition, tags: TagValues): number {
  * Ace-Five tags this reduces exactly to `N/2` fewer real fives and `N/2` more real
  * aces, whatever the deck count. See docs/ev-model.md §Simplifications (3).
  *
- * `count` need not be a whole number -- a fractional running count (or a true
- * count) is carried straight into `λ`. Only the resulting per-rank deltas are
- * rounded, in half-card units and preserving their sum, since rank counts index
- * the memo key and must stay whole.
+ * `trueCount` need not be a whole number -- a fractional count is carried straight
+ * into `λ`. Only the resulting per-rank deltas are rounded, in half-card units and
+ * preserving their sum, since rank counts index the memo key and must stay whole.
  */
-export function applyCountToComposition(
+export function applyTrueCountToComposition(
 	comp: Composition,
 	tags: TagValues,
-	count: number
+	trueCount: number
 ): Composition {
 	const weights = comp.map((halfCards) => halfCards / 2);
 	const totalCards = weights.reduce((sum, w) => sum + w, 0);
@@ -121,11 +129,11 @@ export function applyCountToComposition(
 
 	const spread = tagSpread(comp, tags);
 	if (Math.abs(spread) < 1e-9) {
-		if (count === 0) return comp.slice();
+		if (trueCount === 0) return comp.slice();
 		throw new Error('Tag values give the count no effect (all ranks weighted equally).');
 	}
 
-	const lambda = count / spread;
+	const lambda = (trueCount * (totalCards / CARDS_PER_DECK)) / spread;
 	const halfCardDeltas = weights.map(
 		(w, index) => -2 * lambda * w * (tags[RANKS[index]] - meanTag)
 	);

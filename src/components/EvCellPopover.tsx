@@ -16,7 +16,7 @@ import '#styles/EvTable';
 
 interface EvCellPopoverProps {
 	row: EvCellData;
-	count: number;
+	trueCount: number;
 	/**
 	 * EV of taking insurance, per unit staked on it, or `undefined` where the
 	 * bet isn't on offer -- against any upcard but an ace, or at a table that
@@ -41,8 +41,8 @@ const EvCellPopover: Component<EvCellPopoverProps> = (props) => (
 					<span class={signClass(props.row.countEvPercent)}>
 						{formatEvPercent(props.row.countEvPercent)}%
 					</span>
-					<Show when={props.count !== 0}>
-						<span>{formatCount(props.count)}Δ</span>
+					<Show when={props.trueCount !== 0}>
+						<span>{formatCount(props.trueCount)}Δ</span>
 						<span class={signClass(props.row.deltaPercentPoints)}>
 							{formatEvPercent(props.row.deltaPercentPoints)} pts
 						</span>

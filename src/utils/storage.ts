@@ -28,11 +28,11 @@ export interface CalculatorConfig extends CalculatorParams {
 export const DEFAULT_CONFIG: CalculatorConfig = { ...DEFAULT_PARAMS, system: 'ace-five' };
 
 /**
- * A config minus the running count. The count is driven by the arrow keys and
+ * A config minus the true count. The count is driven by the arrow keys and
  * recalculates on its own, so the sidebar form neither holds it nor reports it
  * -- everything the form does own is exactly this.
  */
-export type CalculatorSettings = Omit<CalculatorConfig, 'count'>;
+export type CalculatorSettings = Omit<CalculatorConfig, 'trueCount'>;
 
 /**
  * The settings half of a config, for seeding the sidebar's form. The tag vector
@@ -65,7 +65,7 @@ export const DEFAULT_BANKROLL_CONFIG: BankrollConfig = {
 };
 
 const STORAGE_KEY = 'qbcalc:calculator-config';
-const STORAGE_VERSION = 5;
+const STORAGE_VERSION = 6;
 
 /**
  * Kept out of `CalculatorConfig` and under a key of its own. The config decides
@@ -111,15 +111,31 @@ interface StoredConfigV2 {
 }
 
 /**
+ * Every schema up to v5 stored a *running* count; v6 stores the true count the
+ * app works in. A stored config's own deck count is what converts it -- the
+ * engine has always spread a running count's removals as `count / decks` (see
+ * docs/ev-model.md §Simplifications (3)), so this migration preserves the shoe
+ * the user was last looking at exactly.
+ */
+type WithRunningCount<T> = Omit<T, 'trueCount'> & { count: number };
+
+/**
  * The v3 schema: every table rule the sidebar has today except `hitSplitAces`,
  * which v4 added. Structurally a `CalculatorConfig` minus that one field.
  */
-type StoredConfigV3 = Omit<CalculatorConfig, 'hitSplitAces' | 'insurance'> & {
+type StoredConfigV3 = WithRunningCount<
+	Omit<CalculatorConfig, 'hitSplitAces' | 'insurance'>
+> & {
 	version: 3;
 };
 
 /** The v4 schema: every rule the sidebar has today except `insurance`. */
-type StoredConfigV4 = Omit<CalculatorConfig, 'insurance'> & { version: 4 };
+type StoredConfigV4 = WithRunningCount<Omit<CalculatorConfig, 'insurance'>> & {
+	version: 4;
+};
+
+/** The v5 schema: every field v6 has, but counted in running counts. */
+type StoredConfigV5 = WithRunningCount<CalculatorConfig> & { version: 5 };
 
 interface StoredBankroll extends BankrollConfig {
 	version: number;
@@ -184,10 +200,30 @@ function hasV5Fields(config: Record<string, unknown>): boolean {
 	return hasV4Fields(config) && typeof config.insurance === 'boolean';
 }
 
+/**
+ * v6's own shape: v5's, with the running count replaced by the true count. Only
+ * the count field differs, so the rule checks above are reused as they stand.
+ */
 function isStoredConfig(value: unknown): value is StoredConfig {
 	if (typeof value !== 'object' || value === null) return false;
 	const config = value as Record<string, unknown>;
-	return config.version === STORAGE_VERSION && hasV2Fields(config) && hasV5Fields(config);
+	return (
+		config.version === STORAGE_VERSION
+		&& typeof config.decks === 'number'
+		&& typeof config.trueCount === 'number'
+		&& typeof config.dealerHitsSoft17 === 'boolean'
+		&& isCountingSystemId(config.system)
+		&& isTagValues(config.tags)
+		&& hasV5Fields(config)
+	);
+}
+
+/**
+ * A stored running count read as the true count that describes the same shoe,
+ * rounded to the whole count the arrow keys move in. See `WithRunningCount`.
+ */
+function migrateCount(count: number, decks: number): number {
+	return decks > 0 ? Math.round(count / decks) : 0;
 }
 
 function isStoredConfigV1(value: unknown): value is StoredConfigV1 {
@@ -214,6 +250,12 @@ function isStoredConfigV4(value: unknown): value is StoredConfigV4 {
 	return config.version === 4 && hasV2Fields(config) && hasV4Fields(config);
 }
 
+function isStoredConfigV5(value: unknown): value is StoredConfigV5 {
+	if (typeof value !== 'object' || value === null) return false;
+	const config = value as Record<string, unknown>;
+	return config.version === 5 && hasV2Fields(config) && hasV5Fields(config);
+}
+
 export function loadCalculatorConfig(): CalculatorConfig | null {
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
@@ -228,7 +270,7 @@ export function loadCalculatorConfig(): CalculatorConfig | null {
 			return {
 				...DEFAULT_RULE_SET,
 				decks: parsed.decks,
-				count: parsed.count,
+				trueCount: migrateCount(parsed.count, parsed.decks),
 				dealerHitsSoft17: parsed.dealerHitsSoft17,
 				system: 'ace-five',
 				tags: ACE_FIVE_TAGS,
@@ -239,7 +281,7 @@ export function loadCalculatorConfig(): CalculatorConfig | null {
 			return {
 				...DEFAULT_RULE_SET,
 				decks: parsed.decks,
-				count: parsed.count,
+				trueCount: migrateCount(parsed.count, parsed.decks),
 				dealerHitsSoft17: parsed.dealerHitsSoft17,
 				system: parsed.system,
 				tags: parsed.tags,
@@ -251,7 +293,7 @@ export function loadCalculatorConfig(): CalculatorConfig | null {
 		if (isStoredConfigV3(parsed)) {
 			return {
 				decks: parsed.decks,
-				count: parsed.count,
+				trueCount: migrateCount(parsed.count, parsed.decks),
 				dealerHitsSoft17: parsed.dealerHitsSoft17,
 				penetrationPercent: parsed.penetrationPercent,
 				blackjackPayout: parsed.blackjackPayout,
@@ -270,7 +312,7 @@ export function loadCalculatorConfig(): CalculatorConfig | null {
 		if (isStoredConfigV4(parsed)) {
 			return {
 				decks: parsed.decks,
-				count: parsed.count,
+				trueCount: migrateCount(parsed.count, parsed.decks),
 				dealerHitsSoft17: parsed.dealerHitsSoft17,
 				penetrationPercent: parsed.penetrationPercent,
 				blackjackPayout: parsed.blackjackPayout,
@@ -286,11 +328,30 @@ export function loadCalculatorConfig(): CalculatorConfig | null {
 			};
 		}
 
+		if (isStoredConfigV5(parsed)) {
+			return {
+				decks: parsed.decks,
+				trueCount: migrateCount(parsed.count, parsed.decks),
+				dealerHitsSoft17: parsed.dealerHitsSoft17,
+				penetrationPercent: parsed.penetrationPercent,
+				blackjackPayout: parsed.blackjackPayout,
+				surrender: parsed.surrender,
+				splitLimit: parsed.splitLimit,
+				doubleAfterSplit: parsed.doubleAfterSplit,
+				resplitAces: parsed.resplitAces,
+				hitSplitAces: parsed.hitSplitAces,
+				dealerPeek: parsed.dealerPeek,
+				insurance: parsed.insurance,
+				system: parsed.system,
+				tags: parsed.tags,
+			};
+		}
+
 		if (!isStoredConfig(parsed)) return null;
 
 		return {
 			decks: parsed.decks,
-			count: parsed.count,
+			trueCount: parsed.trueCount,
 			dealerHitsSoft17: parsed.dealerHitsSoft17,
 			penetrationPercent: parsed.penetrationPercent,
 			blackjackPayout: parsed.blackjackPayout,
@@ -313,7 +374,7 @@ export function loadCalculatorConfig(): CalculatorConfig | null {
  * Whether two sets of sidebar settings would produce the same calculation.
  * Every field is a primitive apart from the tag vector, so a field-wise
  * comparison is enough -- no structural clone or JSON round-trip needed. The
- * running count is deliberately not part of it: it recalculates on its own as
+ * true count is deliberately not part of it: it recalculates on its own as
  * the arrow keys move it, so it can never be what the settle timer is waiting
  * on -- and its absence is also what lets the app tell a count-only
  * recalculation apart from one the summary cards have to follow.

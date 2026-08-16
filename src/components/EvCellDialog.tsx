@@ -25,7 +25,7 @@ import '#styles/EvCellDialog';
 
 interface EvCellDialogProps {
 	row: EvCellData;
-	count: number;
+	trueCount: number;
 	/** The player's hand as the grid labels it, e.g. "Hard 16", "A,7", "8,8". */
 	hand: string;
 	upcard: Rank;
@@ -75,7 +75,7 @@ const EvCellDialog: Component<EvCellDialogProps> = (props) => {
 									{props.hand} vs {props.upcard}
 								</Dialog.Title>
 								<Dialog.Description class="ev-cell-dialog__subtitle">
-									Running count {formatCount(props.count)} &middot; dealer busts{' '}
+									True count {formatCount(props.trueCount)} &middot; dealer busts{' '}
 									{formatPercent(props.row.dealerBustPercent)}
 								</Dialog.Description>
 							</div>
@@ -109,7 +109,7 @@ const EvCellDialog: Component<EvCellDialogProps> = (props) => {
 									{(action: ActionAnalysis, index) => {
 										// How far this action's rank has moved from where it stood
 										// against the unadjusted shoe: positive is a climb, negative a
-										// slide, relative to the same ranking read at count 0.
+										// slide, relative to the same ranking read at a count of 0.
 										const rankDelta = createMemo(() => {
 											const baseRank = baseRanks().get(action.action);
 											return baseRank === undefined ? 0 : baseRank - (index() + 1);

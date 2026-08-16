@@ -7,7 +7,7 @@
 import { RANKS, type Rank } from './cards';
 import {
 	ACE_FIVE_TAGS,
-	applyCountToComposition,
+	applyTrueCountToComposition,
 	baseComposition,
 	type TagValues,
 } from './composition';
@@ -240,14 +240,14 @@ function buildSplitEvComparison(
 
 export function computeEvComparison(
 	ruleSet: RuleSet,
-	count: number,
+	trueCount: number,
 	tags: TagValues = ACE_FIVE_TAGS,
 	totals: readonly number[] = HARD_TOTALS,
 	upcards: readonly Rank[] = RANKS,
 	soft = false
 ): EvComparisonResult {
 	const base = baseComposition(ruleSet);
-	const modified = applyCountToComposition(base, tags, count);
+	const modified = applyTrueCountToComposition(base, tags, trueCount);
 	return buildEvComparison(
 		new ShoeEv(ruleSet).analyzeGrid(base, totals, upcards, soft),
 		new ShoeEv(ruleSet).analyzeGrid(modified, totals, upcards, soft),
@@ -258,13 +258,13 @@ export function computeEvComparison(
 
 export function computeSplitEvComparison(
 	ruleSet: RuleSet,
-	count: number,
+	trueCount: number,
 	tags: TagValues = ACE_FIVE_TAGS,
 	pairRanks: readonly Rank[] = PAIR_RANKS,
 	upcards: readonly Rank[] = RANKS
 ): SplitEvComparisonResult {
 	const base = baseComposition(ruleSet);
-	const modified = applyCountToComposition(base, tags, count);
+	const modified = applyTrueCountToComposition(base, tags, trueCount);
 	return buildSplitEvComparison(
 		new ShoeEv(ruleSet).analyzeSplitGrid(base, pairRanks, upcards),
 		new ShoeEv(ruleSet).analyzeSplitGrid(modified, pairRanks, upcards),
@@ -305,11 +305,11 @@ export function combineEvTables(
  */
 export function computeAllEvTables(
 	ruleSet: RuleSet,
-	count: number,
+	trueCount: number,
 	tags: TagValues = ACE_FIVE_TAGS
 ): EvTables {
 	const base = baseComposition(ruleSet);
-	const modified = applyCountToComposition(base, tags, count);
+	const modified = applyTrueCountToComposition(base, tags, trueCount);
 	return combineEvTables(
 		ruleSet,
 		computeEvGrids(ruleSet, base),

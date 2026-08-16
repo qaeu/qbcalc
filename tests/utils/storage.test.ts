@@ -46,7 +46,7 @@ describe('loadCalculatorConfig', () => {
 		const config: CalculatorConfig = {
 			...DEFAULT_CONFIG,
 			decks: 6,
-			count: -3,
+			trueCount: -3,
 			dealerHitsSoft17: false,
 			penetrationPercent: 60,
 			blackjackPayout: '6:5',
@@ -71,10 +71,12 @@ describe('loadCalculatorConfig', () => {
 			JSON.stringify({ version: 1, decks: 6, count: 4, dealerHitsSoft17: false })
 		);
 
+		// The stored running count is read as the true count describing the same
+		// shoe -- a sixth of it on six decks, rounded to a whole count.
 		expect(loadCalculatorConfig()).toEqual({
 			...DEFAULT_CONFIG,
 			decks: 6,
-			count: 4,
+			trueCount: 1,
 			dealerHitsSoft17: false,
 			system: 'ace-five',
 			tags: ACE_FIVE_TAGS,
@@ -97,7 +99,7 @@ describe('loadCalculatorConfig', () => {
 		expect(loadCalculatorConfig()).toEqual({
 			...DEFAULT_CONFIG,
 			decks: 6,
-			count: 4,
+			trueCount: 1,
 			dealerHitsSoft17: false,
 			system: 'custom',
 			tags: CUSTOM_TAGS,
@@ -109,9 +111,11 @@ describe('loadCalculatorConfig', () => {
 			...DEFAULT_CONFIG,
 			version: 3,
 			decks: 6,
+			count: 6,
 			splitLimit: 2,
 			resplitAces: true,
 		};
+		delete v3.trueCount;
 		delete v3.hitSplitAces;
 		delete v3.insurance;
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(v3));
@@ -119,6 +123,7 @@ describe('loadCalculatorConfig', () => {
 		expect(loadCalculatorConfig()).toEqual({
 			...DEFAULT_CONFIG,
 			decks: 6,
+			trueCount: 1,
 			splitLimit: 2,
 			resplitAces: true,
 			// Filled in from the current defaults, whichever way they point.
@@ -132,17 +137,37 @@ describe('loadCalculatorConfig', () => {
 			...DEFAULT_CONFIG,
 			version: 4,
 			decks: 2,
+			count: 5,
 			hitSplitAces: false,
 		};
+		delete v4.trueCount;
 		delete v4.insurance;
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(v4));
 
 		expect(loadCalculatorConfig()).toEqual({
 			...DEFAULT_CONFIG,
 			decks: 2,
+			trueCount: 3,
 			hitSplitAces: false,
 			// Filled in from the current default, whichever way it points.
 			insurance: DEFAULT_CONFIG.insurance,
+		});
+	});
+
+	it('migrates a v5 config by reading its running count as a true count', () => {
+		const v5: Record<string, unknown> = {
+			...DEFAULT_CONFIG,
+			version: 5,
+			decks: 4,
+			count: 10,
+		};
+		delete v5.trueCount;
+		localStorage.setItem(STORAGE_KEY, JSON.stringify(v5));
+
+		expect(loadCalculatorConfig()).toEqual({
+			...DEFAULT_CONFIG,
+			decks: 4,
+			trueCount: 3,
 		});
 	});
 
@@ -203,7 +228,7 @@ describe('loadCalculatorConfig', () => {
 			JSON.stringify({
 				version: 999,
 				decks: 6,
-				count: 1,
+				trueCount: 1,
 				dealerHitsSoft17: false,
 				system: 'ace-five',
 				tags: ACE_FIVE_TAGS,

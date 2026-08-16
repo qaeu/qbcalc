@@ -4,11 +4,13 @@
  * `ev/`. The method and its assumptions are in docs/bankroll-model.md.
  */
 
-import { baseComposition, tagSpread, type TagValues } from './ev/composition';
+import {
+	baseComposition,
+	CARDS_PER_DECK,
+	tagSpread,
+	type TagValues,
+} from './ev/composition';
 import type { RuleSet } from './ev/rules';
-
-/** Cards in one deck -- the divisor that turns a running count into a true count. */
-const CARDS_PER_DECK = 52;
 
 /**
  * The true counts the bet ramp is indexed by. The first bucket catches every

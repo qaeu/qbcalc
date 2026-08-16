@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { RANK_INDEX } from '#utils/ev/cards';
-import { applyCountToComposition, baseComposition } from '#utils/ev/composition';
+import { applyTrueCountToComposition, baseComposition } from '#utils/ev/composition';
 import {
 	analyzeInsurance,
 	insuranceEvPercent,
@@ -35,7 +35,7 @@ describe('insuranceTenFraction', () => {
 
 	it('rises as the count strips non-tens out of the shoe', () => {
 		const base = baseComposition(RULE_SET);
-		const rich = applyCountToComposition(base, TEN_COUNT_TAGS, 20);
+		const rich = applyTrueCountToComposition(base, TEN_COUNT_TAGS, 5);
 		expect(insuranceTenFraction(rich)).toBeGreaterThan(insuranceTenFraction(base));
 	});
 });
@@ -75,7 +75,7 @@ describe('insuranceEvPercent', () => {
 describe('analyzeInsurance', () => {
 	it('reads the count-adjusted shoe against the unadjusted one', () => {
 		const base = baseComposition(RULE_SET);
-		const rich = applyCountToComposition(base, TEN_COUNT_TAGS, 20);
+		const rich = applyTrueCountToComposition(base, TEN_COUNT_TAGS, 5);
 		const analysis = analyzeInsurance(RULE_SET, base, rich);
 
 		expect(analysis.offered).toBe(true);

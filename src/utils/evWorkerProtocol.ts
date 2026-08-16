@@ -6,7 +6,7 @@
  */
 
 import {
-	applyCountToComposition,
+	applyTrueCountToComposition,
 	baseComposition,
 	type Composition,
 	type TagValues,
@@ -25,7 +25,7 @@ export interface EvWorkerRequest {
 	 */
 	requestId: number;
 	ruleSet: RuleSet;
-	count: number;
+	trueCount: number;
 	/** The counting system's per-rank point values the count was kept with. */
 	tags: TagValues;
 }
@@ -67,26 +67,26 @@ function baseGridsFor(ruleSet: RuleSet): EvGrids {
 /**
  * True count the edge line is measured over when the count on screen is no use
  * for it. Far enough out that the half-card rounding in
- * `applyCountToComposition` is a rounding error rather than the whole signal,
+ * `applyTrueCountToComposition` is a rounding error rather than the whole signal,
  * and well inside what any shoe can represent.
  */
 const SLOPE_PROBE_TRUE_COUNT = 2;
 
 /**
  * The smallest true count whose own delta is trusted to set the edge line. A
- * count of 1 or 2 on an eight-deck shoe moves the composition by a half-card or
- * not at all, and dividing that by a true count near zero magnifies the rounding
- * into a slope that is mostly noise -- so those probe instead.
+ * fraction of a true count moves an eight-deck shoe by a half-card or not at all,
+ * and dividing that by a true count near zero magnifies the rounding into a slope
+ * that is mostly noise -- so those probe instead.
  */
 const MIN_SLOPE_TRUE_COUNT = 1;
 
 /**
  * Percentage points of player edge per unit of true count.
  *
- * The engine spreads a count's removals across a full shoe in proportion to
- * `count / decks` (see `applyCountToComposition`), so the true count a set of
- * grids describes is exactly `count / decks` -- which is what lets a second shoe
- * at a known count fix a line. See docs/bankroll-model.md §The edge line.
+ * The grids the app asks for are already priced at a true count (the engine sizes
+ * a count's removals as `tc · decks`, see `applyTrueCountToComposition`), so a
+ * second shoe at a known count fixes the line directly. See
+ * docs/bankroll-model.md §The edge line.
  */
 function edgeSlope(
 	ruleSet: RuleSet,
@@ -94,32 +94,27 @@ function edgeSlope(
 	tags: TagValues,
 	baseGrids: EvGrids,
 	countGrids: EvGrids,
-	count: number
+	trueCount: number
 ): number {
 	const payout = ruleSet.blackjackPayout;
 	const baseEv = averageEvPercent(baseGrids.average, payout);
-	const trueCount = count / ruleSet.decks;
 
 	if (countGrids !== baseGrids && Math.abs(trueCount) >= MIN_SLOPE_TRUE_COUNT) {
 		return (averageEvPercent(countGrids.average, payout) - baseEv) / trueCount;
 	}
 
-	const probeComp = applyCountToComposition(
-		base,
-		tags,
-		SLOPE_PROBE_TRUE_COUNT * ruleSet.decks
-	);
+	const probeComp = applyTrueCountToComposition(base, tags, SLOPE_PROBE_TRUE_COUNT);
 	const probeEv = averageEvPercent(computeEvGrids(ruleSet, probeComp).average, payout);
 	return (probeEv - baseEv) / SLOPE_PROBE_TRUE_COUNT;
 }
 
 export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerResponse {
 	try {
-		const { ruleSet, count, tags } = request;
+		const { ruleSet, trueCount, tags } = request;
 		const base = baseComposition(ruleSet);
 		// Before the base grids are cached, so a count this shoe cannot
 		// represent still throws rather than banking work for a doomed request.
-		const modified = applyCountToComposition(base, tags, count);
+		const modified = applyTrueCountToComposition(base, tags, trueCount);
 		const baseGrids = baseGridsFor(ruleSet);
 		// A count that leaves the shoe untouched -- zero, or one too small to
 		// move a whole half-card -- is the baseline, already computed.
@@ -141,7 +136,7 @@ export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerRespo
 					tags,
 					baseGrids,
 					countGrids,
-					count
+					trueCount
 				),
 			},
 		};

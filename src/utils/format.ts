@@ -33,9 +33,14 @@ export function formatCellOccurrencePercent(value: number): string {
 	return value.toFixed(2);
 }
 
-/** A running count, signed -- except at zero, which no counter calls "+0". */
+/**
+ * A true count, signed -- except at zero, which no counter calls "+0". Whole
+ * counts are what the arrow keys produce, but a fraction is trimmed to one
+ * decimal rather than printed to full float precision.
+ */
 export function formatCount(value: number): string {
-	return value > 0 ? `+${value}` : `${value}`;
+	const rounded = Number.isInteger(value) ? `${value}` : value.toFixed(1);
+	return value > 0 ? `+${rounded}` : rounded;
 }
 
 /**

@@ -51,7 +51,7 @@ interface EvCellProps {
 	row: EvCellData | undefined;
 	loading: boolean;
 	phase: number;
-	count: number;
+	trueCount: number;
 	mode: CellDisplayMode;
 	heat: HeatDomains;
 	/** The player's hand as the grid labels it, for the drill-down's heading. */
@@ -204,7 +204,7 @@ const EvCell: Component<EvCellProps> = (props) => {
 					<>
 						<EvCellPopover
 							row={row()}
-							count={props.count}
+							trueCount={props.trueCount}
 							insuranceEvPercent={
 								props.upcard === 'A' ? props.insuranceEvPercent : undefined
 							}
@@ -212,7 +212,7 @@ const EvCell: Component<EvCellProps> = (props) => {
 						<Show when={dialogMounted()}>
 							<EvCellDialog
 								row={row()}
-								count={props.count}
+								trueCount={props.trueCount}
 								hand={props.hand}
 								upcard={props.upcard}
 								open={dialogOpen()}
@@ -260,7 +260,7 @@ interface EvGridProps {
 	rowsByKey: Map<string, EvCellData>;
 	loading: boolean;
 	seed: number;
-	count: number;
+	trueCount: number;
 	mode: CellDisplayMode;
 	heat: HeatDomains;
 	insuranceEvPercent?: number;
@@ -295,7 +295,7 @@ const EvGrid: Component<EvGridProps> = (props) => (
 											row={props.rowsByKey.get(cellKey(total, upcard))}
 											loading={props.loading}
 											phase={loadingPhase(props.seed, rowIndex(), colIndex())}
-											count={props.count}
+											trueCount={props.trueCount}
 											mode={props.mode}
 											heat={props.heat}
 											hand={
@@ -325,7 +325,7 @@ interface SplitEvGridProps {
 	rowsByKey: Map<string, EvCellData>;
 	loading: boolean;
 	seed: number;
-	count: number;
+	trueCount: number;
 	mode: CellDisplayMode;
 	heat: HeatDomains;
 	insuranceEvPercent?: number;
@@ -353,7 +353,7 @@ const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
 											row={props.rowsByKey.get(cellKey(pairRank, upcard))}
 											loading={props.loading}
 											phase={loadingPhase(props.seed, rowIndex(), colIndex())}
-											count={props.count}
+											trueCount={props.trueCount}
 											mode={props.mode}
 											heat={props.heat}
 											hand={formatPairLabel(pairRank)}
@@ -376,12 +376,12 @@ interface EvTableProps {
 	isComputing: Accessor<boolean>;
 	/**
 	 * Loading state for the summary cards alone. It is not `isComputing`: the
-	 * cards describe the whole shoe, so a recalculation at a new running count
+	 * cards describe the whole shoe, so a recalculation at a new count
 	 * leaves them showing what they already show rather than blanking them.
 	 */
 	isSummaryComputing: Accessor<boolean>;
 	error: Accessor<string | null>;
-	count: Accessor<number>;
+	trueCount: Accessor<number>;
 	bankroll: Accessor<BankrollAnalysis | undefined>;
 }
 
@@ -473,7 +473,7 @@ const EvTable: Component<EvTableProps> = (props) => {
 					<span class="ev-table__mode-hint">space to cycle</span>
 					<span class="ev-table__mode-divider" aria-hidden="true" />
 					<span class="ev-table__mode-name">
-						Running count {formatCount(props.count())}
+						True count {formatCount(props.trueCount())}
 					</span>
 					<span class="ev-table__mode-hint">↑/↓ to adjust</span>
 				</p>
@@ -486,7 +486,7 @@ const EvTable: Component<EvTableProps> = (props) => {
 					handLabel={(total) => `Hard ${total}`}
 					loading={props.isComputing()}
 					seed={runSeed() ^ GRID_SALTS.hard}
-					count={props.count()}
+					trueCount={props.trueCount()}
 					mode={mode()}
 					heat={heat()}
 					insuranceEvPercent={insuranceEvPercent()}
@@ -501,7 +501,7 @@ const EvTable: Component<EvTableProps> = (props) => {
 					handLabel={(total) => `Soft ${total}`}
 					loading={props.isComputing()}
 					seed={runSeed() ^ GRID_SALTS.soft}
-					count={props.count()}
+					trueCount={props.trueCount()}
 					mode={mode()}
 					heat={heat()}
 					insuranceEvPercent={insuranceEvPercent()}
@@ -513,7 +513,7 @@ const EvTable: Component<EvTableProps> = (props) => {
 					rowsByKey={splitRowsByKey()}
 					loading={props.isComputing()}
 					seed={runSeed() ^ GRID_SALTS.split}
-					count={props.count()}
+					trueCount={props.trueCount()}
 					mode={mode()}
 					heat={heat()}
 					insuranceEvPercent={insuranceEvPercent()}

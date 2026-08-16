@@ -67,10 +67,10 @@ const App: Component = () => {
 	// Whether the pending calculation is one the summary cards are waiting on,
 	// which is again settings changes only -- see above.
 	const [isSummaryComputing, setIsSummaryComputing] = createSignal(false);
-	// The running count lives here rather than in the sidebar form: it is the
-	// one input a counter moves hand to hand, so the arrow keys drive it and it
+	// The true count lives here rather than in the sidebar form: it is the one
+	// input a counter moves hand to hand, so the arrow keys drive it and it
 	// recalculates on its own, without waiting for the settings to settle.
-	const [count, setCount] = createSignal(initialConfig.count);
+	const [trueCount, setTrueCount] = createSignal(initialConfig.trueCount);
 	const [bankroll, setBankroll] = createSignal<BankrollConfig>(
 		loadBankrollConfig() ?? DEFAULT_BANKROLL_CONFIG
 	);
@@ -113,7 +113,7 @@ const App: Component = () => {
 
 	/**
 	 * Whether a config would leave the summary cards showing the figures they
-	 * already show -- true when it differs from the basis by the running count
+	 * already show -- true when it differs from the basis by the true count
 	 * alone, which `calculatorSettingsEqual` ignores by construction.
 	 */
 	const summaryBasisMatches = (config: CalculatorConfig): boolean =>
@@ -208,7 +208,7 @@ const App: Component = () => {
 		const request: EvWorkerRequest = {
 			requestId: latestRequestId,
 			ruleSet: ruleSetFromConfig(nextConfig),
-			count: nextConfig.count,
+			trueCount: nextConfig.trueCount,
 			tags: nextConfig.tags,
 		};
 		w.postMessage(request);
@@ -221,8 +221,8 @@ const App: Component = () => {
 	let countTimer: number | undefined;
 
 	const stepCount = (step: number) => {
-		const next = count() + step;
-		setCount(next);
+		const next = trueCount() + step;
+		setTrueCount(next);
 		clearTimeout(countTimer);
 		countTimer = window.setTimeout(() => {
 			// A sweep that ends where it started -- an arrow key overshot and
@@ -231,10 +231,10 @@ const App: Component = () => {
 			// reissuing the request that is producing the grids on screen.
 			// Checked here rather than as the keys are pressed, so that it also
 			// catches a settings change that got there first at this same count.
-			if (next === latestRequestConfig.count) return;
+			if (next === latestRequestConfig.trueCount) return;
 			// Based on the newest requested config rather than the applied one, so
 			// a count change during a recalculation keeps the rules being computed.
-			runCalculation({ ...latestRequestConfig, count: next });
+			runCalculation({ ...latestRequestConfig, trueCount: next });
 		}, INPUT_SETTLE_MS);
 	};
 
@@ -260,7 +260,7 @@ const App: Component = () => {
 					initialConfig={initialConfig}
 					calcTimeMs={calcTimeMs()}
 					onSettingsChange={(settings: CalculatorSettings) =>
-						runCalculation({ ...settings, count: count() })
+						runCalculation({ ...settings, trueCount: trueCount() })
 					}
 					bankroll={bankroll()}
 					bankrollAnalysis={bankrollAnalysis()}
@@ -271,7 +271,7 @@ const App: Component = () => {
 					isComputing={isComputing}
 					isSummaryComputing={isSummaryComputing}
 					error={error}
-					count={count}
+					trueCount={trueCount}
 					bankroll={bankrollAnalysis}
 				/>
 			</div>

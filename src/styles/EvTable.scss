@@ -271,7 +271,7 @@ $action-cell-opacity: 1.5;
 			}
 		}
 
-		// Names the view the cells are currently in, and the running count they
+		// Names the view the cells are currently in, and the true count they
 		// are computed at. Both numeric modes render bare numbers, so without it
 		// there is nothing on screen saying whether a cell reads as EV or as
 		// occurrence; the count has no home in the sidebar either, now that the
