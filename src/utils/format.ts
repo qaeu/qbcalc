@@ -44,6 +44,14 @@ export function formatCount(value: number): string {
 }
 
 /**
+ * A number of betting units. Whole units are what a ramp is normally set in and
+ * read as, so a decimal point only appears where one was actually typed.
+ */
+export function formatUnits(value: number): string {
+	return Number.isInteger(value) ? `${value}` : value.toFixed(1);
+}
+
+/**
  * Money, to the nearest whole unit and grouped. Bankroll figures run from a few
  * dollars an hour to five-figure bankrolls, and cents are noise at either end.
  */

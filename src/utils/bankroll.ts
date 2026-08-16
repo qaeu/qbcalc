@@ -26,6 +26,23 @@ export const RAMP_TRUE_COUNTS: readonly number[] = [0, 1, 2, 3, 4, 5, 6];
 /** Column headings for the ramp, matching `RAMP_TRUE_COUNTS`' open-ended ends. */
 export const RAMP_LABELS: readonly string[] = ['≤0', '+1', '+2', '+3', '+4', '+5', '≥+6'];
 
+/**
+ * Units the ramp bets at one Hi-Lo-equivalent true count: the bucket whose label
+ * the count rounds to, with the two open ends catching everything past them.
+ *
+ * `analyzeBankroll` never needs this -- it walks the ramp's own buckets, which
+ * `accumulateBuckets` has already split the distribution across on the same
+ * half-unit cuts. It is for reading the spread off at a count that came from
+ * somewhere else, as the weighted-EV graph's simulated buckets do.
+ */
+export function betAtCount(ramp: readonly number[], hiLoTrueCount: number): number {
+	const index = Math.min(
+		RAMP_TRUE_COUNTS.length - 1,
+		Math.max(0, Math.round(hiLoTrueCount))
+	);
+	return ramp[index] ?? 0;
+}
+
 /** How often one true-count bucket comes up, as a fraction of rounds played. */
 export interface CountFrequency {
 	/** The bucket's label, read against `RAMP_TRUE_COUNTS`' open ends. */
@@ -47,14 +64,13 @@ export interface CountFrequency {
 	meanSquaredTrueCount: number;
 }
 
-export interface BankrollInputs {
-	/** Total bankroll, in the same currency as `unit`. */
-	bankroll: number;
-	/** What one betting unit is worth. */
-	unit: number;
-	roundsPerHour: number;
-	/** Units wagered in each `RAMP_TRUE_COUNTS` bucket. */
-	ramp: readonly number[];
+/**
+ * The player's edge as a quadratic in the true count, in the units the selected
+ * counting system keeps it in -- the fit `evWorkerProtocol.ts` produces and the
+ * one every count-averaged figure in the app is priced from. See
+ * docs/bankroll-model.md §The edge curve.
+ */
+export interface EdgeCurve {
 	/** Player edge at a true count of zero, in percent -- `average.baseEvPercent`. */
 	baseEvPercent: number;
 	/**
@@ -70,6 +86,37 @@ export interface BankrollInputs {
 	 * it -- and a straight line is the special case of passing zero.
 	 */
 	edgeCurvaturePointsPerTrueCountSquared: number;
+}
+
+/**
+ * The edge, in percent, over a set of counts described by their mean and mean
+ * square rather than by a single count.
+ *
+ * Taking each term against its own moment is what makes a bucket's edge exact
+ * instead of a curve read off at an average count: the squared term over an
+ * open-ended bucket, whose counts run far past their own mean, is much the
+ * larger of the two readings. Both moments are in the system's own count units.
+ */
+export function edgeAtCount(
+	curve: EdgeCurve,
+	meanTrueCount: number,
+	meanSquaredTrueCount: number
+): number {
+	return (
+		curve.baseEvPercent
+		+ curve.edgeSlopePointsPerTrueCount * meanTrueCount
+		+ curve.edgeCurvaturePointsPerTrueCountSquared * meanSquaredTrueCount
+	);
+}
+
+export interface BankrollInputs extends EdgeCurve {
+	/** Total bankroll, in the same currency as `unit`. */
+	bankroll: number;
+	/** What one betting unit is worth. */
+	unit: number;
+	roundsPerHour: number;
+	/** Units wagered in each `RAMP_TRUE_COUNTS` bucket. */
+	ramp: readonly number[];
 	/** Variance of one flat-bet round, in units² -- `average.variancePerRound`. */
 	variancePerRound: number;
 }
@@ -297,12 +344,7 @@ export function analyzeBankroll(
 		// squared term is what keeps the open end buckets -- whose counts run far
 		// past their own mean -- from being priced as though they all sat on it.
 		const edge =
-			(inputs.baseEvPercent
-				+ inputs.edgeSlopePointsPerTrueCount * scale * meanTrueCount
-				+ inputs.edgeCurvaturePointsPerTrueCountSquared
-					* scale
-					* scale
-					* meanSquaredTrueCount)
+			edgeAtCount(inputs, scale * meanTrueCount, scale * scale * meanSquaredTrueCount)
 			/ 100;
 		averageBetUnits += frequency * bet;
 		evUnitsPerRound += frequency * bet * edge;

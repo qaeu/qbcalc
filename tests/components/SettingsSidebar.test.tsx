@@ -514,9 +514,12 @@ describe('SettingsSidebar', () => {
 		it('reports a bet spread edit as a whole new ramp', () => {
 			const onBankrollChange = renderWithBankroll();
 
-			fireEvent.input(screen.getByLabelText('Units bet at Hi-Lo-equivalent true count ≥+6'), {
-				target: { value: '20' },
-			});
+			fireEvent.input(
+				screen.getByLabelText('Units bet at Hi-Lo-equivalent true count ≥+6'),
+				{
+					target: { value: '20' },
+				}
+			);
 
 			expect(onBankrollChange).toHaveBeenCalledWith('ramp', [1, 1, 2, 4, 8, 12, 20]);
 		});
@@ -532,9 +535,12 @@ describe('SettingsSidebar', () => {
 			fireEvent.input(screen.getByLabelText('Bankroll', { selector: 'input' }), {
 				target: { value: '20000' },
 			});
-			fireEvent.input(screen.getByLabelText('Units bet at Hi-Lo-equivalent true count +3'), {
-				target: { value: '9' },
-			});
+			fireEvent.input(
+				screen.getByLabelText('Units bet at Hi-Lo-equivalent true count +3'),
+				{
+					target: { value: '9' },
+				}
+			);
 
 			await settlingTime();
 			expect(onSettingsChange).not.toHaveBeenCalled();

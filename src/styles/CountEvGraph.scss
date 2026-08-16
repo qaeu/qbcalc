@@ -6,7 +6,7 @@ $skeleton-phase-count: 12;
 $skeleton-pulse-duration: 1.4s;
 
 @layer screen {
-	.count-frequency-graph {
+	.count-ev-graph {
 		@include card;
 		// Sized like the summary card grid above it, so the two read as one block.
 		// The spacing below comes from `.ev-table`'s own gap, as the grids' does.
@@ -28,22 +28,18 @@ $skeleton-pulse-duration: 1.4s;
 			@include panel-title;
 		}
 
-		&__caption {
-			font-size: 13px;
-			color: get($neutrals, 'fg-light');
-		}
-
 		&__plot {
 			display: block;
 			width: 100%;
 			height: auto;
 			margin-top: 8px;
-			// Columns are pointed at through their whole band, so the pointer only
+			// Points are pointed at through their whole band, so the pointer only
 			// ever changes what the caption reads -- never a selection.
 			user-select: none;
 		}
 
-		&__baseline {
+		// The axis the line is read against, and the edge the two fills meet on.
+		&__zero {
 			stroke: get($neutrals, 'sep');
 			stroke-width: 1;
 		}
@@ -52,12 +48,33 @@ $skeleton-pulse-duration: 1.4s;
 			fill: transparent;
 		}
 
-		// One series, in two weights: the rounds a counter is betting into stand
-		// in the brand colour, the rest of the shoe in a muted one. Nothing is
-		// being compared, so this is emphasis rather than a second category.
-		&__column {
+		// One series, in two weights: the rounds a counter makes money on are
+		// filled in the brand colour, the rest of the shoe in a muted one. The
+		// fills carry the sign, so the line itself stays neutral and unbroken.
+		&__line {
+			fill: none;
+			stroke: get($neutrals, 'fg');
+			stroke-width: 2;
+			stroke-linejoin: round;
+			stroke-linecap: round;
+		}
+
+		&__area {
 			fill: get($neutrals, 'sep-dark');
-			transition: fill 150ms ease;
+			opacity: 0.45;
+
+			&.is-advantage {
+				fill: get($primaries, 'base');
+			}
+		}
+
+		&__point {
+			fill: get($neutrals, 'sep-dark');
+			stroke: get($neutrals, 'bg');
+			stroke-width: 1.5;
+			transition:
+				fill 150ms ease,
+				r 100ms ease;
 
 			&.is-advantage {
 				fill: get($primaries, 'base');
@@ -72,8 +89,8 @@ $skeleton-pulse-duration: 1.4s;
 			}
 		}
 
-		// Axis text wears text colours rather than the column's, so it stays
-		// legible whatever the fill does.
+		// Axis text wears text colours rather than the line's, so it stays legible
+		// whatever the fill does.
 		&__tick {
 			fill: get($neutrals, 'fg-light');
 			font-size: 13px;
@@ -104,7 +121,7 @@ $skeleton-pulse-duration: 1.4s;
 			border-radius: 6px;
 			background-color: get($neutrals, 'sep');
 			opacity: 0.35;
-			animation: count-frequency-skeleton-pulse $skeleton-pulse-duration
+			animation: count-ev-skeleton-pulse $skeleton-pulse-duration
 				cubic-bezier(0.2, 1, 0, 0.8) infinite;
 		}
 
@@ -117,7 +134,7 @@ $skeleton-pulse-duration: 1.4s;
 			}
 		}
 
-		@keyframes count-frequency-skeleton-pulse {
+		@keyframes count-ev-skeleton-pulse {
 			0%,
 			100% {
 				opacity: 0.35;

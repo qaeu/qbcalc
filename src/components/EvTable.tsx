@@ -28,7 +28,7 @@ import { loadingPhase } from '#utils/loadingPhase';
 import { loadCellDisplayMode, saveCellDisplayMode } from '#utils/storage';
 import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 
-import CountFrequencyGraph, { type CountFrequencyProfile } from '#c/CountFrequencyGraph';
+import CountEvGraph, { type CountEvProfile } from '#c/CountEvGraph';
 import EvCellDialog from '#c/EvCellDialog';
 import EvCellPopover from '#c/EvCellPopover';
 import EvSummary from '#c/EvSummary';
@@ -235,7 +235,7 @@ const GRID_SALTS = {
 	soft: 0x85ebca6b,
 	split: 0xc2b2ae35,
 	summary: 0x27d4eb2f,
-	frequency: 0x165667b1,
+	countEv: 0x165667b1,
 } as const;
 
 interface EvGridProps {
@@ -369,8 +369,8 @@ interface EvTableProps {
 	error: Accessor<string | null>;
 	trueCount: Accessor<number>;
 	bankroll: Accessor<BankrollAnalysis | undefined>;
-	/** The count distribution the frequency graph draws, on the same basis. */
-	countFrequency: Accessor<CountFrequencyProfile | undefined>;
+	/** The count-weighted EV curve the graph card draws, on the same basis. */
+	countEv: Accessor<CountEvProfile | undefined>;
 }
 
 const EvTable: Component<EvTableProps> = (props) => {
@@ -460,10 +460,10 @@ const EvTable: Component<EvTableProps> = (props) => {
 					loading={props.isSummaryComputing()}
 					seed={runSeed() ^ GRID_SALTS.summary}
 				/>
-				<CountFrequencyGraph
-					profile={props.countFrequency()}
+				<CountEvGraph
+					profile={props.countEv()}
 					loading={props.isSummaryComputing()}
-					seed={runSeed() ^ GRID_SALTS.frequency}
+					seed={runSeed() ^ GRID_SALTS.countEv}
 				/>
 				<p class="ev-table__mode" aria-live="polite">
 					<span class="ev-table__mode-name">{CELL_DISPLAY_MODE_LABELS[mode()]}</span>

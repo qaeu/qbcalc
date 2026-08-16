@@ -1,9 +1,9 @@
 # The round frequency model
 
 How `src/utils/countRounds.ts` works out what share of a shoe's rounds are played at each
-true count, which is what the frequency graph above the grids draws. The bet-sizing layer
-is documented separately in [bankroll-model.md](./bankroll-model.md), and the EV result
-both sit above in [ev-model.md](./ev-model.md).
+true count, which is the weight the graph card above the grids prices each count's edge by.
+The bet-sizing layer is documented separately in [bankroll-model.md](./bankroll-model.md),
+and the EV result both sit above in [ev-model.md](./ev-model.md).
 
 ## The same question as the bankroll model's, answered differently
 
@@ -37,40 +37,84 @@ For each of 20,000 trials:
 2. Deal to the cut card at `penetrationPercent`, `CARDS_PER_ROUND` — five, about a
    heads-up round — at a time.
 3. Before each round, read the true count as `runningCount / decksRemaining` and file the
-   round under the nearest whole count. Reading _before_ the round is dealt is what makes
-   the bucket the count the round is bet at.
+   round under the nearest whole count, adding the count and its square into that bucket.
+   Reading _before_ the round is dealt is what makes the bucket the count the round is bet
+   at.
 
 Rounding rather than truncating is a choice about the drawing. Truncating towards zero is
 the closer description of what a player does — at +2.9 you are betting the +2 step of the
 ramp — but it gives the zero bucket everything from −1 to +1, twice the width of every
-other bucket, and a bar drawn twice as wide as its neighbours reads as twice as much play.
-Rounding makes every bucket one count wide, so the heights compare. It roughly halves the
-zero bar: for six decks of Hi-Lo at 75%, truncating puts 45.5% of rounds at zero where
+other bucket, and a point drawn from twice the play reads as twice the weight. Rounding
+makes every bucket one count wide, so the readings compare. It roughly halves the zero
+bucket: for six decks of Hi-Lo at 75%, truncating puts 45.5% of rounds at zero where
 rounding puts 27%.
 
-Every round of every shoe goes into the same histogram, so the bars are the share of a
-session's play at each count, not a statement about any one shoe. A count a shoe visits
+Every round of every shoe goes into the same histogram, so a bucket is the share of a
+session's play at that count, not a statement about any one shoe. A count a shoe visits
 for one round in sixty is one sixtieth of a shoe's play, and the graph says so.
 
 The seed is fixed, so the same settings always draw the same graph rather than twitching
 by a fraction of a percent on every unrelated recalculation.
 
+The two count moments are carried beside the frequency for the same reason
+`trueCountFrequencies` carries them (bankroll-model.md §How often a count comes up): the
+edge curve is a quadratic, and the two open end buckets hold counts running far past their
+label. Pricing the `≥+6` bucket at +6 would understate exactly the rounds a counter cares
+most about.
+
 ## What the graph shows
 
-One bar per whole count from −6 to +6, summing to one. The two outermost buckets are open,
-so a round dealt at +9 is drawn at +6 — which is why those bars can stand taller than
-their neighbours.
+**Frequency-weighted EV by true count**: one point per whole count from −6 to +6, plotting
 
-Counts of +1 and better are drawn in the brand colour and the rest of the shoe in a muted
-one: same series, different weight, marking the rounds a counter is actually betting into.
-The reading under the plot gives the rounds a shoe deals and the share of them played at
-+1 or better, and follows the pointer for a per-bucket figure.
+```
+frequency(TC) · bet(TC) · edge(TC)
+```
+
+in percent of a betting unit. The frequency is the simulation above; the edge is the fitted
+curve (bankroll-model.md §The edge curve), taken at each bucket's own mean and mean-square
+count rather than at its label; and the bet is the ramp as it is currently set, read off
+through `betAtCount`.
+
+All three factors, rather than any one of them, is what says where the money in a shoe
+actually is. The edge alone climbs forever and suggests the play is all at the top; the
+frequency alone is a hill on zero and says nothing about what the play is worth; the ramp
+alone says what you meant to do rather than what it earns. Multiplied, the line dips into
+the losing counts near zero — where nearly all the rounds are, at the bottom of the ramp —
+crosses a little past +1, and rises into the bump where the big bets sit. **Summing the
+line gives what the spread makes on an average round**, and the reading under the plot
+gives that total and the part of it made at +1 or better.
+
+Two consequences of including the ramp, both intended:
+
+- **Editing the spread redraws the line immediately**, with no recalculation — the ramp
+  reaches neither the worker nor the simulation, and the shoe is only dealt once per
+  settings change (§Where it runs). Flattening the ramp sinks the whole line under zero;
+  steepening it lifts the right-hand bump, which is the argument for a spread drawn rather
+  than asserted.
+- **A count the ramp sits out contributes nothing**, and the reading says so rather than
+  printing a row of zeroes. A back-counter's ramp — nothing below +1 — draws a line that is
+  flat on the floor across the negative half of the shoe.
+
+The total is deliberately _not_ divided by the average bet, which would make it the same
+per-unit-wagered figure the Player Edge card above reports. The two would not quite agree:
+the card integrates a normal distribution where this simulates real shoes (§The same
+question as the bankroll model's, answered differently), which is worth a few hundredths of
+a point — six-deck Hi-Lo at 75% under a 1–12 spread comes out at 0.61% here against the
+card's 0.63%. Two figures for one quantity that differ in the second decimal read as a bug
+rather than as two methods, so the graph quotes the per-round number instead, which is a
+figure no card duplicates.
+
+Positive contributions are filled in the brand colour and negative ones in a muted one,
+cut on the zero axis so the two halves meet exactly where the line crosses — which is a
+point between buckets, not one the simulation holds. The reading follows the pointer for a
+per-bucket figure: how often that count is played, what the ramp bets there, what the count
+is worth, and the product.
 
 ## Assumptions worth naming
 
 - **The count is read between rounds, at five cards a round.** A real table deals a
   varying number of cards per round, and more players mean fewer rounds per shoe from the
-  same cards — which shifts the rounds-per-shoe figure more than it shifts the shape.
+  same cards — which shifts `roundsPerShoe` more than it shifts the shape the graph draws.
 - **Every shoe is played to the cut.** A back-counter who sits out the cold shoes plays a
   much better distribution than this one; the graph is what the table deals, not what a
   particular player takes.
@@ -88,8 +132,20 @@ The reading under the plot gives the rounds a shoe deals and the share of them p
 ## Where it runs
 
 On the main thread, in a `createMemo` in `App.tsx`, off the same basis the summary cards
-read — not in the EV worker. It takes tens of milliseconds for an eight-deck shoe, and it
-needs no EV result at all: the counting system, the shoe size and the penetration settle
-it entirely. Hanging it off the settled basis rather than the live config is what keeps it
-from rerunning on every keystroke in the settings form, and keeps the card in step with
-the figures beside it.
+read — not in the EV worker. It takes tens of milliseconds for an eight-deck shoe, and the
+simulation itself needs no EV result at all: the counting system, the shoe size and the
+penetration settle the distribution entirely. Only the pricing on top of it reads the
+basis' edge curve, which is cached on the rules and the tags and so is already computed by
+the time the card draws.
+
+Hanging the whole thing off the settled basis rather than the live config is what keeps it
+from rerunning on every keystroke in the settings form, and keeps the card in step with the
+figures beside it. It also means the card does not move when the count on screen does,
+which is right: it describes every count the shoe reaches, not the one the grids are
+currently priced at.
+
+The simulation and the pricing sit in two memos, not one. The shoe is dealt in the inner
+one, off the basis alone; the outer one prices its buckets through the edge curve and the
+bet ramp. So editing the spread — which reaches no calculation anywhere in the app — redraws
+the line for the cost of thirteen multiplications, without shuffling twenty thousand shoes
+again.

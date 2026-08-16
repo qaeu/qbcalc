@@ -79,6 +79,13 @@ Two consequences worth naming:
   this. The gap between them is the spread of counts inside a bucket, which is widest in
   the two open-ended ends — where a spread has most of its money.
 
+`edgeAtCount` is the one place the curve is evaluated, taking a mean and a mean square
+rather than a single count: `analyzeBankroll` prices the ramp's buckets through it, and the
+weighted-EV graph card prices the simulated round buckets (count-rounds-model.md) through
+the same function, so the two cannot drift apart. `betAtCount` does the same job for the
+ramp: `analyzeBankroll` walks the ramp's own buckets, while the graph has counts of its own
+to look a bet up for, and both land on the same half-unit cuts.
+
 The curve describes the shoe and the tags alone, never the count on screen, and is cached
 on exactly those — so sweeping the count pays for the probe shoes once. A calculation walks
 the grids once (the count-adjusted shoe), plus four more the first time a rule or a tag
@@ -153,7 +160,7 @@ penetration alone — and `analyzeBankroll` multiplies each bucket's mean back u
 before pricing it with the system's own slope. What then separates two systems is only the
 product `slope · scale ∝ slope · √tagSpread`, i.e. how much information the tags carry. A
 system's own counts still appear untouched everywhere else: the grids, the count control
-and the true count frequency graph are all in the units the player actually keeps.
+and the weighted-EV graph are all in the units the player actually keeps.
 
 The bet spread editor is labelled accordingly. Betting 8 units at the `+4` column means
 8 units at the advantage a Hi-Lo player has at +4, which an RPC player reaches at about

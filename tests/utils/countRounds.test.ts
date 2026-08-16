@@ -88,6 +88,39 @@ describe('simulateRoundFrequency', () => {
 		expect(zero).toBeCloseTo(atZero / reads, 1);
 	});
 
+	it('prices its open end buckets past their own labels', () => {
+		const shoe = simulateRoundFrequency(SIX_DECK, HI_LO);
+		const at = (trueCount: number) =>
+			shoe.rounds.find((bucket) => bucket.trueCount === trueCount)!;
+
+		// A whole bucket rounds to its label, so its mean sits within half a count
+		// of it -- except at the open ends, which hold everything past them.
+		expect(at(2).meanTrueCount).toBeGreaterThan(1.5);
+		expect(at(2).meanTrueCount).toBeLessThan(2.5);
+		expect(at(6).meanTrueCount).toBeGreaterThan(6.5);
+		expect(at(-6).meanTrueCount).toBeLessThan(-6.5);
+
+		// The mean square is at least the square of the mean, by Jensen, and much
+		// more where the counts inside are spread widely about it.
+		for (const bucket of shoe.rounds) {
+			expect(bucket.meanSquaredTrueCount).toBeGreaterThanOrEqual(
+				bucket.meanTrueCount * bucket.meanTrueCount - 1e-9
+			);
+		}
+		expect(at(6).meanSquaredTrueCount).toBeGreaterThan(
+			at(6).meanTrueCount * at(6).meanTrueCount
+		);
+	});
+
+	it('keeps a mean-zero count mean-zero across the buckets', () => {
+		const shoe = simulateRoundFrequency(SIX_DECK, HI_LO);
+		const mean = shoe.rounds.reduce(
+			(sum, bucket) => sum + bucket.frequency * bucket.meanTrueCount,
+			0
+		);
+		expect(mean).toBeCloseTo(0, 2);
+	});
+
 	it('is symmetric about zero for a balanced system', () => {
 		const shoe = simulateRoundFrequency(SIX_DECK, HI_LO);
 		// The count is mean-zero, so a round is as likely to be dealt at +3 as at

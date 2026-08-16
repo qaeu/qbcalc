@@ -35,6 +35,20 @@ export interface CountShare {
 	trueCount: number;
 	/** Fraction of all rounds dealt. The buckets sum to one. */
 	frequency: number;
+	/**
+	 * The mean true count actually seen inside the bucket, which is what the
+	 * bucket's edge is priced at. It is not the label: the two end buckets are
+	 * open, so a round dealt at +9 sits in the +6 bucket and pricing the bucket
+	 * at +6 would undercount what those rounds are worth. Empty buckets report
+	 * their label.
+	 */
+	meanTrueCount: number;
+	/**
+	 * The mean *square* of the same count, which the edge curve's squared term is
+	 * priced against. Always at least `meanTrueCount²`, and much more in the two
+	 * open ends, whose counts are spread widely about their mean.
+	 */
+	meanSquaredTrueCount: number;
 }
 
 export interface RoundFrequency {
@@ -150,6 +164,11 @@ export function simulateRoundFrequency(
 	const random = randomSource(SEED);
 
 	const counts = ROUND_TRUE_COUNTS.map(() => 0);
+	// The count moments each bucket holds, summed as rounds are filed: the edge
+	// curve is quadratic, so pricing a bucket takes both of them (see
+	// docs/bankroll-model.md §The edge curve).
+	const moments = ROUND_TRUE_COUNTS.map(() => 0);
+	const squares = ROUND_TRUE_COUNTS.map(() => 0);
 	let totalRounds = 0;
 	let advantageRounds = 0;
 	let advantageCount = 0;
@@ -168,6 +187,8 @@ export function simulateRoundFrequency(
 			const trueCount = runningCount / decksLeft;
 			const bucket = bucketOf(trueCount);
 			counts[bucket] += 1;
+			moments[bucket] += trueCount;
+			squares[bucket] += trueCount * trueCount;
 			totalRounds += 1;
 			// Counted by bucket rather than by the raw count, so the reading under
 			// the graph adds up the bars the reader can see.
@@ -185,6 +206,9 @@ export function simulateRoundFrequency(
 		rounds: ROUND_TRUE_COUNTS.map((trueCount, index) => ({
 			trueCount,
 			frequency: totalRounds > 0 ? counts[index] / totalRounds : 0,
+			meanTrueCount: counts[index] > 0 ? moments[index] / counts[index] : trueCount,
+			meanSquaredTrueCount:
+				counts[index] > 0 ? squares[index] / counts[index] : trueCount * trueCount,
 		})),
 		roundsPerShoe: totalRounds / TRIALS,
 		advantageShare: totalRounds > 0 ? advantageRounds / totalRounds : 0,

@@ -1,7 +1,8 @@
 import { createMemo, createSignal, onCleanup, type Component } from 'solid-js';
 
-import { analyzeBankroll, type BankrollAnalysis } from '#utils/bankroll';
+import { analyzeBankroll, hiLoCountScale, type BankrollAnalysis } from '#utils/bankroll';
 import { labelForSystem } from '#utils/countingSystems';
+import { baseComposition } from '#utils/ev/composition';
 import { simulateRoundFrequency } from '#utils/countRounds';
 import {
 	calculatorSettingsEqual,
@@ -26,7 +27,7 @@ import type {
 import { createGlobalKeydown, isKeyConsumingTarget } from '#utils/keyboard';
 import { INPUT_SETTLE_MS } from '#utils/settle';
 
-import type { CountFrequencyProfile } from '#c/CountFrequencyGraph';
+import type { CountEvProfile } from '#c/CountEvGraph';
 import EvTable from '#c/EvTable';
 import SettingsSidebar from '#c/SettingsSidebar';
 
@@ -108,18 +109,39 @@ const App: Component = () => {
 		});
 	});
 
-	// Needs no EV result at all -- where a shoe's count gets to is settled by the
-	// counting system, the shoe size and the penetration alone. It is still read
-	// off the summary basis rather than the live config, so that the graph
-	// changes in step with the cards beside it instead of jumping ahead of a
-	// calculation they are still waiting on. The simulation behind it takes tens
-	// of milliseconds, which is why it hangs off a settled basis rather than
-	// rerunning as a setting is typed.
-	const countFrequency = createMemo<CountFrequencyProfile | undefined>(() => {
+	// Held in its own memo because it is the expensive half of the graph card and
+	// the only half a bet spread cannot change: 20,000 shuffled shoes, tens of
+	// milliseconds, settled entirely by the counting system, the shoe size and
+	// the penetration. Editing the ramp reprices the line below without dealing a
+	// single card again.
+	const roundFrequency = createMemo(() => {
 		const config = summaryBasis()?.config;
 		if (!config) return undefined;
+		return simulateRoundFrequency(ruleSetFromConfig(config), config.tags);
+	});
+
+	// Read off the summary basis rather than the live config, so that the graph
+	// changes in step with the cards beside it instead of jumping ahead of a
+	// calculation they are still waiting on -- and so it holds still when the
+	// count on screen moves, since it describes every count rather than one of
+	// them. The bet spread is the exception: it reaches no calculation at all, so
+	// the line follows the ramp as it is edited, exactly as the cards do.
+	const countEv = createMemo<CountEvProfile | undefined>(() => {
+		const basis = summaryBasis();
+		const rounds = roundFrequency();
+		if (!basis || !rounds) return undefined;
+		const config = basis.config;
+		const ruleSet = ruleSetFromConfig(config);
 		return {
-			rounds: simulateRoundFrequency(ruleSetFromConfig(config), config.tags),
+			rounds,
+			ramp: bankroll().ramp,
+			countScale: hiLoCountScale(baseComposition(ruleSet), config.tags),
+			edge: {
+				baseEvPercent: basis.result.average.baseEvPercent,
+				edgeSlopePointsPerTrueCount: basis.result.edgeSlopePointsPerTrueCount,
+				edgeCurvaturePointsPerTrueCountSquared:
+					basis.result.edgeCurvaturePointsPerTrueCountSquared,
+			},
 			decks: config.decks,
 			penetrationPercent: config.penetrationPercent,
 			systemLabel: labelForSystem(config.system),
@@ -296,7 +318,7 @@ const App: Component = () => {
 					error={error}
 					trueCount={trueCount}
 					bankroll={bankrollAnalysis}
-					countFrequency={countFrequency}
+					countEv={countEv}
 				/>
 			</div>
 		</main>

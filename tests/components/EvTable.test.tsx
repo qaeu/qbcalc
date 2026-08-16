@@ -2,11 +2,11 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
 
-import type { CountFrequencyProfile } from '#c/CountFrequencyGraph';
+import type { CountEvProfile } from '#c/CountEvGraph';
 import EvTable from '#c/EvTable';
-import { analyzeBankroll, type BankrollAnalysis } from '#utils/bankroll';
+import { analyzeBankroll, hiLoCountScale, type BankrollAnalysis } from '#utils/bankroll';
 import { simulateRoundFrequency } from '#utils/countRounds';
-import { DEFAULT_PARAMS } from '#utils/ev/composition';
+import { baseComposition, DEFAULT_PARAMS } from '#utils/ev/composition';
 import { DEFAULT_RULE_SET } from '#utils/ev/rules';
 import { DEFAULT_BANKROLL_CONFIG } from '#utils/storage';
 import { computeAllEvTables } from '#utils/ev/tables';
@@ -49,10 +49,17 @@ const SAMPLE_BANKROLL: BankrollAnalysis = analyzeBankroll(
 	}
 );
 
-// What the frequency graph draws, on the same rules. It needs no EV result of
-// its own -- the shoe and the tags settle it entirely.
-const SAMPLE_FREQUENCY: CountFrequencyProfile = {
+// What the weighted-EV graph draws, on the same rules and the same edge curve
+// as the summary cards above it.
+const SAMPLE_COUNT_EV: CountEvProfile = {
 	rounds: simulateRoundFrequency(DEFAULT_RULE_SET, DEFAULT_PARAMS.tags),
+	edge: {
+		baseEvPercent: SAMPLE_RESULT.average.baseEvPercent,
+		edgeSlopePointsPerTrueCount: EDGE_SLOPE,
+		edgeCurvaturePointsPerTrueCountSquared: EDGE_CURVATURE,
+	},
+	ramp: DEFAULT_BANKROLL_CONFIG.ramp,
+	countScale: hiLoCountScale(baseComposition(DEFAULT_RULE_SET), DEFAULT_PARAMS.tags),
 	decks: DEFAULT_RULE_SET.decks,
 	penetrationPercent: DEFAULT_RULE_SET.penetrationPercent,
 	systemLabel: 'Ace-Five',
@@ -98,7 +105,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -125,7 +132,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => SAMPLE_BANKROLL}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -158,7 +165,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -178,7 +185,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => true}
 				error={() => null}
 				bankroll={() => undefined}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -200,7 +207,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => SAMPLE_BANKROLL}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -217,7 +224,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -254,7 +261,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -281,7 +288,7 @@ describe('EvTable', () => {
 				error={() => 'Count too extreme for this shoe'}
 				trueCount={() => 0}
 				bankroll={() => undefined}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 			/>
 		));
 
@@ -297,7 +304,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => true}
 				error={() => null}
 				bankroll={() => undefined}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 0}
 			/>
 		));
@@ -325,7 +332,7 @@ describe('EvTable', () => {
 				isSummaryComputing={isComputing}
 				error={() => null}
 				bankroll={() => undefined}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -362,7 +369,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 2.5}
 			/>
 		));
@@ -408,7 +415,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -443,7 +450,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 0}
 			/>
 		));
@@ -471,7 +478,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -526,7 +533,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -565,7 +572,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -587,7 +594,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -615,7 +622,7 @@ describe('EvTable', () => {
 					isSummaryComputing={() => false}
 					error={() => null}
 					bankroll={() => undefined}
-					countFrequency={() => SAMPLE_FREQUENCY}
+					countEv={() => SAMPLE_COUNT_EV}
 					trueCount={() => 2.5}
 				/>
 			));
@@ -746,7 +753,7 @@ describe('EvTable', () => {
 				isSummaryComputing={() => false}
 				error={() => null}
 				bankroll={() => undefined}
-				countFrequency={() => SAMPLE_FREQUENCY}
+				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
