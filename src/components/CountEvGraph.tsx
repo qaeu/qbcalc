@@ -1,15 +1,21 @@
 /**
  * Where a shoe's expectation actually comes from: each true count's edge
  * weighted by how much of the play happens at it and by how much the bet spread
- * puts on it, drawn as a line across the count. The shoe the settings describe,
- * rather than the one hand the grids price -- see docs/count-rounds-model.md.
+ * puts on it, drawn as a line across the count and priced in money. The shoe the
+ * settings describe, rather than the one hand the grids price -- see
+ * docs/count-rounds-model.md.
  */
 
 import { createMemo, createSignal, For, Show, type Component } from 'solid-js';
 
 import { betAtCount, edgeAtCount, type EdgeCurve } from '#utils/bankroll';
 import { ROUND_TRUE_COUNTS, type RoundFrequency } from '#utils/countRounds';
-import { formatCount, formatEvPercent, formatPercent } from '#utils/format';
+import {
+	formatCount,
+	formatEvCurrency,
+	formatEvPercent,
+	formatHands,
+} from '#utils/format';
 import { loadingPhase } from '#utils/loadingPhase';
 
 import '#styles/CountEvGraph';
@@ -28,6 +34,8 @@ export interface CountEvProfile {
 	 * `hiLoCountScale` and docs/bankroll-model.md §The ramp's count axis.
 	 */
 	countScale: number;
+	/** What one betting unit is worth, which is what puts the line in money. */
+	unit: number;
 	decks: number;
 	penetrationPercent: number;
 	/** Display name of the counting system the tags came from. */
@@ -56,16 +64,14 @@ interface Point {
 	index: number;
 	trueCount: number;
 	label: string;
-	frequency: number;
+	/** The bucket's share of the play, as hands of an average shoe. */
+	hands: number;
 	/** Units the spread bets into this bucket. */
 	bet: number;
 	/** The edge at the counts this bucket holds, in percent. */
 	edgePercent: number;
-	/**
-	 * What this bucket contributes to an average round, in percent of a unit --
-	 * what is plotted.
-	 */
-	weightedEvPercent: number;
+	/** What this bucket contributes to an average shoe, in money -- what is plotted. */
+	weightedEv: number;
 	/** Left edge of the whole band, which is the hover target. */
 	bandX: number;
 	x: number;
@@ -98,12 +104,14 @@ const CountEvGraph: Component<CountEvGraphProps> = (props) => {
 	 * The plotted value of every bucket, before it is given a position: the
 	 * bucket's edge -- priced at the counts it actually holds, not at its label --
 	 * under the weight of how often the bucket comes up and how many units the
-	 * spread bets into it. The sum across the line is then what the spread makes
-	 * on an average round, in percent of a unit.
+	 * spread bets into it, in money. Percent of a unit becomes pounds through the
+	 * unit; a round becomes a shoe through the rounds the simulation dealt before
+	 * the cut. The sum across the line is then what the spread makes on an average
+	 * shoe.
 	 *
-	 * Deliberately not divided by the average bet, which would turn the total into
-	 * the same per-unit-wagered edge the summary card above reports. The two would
-	 * not quite agree -- the card integrates a normal distribution where this
+	 * Deliberately not divided by the average bet, which would turn the total back
+	 * into the same per-unit-wagered edge the summary card above reports. The two
+	 * would not quite agree -- the card integrates a normal distribution where this
 	 * simulates a real shoe (count-rounds-model.md §The same question as the
 	 * bankroll model's) -- and two figures for one quantity that differ in the
 	 * second decimal read as a bug rather than as two methods.
@@ -130,9 +138,10 @@ const CountEvGraph: Component<CountEvGraphProps> = (props) => {
 				),
 			};
 		});
+		const perShoe = (profile.unit / 100) * profile.rounds.roundsPerShoe;
 		return priced.map((value) => ({
 			...value,
-			weightedEvPercent: value.frequency * value.bet * value.edgePercent,
+			weightedEv: value.frequency * value.bet * value.edgePercent * perShoe,
 		}));
 	});
 
@@ -144,7 +153,7 @@ const CountEvGraph: Component<CountEvGraphProps> = (props) => {
 	 * squash the winning end into the axis.
 	 */
 	const scale = createMemo(() => {
-		const plotted = values().map((value) => value.weightedEvPercent);
+		const plotted = values().map((value) => value.weightedEv);
 		const low = Math.min(0, ...plotted);
 		const high = Math.max(0, ...plotted);
 		const span = high - low;
@@ -164,13 +173,13 @@ const CountEvGraph: Component<CountEvGraphProps> = (props) => {
 				index,
 				trueCount: value.trueCount,
 				label: bucketLabel(value.trueCount, index, all.length),
-				frequency: value.frequency,
+				hands: value.frequency * (props.profile?.rounds.roundsPerShoe ?? 0),
 				bet: value.bet,
 				edgePercent: value.edgePercent,
-				weightedEvPercent: value.weightedEvPercent,
+				weightedEv: value.weightedEv,
 				bandX,
 				x: bandX + BAND_WIDTH / 2,
-				y: PAD_TOP + ((high - value.weightedEvPercent) / span) * PLOT_HEIGHT,
+				y: PAD_TOP + ((high - value.weightedEv) / span) * PLOT_HEIGHT,
 			};
 		});
 	});
@@ -202,34 +211,40 @@ const CountEvGraph: Component<CountEvGraphProps> = (props) => {
 		if (all.length === 0) return 0;
 		return all.reduce(
 			(best, point) =>
-				Math.abs(point.weightedEvPercent) > Math.abs(all[best].weightedEvPercent) ?
-					point.index
-				:	best,
+				Math.abs(point.weightedEv) > Math.abs(all[best].weightedEv) ? point.index : best,
 			0
 		);
 	});
 
-	/** What the spread makes on an average round: the line summed across. */
-	const totalEvPercent = createMemo(() =>
-		values().reduce((sum, value) => sum + value.weightedEvPercent, 0)
+	/** What the spread makes on an average shoe: the line summed across. */
+	const totalEv = createMemo(() =>
+		values().reduce((sum, value) => sum + value.weightedEv, 0)
 	);
 
-	const summary = createMemo(() => `${formatEvPercent(totalEvPercent())}% EV average`);
+	/**
+	 * Hands the shoe deals before the cut, which is what the total is "per" --
+	 * rounded, because a shoe of 46.8 hands is an average over the simulated
+	 * shoes and reads as false precision beside a figure in pounds.
+	 */
+	const handsPerShoe = createMemo(() =>
+		Math.round(props.profile?.rounds.roundsPerShoe ?? 0)
+	);
+
+	const summary = createMemo(
+		() => `${formatEvCurrency(totalEv())} per ${formatHands(handsPerShoe())} hand shoe`
+	);
 
 	const reading = createMemo(() => {
 		const index = hovered();
 		if (index === null) return summary();
 		const point = points()[index];
-		return (
-			`${formatPercent(point.frequency * 100)} of rounds`
-			+ ` @${formatEvPercent(point.edgePercent)}% EV`
-		);
+		return `${formatHands(point.hands)} hands @${formatEvPercent(point.edgePercent)}% EV`;
 	});
 
 	return (
 		<section class="count-ev-graph">
 			<header class="count-ev-graph__header">
-				<h2 class="count-ev-graph__title">Frequency-weighted EV by true count</h2>
+				<h2 class="count-ev-graph__title">Shoe EV by TC</h2>
 			</header>
 			<Show
 				when={!props.loading && props.profile}
@@ -258,7 +273,7 @@ const CountEvGraph: Component<CountEvGraphProps> = (props) => {
 					class="count-ev-graph__plot"
 					viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
 					role="img"
-					aria-label={`Each true count's player edge, weighted by how often it is played and by what the spread bets there. ${summary()}`}
+					aria-label={`What each true count contributes to a shoe: its player edge, weighted by how often it is played and by what the spread bets there, in money. ${summary()}`}
 					onMouseLeave={() => setHovered(null)}
 				>
 					{/*
@@ -317,7 +332,7 @@ const CountEvGraph: Component<CountEvGraphProps> = (props) => {
 								/>
 								<circle
 									class={`count-ev-graph__point${
-										point.weightedEvPercent > 0 ? ' is-advantage' : ''
+										point.weightedEv > 0 ? ' is-advantage' : ''
 									}${hovered() === point.index ? ' is-hovered' : ''}`}
 									cx={point.x}
 									cy={point.y}
@@ -347,16 +362,13 @@ const CountEvGraph: Component<CountEvGraphProps> = (props) => {
 										// below would land in the tick row, which is what the
 										// plot's own floor guards.
 										y={
-											(
-												point.weightedEvPercent < 0
-												&& point.y + 18 <= PAD_TOP + PLOT_HEIGHT
-											) ?
+											point.weightedEv < 0 && point.y + 18 <= PAD_TOP + PLOT_HEIGHT ?
 												point.y + 18
 											:	point.y - 10
 										}
 										text-anchor="middle"
 									>
-										{formatEvPercent(point.weightedEvPercent)}%
+										{formatEvCurrency(point.weightedEv)}
 									</text>
 								</Show>
 							</g>

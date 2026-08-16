@@ -60,6 +60,7 @@ const SAMPLE_COUNT_EV: CountEvProfile = {
 	},
 	ramp: DEFAULT_BANKROLL_CONFIG.ramp,
 	countScale: hiLoCountScale(baseComposition(DEFAULT_RULE_SET), DEFAULT_PARAMS.tags),
+	unit: DEFAULT_BANKROLL_CONFIG.unit,
 	decks: DEFAULT_RULE_SET.decks,
 	penetrationPercent: DEFAULT_RULE_SET.penetrationPercent,
 	systemLabel: 'Ace-Five',

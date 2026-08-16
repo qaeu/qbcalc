@@ -65,6 +65,28 @@ export function formatCurrency(value: number): string {
 }
 
 /**
+ * Hands, as the graph card counts them: a shoe's rounds, or the share of them
+ * played at one true count. A tenth of a hand is worth showing -- a count that
+ * comes up once every few shoes is still worth money -- but a whole number of
+ * them is not written as one.
+ */
+export function formatHands(value: number): string {
+	return Number.isInteger(value) ? `${value}` : value.toFixed(1);
+}
+
+/**
+ * Money at a finer grain than `formatCurrency`, and always signed. The graph
+ * card's figures are what one true count contributes to a shoe, which run to a
+ * pound or two either side of zero, so whole pounds would round most of the line
+ * to nothing.
+ */
+export function formatEvCurrency(value: number): string {
+	const rounded = Math.abs(value).toFixed(2);
+	const sign = value < 0 ? '-' : '+';
+	return `${sign}£${rounded}`;
+}
+
+/**
  * A round count, grouped, and abbreviated past a thousand -- N0 routinely runs
  * into the tens of thousands and would otherwise crowd a summary card.
  */

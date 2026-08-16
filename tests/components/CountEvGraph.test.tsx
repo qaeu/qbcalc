@@ -22,6 +22,7 @@ const PROFILE: CountEvProfile = {
 	// own counts map onto one for one.
 	ramp: [1, 1, 2, 4, 8, 12, 12],
 	countScale: 1,
+	unit: 25,
 	decks: 6,
 	penetrationPercent: 75,
 	systemLabel: 'Hi-Lo',
@@ -69,32 +70,46 @@ describe('CountEvGraph', () => {
 		));
 
 		const reading = container.querySelector('.count-ev-graph__reading')!;
-		expect(reading.textContent).toMatch(/^[+-]\d+\.\d+% EV average$/);
+		expect(reading.textContent).toMatch(/^[+-]£\d+\.\d\d per \d+ hands shoe$/);
 
 		const bands = container.querySelectorAll('.count-ev-graph__band');
 		// The buckets run from -6, so +2 is the ninth of them.
 		fireEvent.mouseEnter(bands[ROUND_TRUE_COUNTS.indexOf(2)]);
-		expect(reading.textContent).toMatch(/^\d+\.\d+% of rounds @[+-]\d+\.\d+% EV$/);
+		expect(reading.textContent).toMatch(/^\d+(\.\d)? hands @[+-]\d+\.\d+% EV$/);
 
 		fireEvent.mouseLeave(screen.getByRole('img'));
-		expect(reading.textContent).toMatch(/^[+-]\d+\.\d+% EV average$/);
+		expect(reading.textContent).toMatch(/^[+-]£\d+\.\d\d per \d+ hands shoe$/);
 	});
 
-	it('follows the spread: a steeper ramp makes more of an average round', () => {
-		const edgeUnder = (ramp: readonly number[]) => {
-			const { container, unmount } = render(() => (
-				<CountEvGraph profile={{ ...PROFILE, ramp }} loading={false} seed={0} />
-			));
-			const reading = container.querySelector('.count-ev-graph__reading')!.textContent!;
-			unmount();
-			return Number(reading.match(/([+-]\d+\.\d+)% EV average/)![1]);
-		};
+	const shoeEvUnder = (profile: CountEvProfile) => {
+		const { container, unmount } = render(() => (
+			<CountEvGraph profile={profile} loading={false} seed={0} />
+		));
+		const reading = container.querySelector('.count-ev-graph__reading')!.textContent!;
+		unmount();
+		const [, sign, amount] = reading.match(/([+-])£(\d+\.\d\d) per/)!;
+		return Number(`${sign}${amount}`);
+	};
+
+	it('follows the spread: a steeper ramp makes more of an average shoe', () => {
+		const flat = shoeEvUnder({ ...PROFILE, ramp: [1, 1, 1, 1, 1, 1, 1] });
 
 		// A flat bet collects the house edge (plus the curve's bend); putting the
 		// money on the counts that are worth more is the whole of a counter's edge.
-		expect(edgeUnder([1, 1, 1, 1, 1, 1, 1])).toBeLessThan(0);
-		expect(edgeUnder(PROFILE.ramp)).toBeGreaterThan(edgeUnder([1, 1, 1, 1, 1, 1, 1]));
-		expect(edgeUnder([1, 1, 2, 6, 12, 20, 30])).toBeGreaterThan(edgeUnder(PROFILE.ramp));
+		expect(flat).toBeLessThan(0);
+		expect(shoeEvUnder(PROFILE)).toBeGreaterThan(flat);
+		expect(shoeEvUnder({ ...PROFILE, ramp: [1, 1, 2, 6, 12, 20, 30] })).toBeGreaterThan(
+			shoeEvUnder(PROFILE)
+		);
+	});
+
+	it('scales with the unit, which only prices the line', () => {
+		// Doubling what a unit is worth doubles every figure on the drawing and
+		// nothing else: the shoe is dealt and priced before the money is applied.
+		expect(shoeEvUnder({ ...PROFILE, unit: 50 })).toBeCloseTo(
+			2 * shoeEvUnder(PROFILE),
+			1
+		);
 	});
 
 	it('shows a skeleton while it is computing', () => {

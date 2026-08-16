@@ -64,16 +64,24 @@ most about.
 
 ## What the graph shows
 
-**Frequency-weighted EV by true count**: one point per whole count from −6 to +6, plotting
+**Shoe EV by TC**: one point per whole count from −6 to +6, plotting
 
 ```
-frequency(TC) · bet(TC) · edge(TC)
+frequency(TC) · bet(TC) · edge(TC) · unit / 100 · roundsPerShoe
 ```
 
-in percent of a betting unit. The frequency is the simulation above; the edge is the fitted
-curve (bankroll-model.md §The edge curve), taken at each bucket's own mean and mean-square
-count rather than at its label; and the bet is the ramp as it is currently set, read off
-through `betAtCount`.
+in money. The frequency is the simulation above; the edge is the fitted curve
+(bankroll-model.md §The edge curve), taken at each bucket's own mean and mean-square count
+rather than at its label; and the bet is the ramp as it is currently set, read off through
+`betAtCount`. Those three give percent of a unit per round, which the last two factors turn
+into pounds a shoe: the unit is what a betting unit is worth, and `roundsPerShoe` is the
+rounds the simulation dealt before the cut card.
+
+Per shoe rather than per round because a shoe is the unit a counter actually plays and sits
+through, and the figures — a pound or two at a bucket, several pounds across the line —
+are ones to weigh against a session. It does mean the scale moves with penetration and deck
+count for two reasons at once: a deeper cut both deals more rounds and reaches better
+counts. The shape of the line is unaffected by the money, which only rescales the axis.
 
 All three factors, rather than any one of them, is what says where the money in a shoe
 actually is. The edge alone climbs forever and suggests the play is all at the top; the
@@ -81,34 +89,37 @@ frequency alone is a hill on zero and says nothing about what the play is worth;
 alone says what you meant to do rather than what it earns. Multiplied, the line dips into
 the losing counts near zero — where nearly all the rounds are, at the bottom of the ramp —
 crosses a little past +1, and rises into the bump where the big bets sit. **Summing the
-line gives what the spread makes on an average round**, and the reading under the plot
-gives that total and the part of it made at +1 or better.
+line gives what the spread makes on an average shoe**, which is what the reading under the
+plot gives at rest.
 
 Two consequences of including the ramp, both intended:
 
 - **Editing the spread redraws the line immediately**, with no recalculation — the ramp
   reaches neither the worker nor the simulation, and the shoe is only dealt once per
-  settings change (§Where it runs). Flattening the ramp sinks the whole line under zero;
+  settings change (§Where it runs). The unit behaves the same way, rescaling the drawing
+  without touching what is under it. Flattening the ramp sinks the whole line under zero;
   steepening it lifts the right-hand bump, which is the argument for a spread drawn rather
   than asserted.
 - **A count the ramp sits out contributes nothing**, and the reading says so rather than
   printing a row of zeroes. A back-counter's ramp — nothing below +1 — draws a line that is
   flat on the floor across the negative half of the shoe.
 
-The total is deliberately _not_ divided by the average bet, which would make it the same
-per-unit-wagered figure the Player Edge card above reports. The two would not quite agree:
-the card integrates a normal distribution where this simulates real shoes (§The same
+The total is deliberately _not_ divided by the average bet, which would take it back to the
+same per-unit-wagered figure the Player Edge card above reports. The two would not quite
+agree: the card integrates a normal distribution where this simulates real shoes (§The same
 question as the bankroll model's, answered differently), which is worth a few hundredths of
 a point — six-deck Hi-Lo at 75% under a 1–12 spread comes out at 0.61% here against the
 card's 0.63%. Two figures for one quantity that differ in the second decimal read as a bug
-rather than as two methods, so the graph quotes the per-round number instead, which is a
-figure no card duplicates.
+rather than as two methods, so the graph quotes money per shoe instead, which is a figure
+no card duplicates.
 
 Positive contributions are filled in the brand colour and negative ones in a muted one,
 cut on the zero axis so the two halves meet exactly where the line crosses — which is a
 point between buckets, not one the simulation holds. The reading follows the pointer for a
-per-bucket figure: how often that count is played, what the ramp bets there, what the count
-is worth, and the product.
+per-bucket figure: how many hands of an average shoe are played at that count, and what the
+count is worth — with the money the two make between them labelled on the point itself. The
+share is given as hands rather than as a percentage so that it is in the same terms as the
+total beside it, which is the money made over a shoe of so many hands.
 
 ## Assumptions worth naming
 

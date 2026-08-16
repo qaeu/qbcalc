@@ -124,8 +124,9 @@ const App: Component = () => {
 	// changes in step with the cards beside it instead of jumping ahead of a
 	// calculation they are still waiting on -- and so it holds still when the
 	// count on screen moves, since it describes every count rather than one of
-	// them. The bet spread is the exception: it reaches no calculation at all, so
-	// the line follows the ramp as it is edited, exactly as the cards do.
+	// them. The bet spread and the unit are the exception: neither reaches any
+	// calculation, so the line follows the ramp as it is edited and rescales with
+	// the unit, exactly as the cards do.
 	const countEv = createMemo<CountEvProfile | undefined>(() => {
 		const basis = summaryBasis();
 		const rounds = roundFrequency();
@@ -135,6 +136,7 @@ const App: Component = () => {
 		return {
 			rounds,
 			ramp: bankroll().ramp,
+			unit: bankroll().unit,
 			countScale: hiLoCountScale(baseComposition(ruleSet), config.tags),
 			edge: {
 				baseEvPercent: basis.result.average.baseEvPercent,
