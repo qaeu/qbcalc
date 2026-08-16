@@ -116,6 +116,12 @@ export function tagSpread(comp: Composition, tags: TagValues): number {
  * `trueCount` need not be a whole number -- a fractional count is carried straight
  * into `λ`. Only the resulting per-rank deltas are rounded, in half-card units and
  * preserving their sum, since rank counts index the memo key and must stay whole.
+ *
+ * A count too extreme for the shoe is extrapolated rather than refused: the
+ * removals stay linear in the count and a rank may pass below zero. The shoe that
+ * comes back is then a fiction, but a continuous one, which is what lets callers
+ * fit a curve through counts without the fit falling off a cliff at the edge of
+ * what a real shoe could hold.
  */
 export function applyTrueCountToComposition(
 	comp: Composition,
@@ -142,9 +148,6 @@ export function applyTrueCountToComposition(
 	const rounded = roundPreservingSum(halfCardDeltas);
 	for (let index = 0; index < next.length; index += 1) {
 		next[index] += rounded[index];
-		if (next[index] < 0) {
-			throw new Error('Count too extreme for this shoe size (negative card count).');
-		}
 	}
 	return next;
 }

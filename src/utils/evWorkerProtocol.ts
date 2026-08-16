@@ -174,8 +174,8 @@ export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerRespo
 	try {
 		const { ruleSet, trueCount, tags } = request;
 		const base = baseComposition(ruleSet);
-		// Before the base grids are cached, so a count this shoe cannot
-		// represent still throws rather than banking work for a doomed request.
+		// Before the base grids are cached, so a request the tags give no meaning
+		// still throws rather than banking work for a doomed one.
 		const modified = applyTrueCountToComposition(base, tags, trueCount);
 		const baseGrids = baseGridsFor(ruleSet);
 		// A count that leaves the shoe untouched -- zero, or one too small to

@@ -141,14 +141,15 @@ describe('applyTrueCountToComposition', () => {
 		expect(() => applyTrueCountToComposition(base, zeroTags, 3)).toThrow(/no effect/i);
 	});
 
-	it('throws once the count removes more cards of a rank than exist', () => {
+	it('extrapolates rather than throwing once a count removes more cards of a rank than exist', () => {
 		const base = baseComposition({ ...RULE_SET, decks: 1 });
-		expect(() => applyTrueCountToComposition(base, ACE_FIVE_TAGS, 100)).toThrow(
-			/too extreme/i
-		);
-		expect(() => applyTrueCountToComposition(base, ACE_FIVE_TAGS, -100)).toThrow(
-			/too extreme/i
-		);
+		const high = applyTrueCountToComposition(base, ACE_FIVE_TAGS, 100);
+		const low = applyTrueCountToComposition(base, ACE_FIVE_TAGS, -100);
+
+		expect(totalCards(high)).toBe(totalCards(base));
+		expect(totalCards(low)).toBe(totalCards(base));
+		expect(high.every(Number.isInteger)).toBe(true);
+		expect(low.every(Number.isInteger)).toBe(true);
 	});
 });
 
