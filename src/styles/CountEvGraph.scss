@@ -127,7 +127,7 @@ $skeleton-pulse-duration: 1.4s;
 
 			&::after {
 				content: '';
-				width: 160px;
+				width: 50%;
 				height: 40px;
 				border-radius: 6px;
 				background-color: get($neutrals, 'sep');
