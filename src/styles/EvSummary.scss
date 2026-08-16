@@ -1,5 +1,8 @@
 @use 'base' as *;
+@use 'sass:math';
 
+// Keep in sync with LOADING_PHASE_COUNT in src/utils/loadingPhase.ts.
+$skeleton-phase-count: 12;
 $skeleton-pulse-duration: 1.4s;
 
 @layer screen {
@@ -57,16 +60,37 @@ $skeleton-pulse-duration: 1.4s;
 			font-weight: 400;
 		}
 
-		// Sized to the figure it stands in for, so the card doesn't change height
-		// between the loading state and the result.
+		// The box itself matches &__value's line box (same font-size and
+		// line-height), so the card doesn't change height between the loading
+		// state and the result. The bar drawn inside it, via ::after, is smaller
+		// than that box on purpose.
 		&__skeleton {
-			width: 96px;
-			height: 26px;
-			border-radius: 4px;
-			background-color: get($neutrals, 'sep');
-			opacity: 0.35;
-			animation: ev-summary-skeleton-pulse $skeleton-pulse-duration
-				cubic-bezier(0.2, 1, 0, 0.8) infinite;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 26px;
+			line-height: 1.2;
+			height: 1.2em;
+
+			&::after {
+				content: '';
+				width: 76px;
+				height: 20px;
+				border-radius: 4px;
+				background-color: get($neutrals, 'sep');
+				opacity: 0.35;
+				animation: ev-summary-skeleton-pulse $skeleton-pulse-duration
+					cubic-bezier(0.2, 1, 0, 0.8) infinite;
+			}
+		}
+
+		// Negative delays start every card mid-cycle, so the row is already
+		// twinkling on the first frame rather than fading up together.
+		@for $phase from 0 through $skeleton-phase-count - 1 {
+			&__loading-phase-#{$phase}::after {
+				animation-delay: math.div($phase, $skeleton-phase-count) *
+					-$skeleton-pulse-duration;
+			}
 		}
 
 		@keyframes ev-summary-skeleton-pulse {

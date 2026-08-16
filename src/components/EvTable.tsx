@@ -24,6 +24,7 @@ import {
 	type CellDisplayMode,
 } from '#utils/cellDisplay';
 import { createGlobalKeydown, isKeyConsumingTarget } from '#utils/keyboard';
+import { loadingPhase } from '#utils/loadingPhase';
 import { loadCellDisplayMode, saveCellDisplayMode } from '#utils/storage';
 import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 
@@ -226,31 +227,14 @@ const EvCell: Component<EvCellProps> = (props) => {
 	);
 };
 
-const LOADING_PHASE_COUNT = 12;
-const PHASE_HASH_PRIME = 2654435761;
-
 // Folded into each grid's seed so the three tables scatter differently rather
 // than repeating one pattern down the page. Arbitrary, just mutually distinct.
 const GRID_SALTS = {
 	hard: 0x9e3779b9,
 	soft: 0x85ebca6b,
 	split: 0xc2b2ae35,
+	summary: 0x27d4eb2f,
 } as const;
-
-/**
- * Scatters each cell across the pulse cycle, so the skeletons twinkle
- * independently instead of sweeping through the table as a wave. Hashed rather
- * than drawn per cell so a cell keeps its phase across re-renders; the seed
- * carries the per-grid salt and the per-run randomness.
- */
-function loadingPhase(seed: number, rowIndex: number, colIndex: number): number {
-	let hash = Math.imul(seed ^ PHASE_HASH_PRIME, PHASE_HASH_PRIME);
-	hash = Math.imul(hash ^ (rowIndex * 31 + colIndex + 1), PHASE_HASH_PRIME);
-	// Without this avalanche round adjacent cells collide ~38% more often than
-	// chance, which reads as visible clumping rather than an even twinkle.
-	hash = Math.imul(hash ^ (hash >>> 15), PHASE_HASH_PRIME);
-	return (hash >>> 16) % LOADING_PHASE_COUNT;
-}
 
 interface EvGridProps {
 	title: string;
@@ -467,7 +451,11 @@ const EvTable: Component<EvTableProps> = (props) => {
 			</Show>
 
 			<Show when={!props.error()}>
-				<EvSummary bankroll={props.bankroll()} loading={props.isSummaryComputing()} />
+				<EvSummary
+					bankroll={props.bankroll()}
+					loading={props.isSummaryComputing()}
+					seed={runSeed() ^ GRID_SALTS.summary}
+				/>
 				<p class="ev-table__mode" aria-live="polite">
 					<span class="ev-table__mode-name">{CELL_DISPLAY_MODE_LABELS[mode()]}</span>
 					<span class="ev-table__mode-hint">space to cycle</span>

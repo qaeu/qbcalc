@@ -8,6 +8,7 @@ import {
 	formatRounds,
 } from '#utils/format';
 import { signClass } from '#utils/actionStyle';
+import { loadingPhase } from '#utils/loadingPhase';
 
 import '#styles/EvSummary';
 
@@ -27,6 +28,8 @@ interface SummaryCardProps {
 	 */
 	sign?: number;
 	loading: boolean;
+	/** Where this card's skeleton starts in the pulse cycle, as with the table cells. */
+	phase: number;
 }
 
 const SummaryCard: Component<SummaryCardProps> = (props) => (
@@ -34,7 +37,12 @@ const SummaryCard: Component<SummaryCardProps> = (props) => (
 		<span class="ev-summary__label">{props.label}</span>
 		<Show
 			when={!props.loading && props.value !== undefined}
-			fallback={<span class="ev-summary__skeleton" aria-hidden="true" />}
+			fallback={
+				<span
+					class={`ev-summary__skeleton ev-summary__loading-phase-${props.phase}`}
+					aria-hidden="true"
+				/>
+			}
 		>
 			<span
 				class={`ev-summary__value ${
@@ -53,6 +61,8 @@ const SummaryCard: Component<SummaryCardProps> = (props) => (
 interface EvSummaryProps {
 	bankroll: BankrollAnalysis | undefined;
 	loading: boolean;
+	/** Scatters the cards' skeletons across the pulse cycle, as with the table cells. */
+	seed: number;
 }
 
 /**
@@ -76,6 +86,7 @@ const EvSummary: Component<EvSummaryProps> = (props) => (
 			unit="%"
 			sign={props.bankroll?.edgePercent}
 			loading={props.loading}
+			phase={loadingPhase(props.seed, 0, 0)}
 		/>
 		<SummaryCard
 			label="Win Rate"
@@ -87,6 +98,7 @@ const EvSummary: Component<EvSummaryProps> = (props) => (
 			unit=" /hr"
 			sign={props.bankroll?.winRatePerHour}
 			loading={props.loading}
+			phase={loadingPhase(props.seed, 0, 1)}
 		/>
 		<SummaryCard
 			label="Std Dev"
@@ -97,6 +109,7 @@ const EvSummary: Component<EvSummaryProps> = (props) => (
 			}
 			unit=" /hr"
 			loading={props.loading}
+			phase={loadingPhase(props.seed, 0, 2)}
 		/>
 		<SummaryCard
 			label="N0"
@@ -105,6 +118,7 @@ const EvSummary: Component<EvSummaryProps> = (props) => (
 			}
 			unit=" rounds"
 			loading={props.loading}
+			phase={loadingPhase(props.seed, 0, 3)}
 		/>
 		<SummaryCard
 			label="Risk of Ruin"
@@ -114,6 +128,7 @@ const EvSummary: Component<EvSummaryProps> = (props) => (
 				:	formatProbabilityPercent(props.bankroll.riskOfRuin)
 			}
 			loading={props.loading}
+			phase={loadingPhase(props.seed, 0, 4)}
 		/>
 	</div>
 );
