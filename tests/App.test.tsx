@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 
 import App from '#App';
 import { DEFAULT_CONFIG, loadCalculatorConfig } from '#utils/storage';
@@ -10,7 +10,25 @@ import { DEFAULT_CONFIG, loadCalculatorConfig } from '#utils/storage';
  */
 const settlingTime = () => new Promise((resolve) => setTimeout(resolve, 800));
 
+/**
+ * Switches to the Bankroll view via the header's tab strip, not the sidebar's
+ * -- the sidebar carries its own "Bankroll" tab (its settings form), so the
+ * two are told apart by which bar they live in.
+ */
+function goToBankroll(): void {
+	const header = document.querySelector('.app-header');
+	if (!header) throw new Error('App header not found');
+	fireEvent.click(within(header).getByRole('tab', { name: /Bankroll/ }));
+}
+
 describe('App', () => {
+	// The hash is real browser state, shared across tests in this file rather
+	// than reset between renders, so a tab switch in one test would otherwise
+	// leak into the next test's starting view.
+	beforeEach(() => {
+		window.location.hash = '';
+	});
+
 	// EvTable's initial render computes three exact-enumeration tables
 	// (hard totals, soft totals, splits), which takes longer than the
 	// default 5s timeout under jsdom.
@@ -88,19 +106,31 @@ describe('App', () => {
 
 	it('leaves the summary cards alone while the count recalculates', async () => {
 		render(() => <App />);
+		goToBankroll();
 
 		const summaryText = () => document.querySelector('.ev-summary')?.textContent;
 		const skeletons = () => document.querySelectorAll('.ev-summary__skeleton').length;
 
 		// The first calculation is one the cards are waiting on, so wait it out
 		// before asking what a count change does to them.
+		await waitFor(() => expect(summaryText()).toBeDefined());
 		await waitFor(() => expect(skeletons()).toBe(0));
 		const before = summaryText();
 
+		// Stepping the count is a Tables-view gesture, so switch back to it
+		// before pressing the arrow key -- the Bankroll view ignores it. The
+		// hash change that drives the switch fires as a separate browser event,
+		// so it has to be waited out before the key press can rely on it.
+		const header = document.querySelector('.app-header');
+		if (!header) throw new Error('App header not found');
+		fireEvent.click(within(header).getByRole('tab', { name: /Tables/ }));
+		await waitFor(() => expect(document.querySelector('.ev-table__mode')).not.toBeNull());
 		fireEvent.keyDown(document.body, { key: 'ArrowUp' });
 		await waitFor(() =>
 			expect(loadCalculatorConfig()).toEqual({ ...DEFAULT_CONFIG, trueCount: 1 })
 		);
+		goToBankroll();
+		await waitFor(() => expect(summaryText()).toBeDefined());
 
 		// Neither blanked mid-recalculation nor re-derived from the new count:
 		// these figures describe the whole shoe, not the hand in front of you.

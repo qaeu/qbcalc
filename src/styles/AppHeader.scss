@@ -1,0 +1,82 @@
+@use 'base' as *;
+
+@layer screen {
+	// Full viewport width, independent of `.app`'s own centred container --
+	// the bar itself bleeds edge to edge, with only its contents lined up to
+	// the same width as the page below it.
+	.app-header {
+		width: 100%;
+		height: 60px;
+		border-bottom: 1px solid get($neutrals, 'sep');
+
+		@media (max-width: $breakpoint-tablet) {
+			height: auto;
+		}
+
+		&__inner {
+			display: flex;
+			flex-direction: row;
+			align-items: stretch;
+			justify-content: space-between;
+			height: 100%;
+			max-width: 1400px;
+			margin: 0 auto;
+			padding: 0 20px;
+
+			@media (max-width: $breakpoint-tablet) {
+				flex-direction: column;
+				align-items: stretch;
+				height: auto;
+			}
+		}
+
+		&__title {
+			display: flex;
+			align-items: center;
+			margin: 0;
+
+			@media (max-width: $breakpoint-tablet) {
+				padding: 14px 0;
+			}
+		}
+
+		// No pill background of its own -- unlike the sidebar's tab strip, the
+		// tabs sit directly on the bar and are told apart by their own fill
+		// alone, so they read as part of the banner rather than a control
+		// nested inside it.
+		&__tab-list {
+			display: flex;
+			align-self: stretch;
+
+			@media (max-width: $breakpoint-tablet) {
+				align-self: auto;
+			}
+		}
+
+		&__tab {
+			display: flex;
+			align-items: center;
+			padding: 0 20px;
+			border: none;
+			background-color: transparent;
+			color: get($neutrals, 'fg-light');
+			font-size: 14px;
+			cursor: pointer;
+			transition:
+				background-color 0.2s ease,
+				color 0.2s ease;
+
+			&:hover {
+				color: $foreground;
+			}
+
+			// The active tab reads as slightly recessed into the bar rather
+			// than raised above it, the reverse of the sidebar's pill-on-light
+			// treatment.
+			&[data-selected] {
+				background-color: get($neutrals, 'fade');
+				color: $foreground;
+			}
+		}
+	}
+}

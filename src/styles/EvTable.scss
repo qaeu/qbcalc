@@ -31,6 +31,8 @@ $action-cell-opacity: 1.5;
 	.ev-table {
 		display: flex;
 		flex-direction: column;
+		flex: 1 1 0%;
+		min-width: 0;
 		gap: 30px;
 
 		&__error {

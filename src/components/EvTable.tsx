@@ -9,7 +9,6 @@ import {
 	type Component,
 } from 'solid-js';
 
-import type { BankrollAnalysis } from '#utils/bankroll';
 import { RANKS, type Rank } from '#utils/ev/cards';
 import { HARD_TOTALS, PAIR_RANKS, SOFT_TOTALS, type PlayerAction } from '#utils/ev/rules';
 import type { EvCellData } from '#utils/ev/tables';
@@ -28,10 +27,8 @@ import { loadingPhase } from '#utils/loadingPhase';
 import { loadCellDisplayMode, saveCellDisplayMode } from '#utils/storage';
 import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 
-import CountEvGraph, { type CountEvProfile } from '#c/CountEvGraph';
 import EvCellDialog from '#c/EvCellDialog';
 import EvCellPopover from '#c/EvCellPopover';
-import EvSummary from '#c/EvSummary';
 
 import '#styles/EvTable';
 
@@ -234,8 +231,6 @@ const GRID_SALTS = {
 	hard: 0x9e3779b9,
 	soft: 0x85ebca6b,
 	split: 0xc2b2ae35,
-	summary: 0x27d4eb2f,
-	countEv: 0x165667b1,
 } as const;
 
 interface EvGridProps {
@@ -360,17 +355,8 @@ const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
 interface EvTableProps {
 	result: Accessor<EvWorkerResult | null>;
 	isComputing: Accessor<boolean>;
-	/**
-	 * Loading state for the summary cards alone. It is not `isComputing`: the
-	 * cards describe the whole shoe, so a recalculation at a new count
-	 * leaves them showing what they already show rather than blanking them.
-	 */
-	isSummaryComputing: Accessor<boolean>;
 	error: Accessor<string | null>;
 	trueCount: Accessor<number>;
-	bankroll: Accessor<BankrollAnalysis | undefined>;
-	/** The count-weighted EV curve the graph card draws, on the same basis. */
-	countEv: Accessor<CountEvProfile | undefined>;
 }
 
 const EvTable: Component<EvTableProps> = (props) => {
@@ -455,16 +441,6 @@ const EvTable: Component<EvTableProps> = (props) => {
 			</Show>
 
 			<Show when={!props.error()}>
-				<EvSummary
-					bankroll={props.bankroll()}
-					loading={props.isSummaryComputing()}
-					seed={runSeed() ^ GRID_SALTS.summary}
-				/>
-				<CountEvGraph
-					profile={props.countEv()}
-					loading={props.isSummaryComputing()}
-					seed={runSeed() ^ GRID_SALTS.countEv}
-				/>
 				<p class="ev-table__mode" aria-live="polite">
 					<span class="ev-table__mode-name">{CELL_DISPLAY_MODE_LABELS[mode()]}</span>
 					<span class="ev-table__mode-hint">space to cycle</span>

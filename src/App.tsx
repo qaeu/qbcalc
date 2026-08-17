@@ -1,9 +1,17 @@
-import { createMemo, createSignal, onCleanup, type Component } from 'solid-js';
+import {
+	createEffect,
+	createMemo,
+	createSignal,
+	onCleanup,
+	Show,
+	type Component,
+} from 'solid-js';
 
 import { analyzeBankroll, hiLoCountScale, type BankrollAnalysis } from '#utils/bankroll';
 import { labelForSystem } from '#utils/countingSystems';
 import { baseComposition } from '#utils/ev/composition';
-import { simulateRoundFrequency } from '#utils/countRounds';
+import { simulateRoundFrequency, type RoundFrequency } from '#utils/countRounds';
+import { createHashRoute } from '#utils/hashRoute';
 import {
 	calculatorSettingsEqual,
 	DEFAULT_BANKROLL_CONFIG,
@@ -27,6 +35,8 @@ import type {
 import { createGlobalKeydown, isKeyConsumingTarget } from '#utils/keyboard';
 import { INPUT_SETTLE_MS } from '#utils/settle';
 
+import AppHeader from '#c/AppHeader';
+import BankrollOutput from '#c/BankrollOutput';
 import type { CountEvProfile } from '#c/CountEvGraph';
 import EvTable from '#c/EvTable';
 import SettingsSidebar from '#c/SettingsSidebar';
@@ -55,6 +65,8 @@ interface SummaryBasis {
 
 const App: Component = () => {
 	const initialConfig = loadCalculatorConfig() ?? DEFAULT_CONFIG;
+
+	const [tab, setTab] = createHashRoute();
 
 	const [result, setResult] = createSignal<EvWorkerResult | null>(null);
 	const [isComputing, setIsComputing] = createSignal(false);
@@ -109,15 +121,30 @@ const App: Component = () => {
 		});
 	});
 
-	// Held in its own memo because it is the expensive half of the graph card and
-	// the only half a bet spread cannot change: 20,000 shuffled shoes, tens of
-	// milliseconds, settled entirely by the counting system, the shoe size and
-	// the penetration. Editing the ramp reprices the line below without dealing a
-	// single card again.
-	const roundFrequency = createMemo(() => {
+	// Held in its own signal, rather than a plain memo, because it is the
+	// expensive half of the graph card and the only half a bet spread cannot
+	// change: 20,000 shuffled shoes, tens of milliseconds, settled entirely by
+	// the counting system, the shoe size and the penetration. Editing the ramp
+	// reprices the line below without dealing a single card again -- and,
+	// since it is only ever read by the Bankroll view, it is only ever paid
+	// for while that view is the one on screen. Editing Rules/Count while
+	// parked on Tables leaves this signal alone; switching to Bankroll runs
+	// the effect below once to catch up.
+	const [roundFrequency, setRoundFrequency] = createSignal<RoundFrequency>();
+	let roundFrequencySettings: CalculatorSettings | null = null;
+
+	createEffect(() => {
 		const config = summaryBasis()?.config;
-		if (!config) return undefined;
-		return simulateRoundFrequency(ruleSetFromConfig(config), config.tags);
+		if (!config || tab() !== 'bankroll') return;
+		const settings = settingsFromConfig(config);
+		if (
+			roundFrequencySettings
+			&& calculatorSettingsEqual(settings, roundFrequencySettings)
+		) {
+			return;
+		}
+		roundFrequencySettings = settings;
+		setRoundFrequency(simulateRoundFrequency(ruleSetFromConfig(config), config.tags));
 	});
 
 	// Read off the summary basis rather than the live config, so that the graph
@@ -290,40 +317,73 @@ const App: Component = () => {
 			event.key === 'ArrowUp' ? 1
 			: event.key === 'ArrowDown' ? -1
 			: 0;
-		if (step === 0 || isKeyConsumingTarget(event.target)) return;
+		// Stepping the count only matters to the grid display, so it is
+		// ignored outside the Tables view -- there is nothing on the Bankroll
+		// view for it to update.
+		if (step === 0 || isKeyConsumingTarget(event.target) || tab() !== 'tables') return;
 		// Both keys scroll the page by default, which would drag the grids out
 		// from under the change the key just made.
 		event.preventDefault();
 		stepCount(step);
 	});
 
+	// The seed both views need -- grid data for Tables, `summaryBasis` for
+	// Bankroll's aggregate stats -- so it runs once on mount regardless of the
+	// starting tab. Only subsequent edits are gated below.
 	runCalculation(initialConfig);
 
+	// Settings edited while the Tables view isn't the one on screen have
+	// nothing to draw there, so the worker request is held back until the user
+	// navigates back to it.
+	let pendingTablesSettings: CalculatorSettings | null = null;
+
+	const requestTablesCalculation = (settings: CalculatorSettings) => {
+		if (tab() === 'tables') {
+			runCalculation({ ...settings, trueCount: trueCount() });
+		} else {
+			pendingTablesSettings = settings;
+		}
+	};
+
+	createEffect(() => {
+		if (tab() !== 'tables' || !pendingTablesSettings) return;
+		const settings = pendingTablesSettings;
+		pendingTablesSettings = null;
+		runCalculation({ ...settings, trueCount: trueCount() });
+	});
+
 	return (
-		<main class="app">
-			<h1>Blackjack EV Calculator</h1>
-			<div class="app__layout">
-				<SettingsSidebar
-					initialConfig={initialConfig}
-					calcTimeMs={calcTimeMs()}
-					onSettingsChange={(settings: CalculatorSettings) =>
-						runCalculation({ ...settings, trueCount: trueCount() })
-					}
-					bankroll={bankroll()}
-					bankrollAnalysis={bankrollAnalysis()}
-					onBankrollChange={updateBankroll}
-				/>
-				<EvTable
-					result={result}
-					isComputing={isComputing}
-					isSummaryComputing={isSummaryComputing}
-					error={error}
-					trueCount={trueCount}
-					bankroll={bankrollAnalysis}
-					countEv={countEv}
-				/>
-			</div>
-		</main>
+		<>
+			<AppHeader tab={tab()} onTabChange={setTab} />
+			<main class="app">
+				<div class="app__layout">
+					<SettingsSidebar
+						initialConfig={initialConfig}
+						calcTimeMs={calcTimeMs()}
+						onSettingsChange={requestTablesCalculation}
+						bankroll={bankroll()}
+						bankrollAnalysis={bankrollAnalysis()}
+						onBankrollChange={updateBankroll}
+					/>
+					<Show when={tab() === 'tables'}>
+						<EvTable
+							result={result}
+							isComputing={isComputing}
+							error={error}
+							trueCount={trueCount}
+						/>
+					</Show>
+					<Show when={tab() === 'bankroll'}>
+						<BankrollOutput
+							error={error}
+							isSummaryComputing={isSummaryComputing}
+							bankroll={bankrollAnalysis}
+							countEv={countEv}
+						/>
+					</Show>
+				</div>
+			</main>
+		</>
 	);
 };
 

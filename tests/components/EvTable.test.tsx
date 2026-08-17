@@ -2,21 +2,13 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
 
-import type { CountEvProfile } from '#c/CountEvGraph';
 import EvTable from '#c/EvTable';
-import { analyzeBankroll, hiLoCountScale, type BankrollAnalysis } from '#utils/bankroll';
-import { simulateRoundFrequency } from '#utils/countRounds';
-import { baseComposition, DEFAULT_PARAMS } from '#utils/ev/composition';
 import { DEFAULT_RULE_SET } from '#utils/ev/rules';
-import { DEFAULT_BANKROLL_CONFIG } from '#utils/storage';
 import { computeAllEvTables } from '#utils/ev/tables';
-import { formatEvPercent } from '#utils/format';
 import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 
 // Real (not mocked) exact-enumeration result, computed once and reused as a
 // fixture -- deterministic, and keeps these tests independent of the worker.
-// The edge curve only feeds the bankroll figures, which these tests pass in
-// directly, so fixed stand-ins keep the fixtures a complete `EvWorkerResult`.
 const EDGE_SLOPE = 0.7;
 const EDGE_CURVATURE = 0.005;
 
@@ -33,37 +25,6 @@ const DEVIATION_RESULT: EvWorkerResult = {
 	...computeAllEvTables(DEFAULT_RULE_SET, 2.5),
 	edgeSlopePointsPerTrueCount: EDGE_SLOPE,
 	edgeCurvaturePointsPerTrueCountSquared: EDGE_CURVATURE,
-};
-
-// A real analysis of the default spread against the same rules, so the summary
-// cards are exercised with figures that actually agree with each other.
-const SAMPLE_BANKROLL: BankrollAnalysis = analyzeBankroll(
-	DEFAULT_RULE_SET,
-	DEFAULT_PARAMS.tags,
-	{
-		...DEFAULT_BANKROLL_CONFIG,
-		baseEvPercent: SAMPLE_RESULT.average.baseEvPercent,
-		edgeSlopePointsPerTrueCount: EDGE_SLOPE,
-		edgeCurvaturePointsPerTrueCountSquared: EDGE_CURVATURE,
-		variancePerRound: SAMPLE_RESULT.average.variancePerRound,
-	}
-);
-
-// What the weighted-EV graph draws, on the same rules and the same edge curve
-// as the summary cards above it.
-const SAMPLE_COUNT_EV: CountEvProfile = {
-	rounds: simulateRoundFrequency(DEFAULT_RULE_SET, DEFAULT_PARAMS.tags),
-	edge: {
-		baseEvPercent: SAMPLE_RESULT.average.baseEvPercent,
-		edgeSlopePointsPerTrueCount: EDGE_SLOPE,
-		edgeCurvaturePointsPerTrueCountSquared: EDGE_CURVATURE,
-	},
-	ramp: DEFAULT_BANKROLL_CONFIG.ramp,
-	countScale: hiLoCountScale(baseComposition(DEFAULT_RULE_SET), DEFAULT_PARAMS.tags),
-	unit: DEFAULT_BANKROLL_CONFIG.unit,
-	decks: DEFAULT_RULE_SET.decks,
-	penetrationPercent: DEFAULT_RULE_SET.penetrationPercent,
-	systemLabel: 'Ace-Five',
 };
 
 // The HoverCard content isn't unmounted while closed (it's hidden via the
@@ -103,10 +64,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
-				isSummaryComputing={() => false}
 				error={() => null}
-				bankroll={() => undefined}
-				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -125,31 +83,15 @@ describe('EvTable', () => {
 		expect(within(tables[2]).getAllByRole('row')).toHaveLength(11);
 	});
 
-	it('heads the grids with the shoe-wide edge, and names the true count', () => {
+	it('heads the grids with the true count', () => {
 		render(() => (
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
-				isSummaryComputing={() => false}
 				error={() => null}
-				bankroll={() => SAMPLE_BANKROLL}
-				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
-
-		const cards = document.querySelectorAll('.ev-summary__card');
-		expect(cards).toHaveLength(6);
-
-		// The edge over the whole shoe under the bet spread, not the EV at the
-		// count on screen -- the cells already answer that question.
-		expect(cards[0].textContent).toContain('Player Edge');
-		expect(cards[0].querySelector('.ev-summary__value')?.textContent).toBe(
-			`${formatEvPercent(SAMPLE_BANKROLL.edgePercent)}%`
-		);
-		expect(cards[0].textContent).not.toContain(
-			formatEvPercent(SAMPLE_RESULT.average.countEvPercent)
-		);
 
 		// The count has no field in the sidebar any more, so the line above the
 		// grids is where it is read off.
@@ -158,74 +100,12 @@ describe('EvTable', () => {
 		);
 	});
 
-	it('leaves the edge card empty until there is a bankroll analysis', () => {
-		render(() => (
-			<EvTable
-				result={() => SAMPLE_RESULT}
-				isComputing={() => false}
-				isSummaryComputing={() => false}
-				error={() => null}
-				bankroll={() => undefined}
-				countEv={() => SAMPLE_COUNT_EV}
-				trueCount={() => 1}
-			/>
-		));
-
-		// Every card is derived from the bankroll analysis, so without one there
-		// is nothing to show anywhere along the row.
-		const cards = document.querySelectorAll('.ev-summary__card');
-		expect(cards[0].textContent).toContain('Player Edge');
-		for (const card of cards) expect(card.querySelector('.ev-summary__value')).toBeNull();
-	});
-
-	it('shows a skeleton in place of the average while the summary is computing', () => {
-		render(() => (
-			<EvTable
-				result={() => SAMPLE_RESULT}
-				isComputing={() => true}
-				isSummaryComputing={() => true}
-				error={() => null}
-				bankroll={() => undefined}
-				countEv={() => SAMPLE_COUNT_EV}
-				trueCount={() => 1}
-			/>
-		));
-
-		// The previous result is still in hand, so the figure has to be withheld
-		// deliberately rather than merely being absent.
-		expect(document.querySelectorAll('.ev-summary__skeleton')).toHaveLength(6);
-		expect(document.querySelectorAll('.ev-summary__value')).toHaveLength(0);
-	});
-
-	// A recalculation at a new true count redraws the grids but says nothing
-	// new about the shoe as a whole, so the cards keep their figures rather than
-	// blinking to skeletons on every press of an arrow key.
-	it('keeps the summary figures while only the grids are computing', () => {
-		render(() => (
-			<EvTable
-				result={() => SAMPLE_RESULT}
-				isComputing={() => true}
-				isSummaryComputing={() => false}
-				error={() => null}
-				bankroll={() => SAMPLE_BANKROLL}
-				countEv={() => SAMPLE_COUNT_EV}
-				trueCount={() => 1}
-			/>
-		));
-
-		expect(document.querySelectorAll('.ev-summary__skeleton')).toHaveLength(0);
-		expect(document.querySelectorAll('.ev-summary__value')).toHaveLength(6);
-	});
-
 	it('reports insurance EV in the ace column popovers, and nowhere else', async () => {
 		render(() => (
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
-				isSummaryComputing={() => false}
 				error={() => null}
-				bankroll={() => undefined}
-				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -259,10 +139,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => noInsurance}
 				isComputing={() => false}
-				isSummaryComputing={() => false}
 				error={() => null}
-				bankroll={() => undefined}
-				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -285,11 +162,8 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => null}
 				isComputing={() => false}
-				isSummaryComputing={() => false}
 				error={() => 'Count too extreme for this shoe'}
 				trueCount={() => 0}
-				bankroll={() => undefined}
-				countEv={() => SAMPLE_COUNT_EV}
 			/>
 		));
 
@@ -302,10 +176,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => null}
 				isComputing={() => true}
-				isSummaryComputing={() => true}
 				error={() => null}
-				bankroll={() => undefined}
-				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 0}
 			/>
 		));
@@ -330,10 +201,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={result}
 				isComputing={isComputing}
-				isSummaryComputing={isComputing}
 				error={() => null}
-				bankroll={() => undefined}
-				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -367,10 +235,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => DEVIATION_RESULT}
 				isComputing={() => false}
-				isSummaryComputing={() => false}
 				error={() => null}
-				bankroll={() => undefined}
-				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 2.5}
 			/>
 		));
@@ -413,10 +278,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
-				isSummaryComputing={() => false}
 				error={() => null}
-				bankroll={() => undefined}
-				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -448,10 +310,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
-				isSummaryComputing={() => false}
 				error={() => null}
-				bankroll={() => undefined}
-				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 0}
 			/>
 		));
@@ -476,10 +335,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
-				isSummaryComputing={() => false}
 				error={() => null}
-				bankroll={() => undefined}
-				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -531,10 +387,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
-				isSummaryComputing={() => false}
 				error={() => null}
-				bankroll={() => undefined}
-				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -570,10 +423,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
-				isSummaryComputing={() => false}
 				error={() => null}
-				bankroll={() => undefined}
-				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -592,10 +442,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
-				isSummaryComputing={() => false}
 				error={() => null}
-				bankroll={() => undefined}
-				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
@@ -620,10 +467,7 @@ describe('EvTable', () => {
 				<EvTable
 					result={() => DEVIATION_RESULT}
 					isComputing={() => false}
-					isSummaryComputing={() => false}
 					error={() => null}
-					bankroll={() => undefined}
-					countEv={() => SAMPLE_COUNT_EV}
 					trueCount={() => 2.5}
 				/>
 			));
@@ -751,10 +595,7 @@ describe('EvTable', () => {
 			<EvTable
 				result={() => SAMPLE_RESULT}
 				isComputing={() => false}
-				isSummaryComputing={() => false}
 				error={() => null}
-				bankroll={() => undefined}
-				countEv={() => SAMPLE_COUNT_EV}
 				trueCount={() => 1}
 			/>
 		));
