@@ -13,10 +13,16 @@ import {
 } from './ev/composition';
 import { hiLoCountScale } from './bankroll';
 import { RANKS } from './ev/cards';
-import { computeEvGrids, type EvGrids } from './ev/engine';
+import { computeEvGrids, ShoeEv, type AverageEvParts, type EvGrids } from './ev/engine';
 import { analyzeInsurance } from './ev/insurance';
 import { ruleSetKey, type RuleSet } from './ev/rules';
-import { averageEvPercent, combineEvTables, type EvTables } from './ev/tables';
+import {
+	averageEvPercent,
+	buildAverageEv,
+	combineEvTables,
+	type AverageEvAnalysis,
+	type EvTables,
+} from './ev/tables';
 
 export interface EvWorkerRequest {
 	/**
@@ -26,13 +32,27 @@ export interface EvWorkerRequest {
 	 * a superseded request that just hadn't finished yet.
 	 */
 	requestId: number;
+	/**
+	 * What the caller actually needs back. 'tables' walks and returns every grid
+	 * cell, for the Tables view. 'summary' skips that walk entirely and returns
+	 * only the aggregate figures the Bankroll view reads -- see `EvSummaryResult`.
+	 * Omitted requests behave as 'tables', which is every pre-existing caller.
+	 */
+	scope?: 'tables' | 'summary';
 	ruleSet: RuleSet;
 	trueCount: number;
 	/** The counting system's per-rank point values the count was kept with. */
 	tags: TagValues;
 }
 
-export interface EvWorkerResult extends EvTables {
+/**
+ * The aggregate figures the Bankroll view's cards and graph are built from --
+ * everything a 'summary'-scope request returns. A strict subset of
+ * `EvWorkerResult`'s fields, so a 'tables' response can stand in for one
+ * wherever this type is asked for.
+ */
+export interface EvSummaryResult {
+	average: AverageEvAnalysis;
 	/**
 	 * How many percentage points of player edge one unit of this system's true
 	 * count is worth: the linear term of the edge curve fitted symmetrically about
@@ -49,8 +69,11 @@ export interface EvWorkerResult extends EvTables {
 	edgeCurvaturePointsPerTrueCountSquared: number;
 }
 
+export interface EvWorkerResult extends EvTables, EvSummaryResult {}
+
 export type EvWorkerResponse =
-	| { requestId: number; status: 'success'; result: EvWorkerResult }
+	| { requestId: number; status: 'success'; scope: 'tables'; result: EvWorkerResult }
+	| { requestId: number; status: 'success'; scope: 'summary'; result: EvSummaryResult }
 	| { requestId: number; status: 'error'; message: string };
 
 /**
@@ -70,6 +93,23 @@ function baseGridsFor(ruleSet: RuleSet): EvGrids {
 	const grids = computeEvGrids(ruleSet, baseComposition(ruleSet));
 	cachedBaseGrids = { key, grids };
 	return grids;
+}
+
+/**
+ * The unadjusted shoe's average alone, for a 'summary'-scope request that never
+ * asks for the grids `baseGridsFor` would otherwise have to walk to get it. Reuses
+ * `cachedBaseGrids` when a 'tables' request has already paid for the full walk,
+ * rather than paying for the composition's average twice.
+ */
+let cachedBaseAverage: { key: string; average: AverageEvParts } | null = null;
+
+function baseAverageFor(ruleSet: RuleSet, base: Composition): AverageEvParts {
+	const key = ruleSetKey(ruleSet);
+	if (cachedBaseGrids?.key === key) return cachedBaseGrids.grids.average;
+	if (cachedBaseAverage?.key === key) return cachedBaseAverage.average;
+	const average = new ShoeEv(ruleSet).analyzeAverage(base);
+	cachedBaseAverage = { key, average };
+	return average;
 }
 
 /**
@@ -109,6 +149,11 @@ interface EdgeCurve {
  * one-parameter fits, since across a `±P` pair the odd half of the difference is
  * all slope and the even half all curvature. See docs/bankroll-model.md
  * §The edge curve.
+ *
+ * Each probe only ever reads `averageEvPercent`, so it prices the probe shoe's
+ * average alone through `analyzeAverage` rather than walking the full grids
+ * `computeEvGrids` would -- the curve is a 'summary'-scope figure and none of
+ * the per-cell detail a grid walk produces is ever read back out of it.
  */
 function fitEdgeCurve(
 	ruleSet: RuleSet,
@@ -119,7 +164,9 @@ function fitEdgeCurve(
 	const payout = ruleSet.blackjackPayout;
 	const evAt = (trueCount: number) =>
 		averageEvPercent(
-			computeEvGrids(ruleSet, applyTrueCountToComposition(base, tags, trueCount)).average,
+			new ShoeEv(ruleSet).analyzeAverage(
+				applyTrueCountToComposition(base, tags, trueCount)
+			),
 			payout
 		);
 
@@ -172,15 +219,34 @@ function edgeCurveFor(
 
 export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerResponse {
 	try {
-		const { ruleSet, trueCount, tags } = request;
+		const { requestId, scope = 'tables', ruleSet, trueCount, tags } = request;
 		const base = baseComposition(ruleSet);
-		// Before the base grids are cached, so a request the tags give no meaning
-		// still throws rather than banking work for a doomed one.
+		// Before anything is cached, so a request the tags give no meaning still
+		// throws rather than banking work for a doomed one.
 		const modified = applyTrueCountToComposition(base, tags, trueCount);
-		const baseGrids = baseGridsFor(ruleSet);
 		// A count that leaves the shoe untouched -- zero, or one too small to
 		// move a whole half-card -- is the baseline, already computed.
 		const unchanged = modified.every((halfCards, index) => halfCards === base[index]);
+
+		if (scope === 'summary') {
+			const baseAverage = baseAverageFor(ruleSet, base);
+			const countAverage =
+				unchanged ? baseAverage : new ShoeEv(ruleSet).analyzeAverage(modified);
+			const average = buildAverageEv(baseAverage, countAverage, ruleSet.blackjackPayout);
+			const curve = edgeCurveFor(ruleSet, base, tags, average.baseEvPercent);
+			return {
+				requestId,
+				status: 'success',
+				scope: 'summary',
+				result: {
+					average,
+					edgeSlopePointsPerTrueCount: curve.slope,
+					edgeCurvaturePointsPerTrueCountSquared: curve.curvature,
+				},
+			};
+		}
+
+		const baseGrids = baseGridsFor(ruleSet);
 		const countGrids = unchanged ? baseGrids : computeEvGrids(ruleSet, modified);
 		const tables = combineEvTables(
 			ruleSet,
@@ -190,8 +256,9 @@ export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerRespo
 		);
 		const curve = edgeCurveFor(ruleSet, base, tags, tables.average.baseEvPercent);
 		return {
-			requestId: request.requestId,
+			requestId,
 			status: 'success',
+			scope: 'tables',
 			result: {
 				...tables,
 				edgeSlopePointsPerTrueCount: curve.slope,

@@ -137,4 +137,27 @@ describe('App', () => {
 		expect(skeletons()).toBe(0);
 		expect(summaryText()).toBe(before);
 	}, 20000);
+
+	it('recalculates the summary cards on a Rules edit made while Bankroll is on screen', async () => {
+		render(() => <App />);
+		goToBankroll();
+
+		const summaryText = () => document.querySelector('.ev-summary')?.textContent;
+		const skeletons = () => document.querySelectorAll('.ev-summary__skeleton').length;
+
+		await waitFor(() => expect(summaryText()).toBeDefined());
+		await waitFor(() => expect(skeletons()).toBe(0));
+		const before = summaryText();
+
+		// The Rules tab lives in the sidebar, alongside Bankroll's own cards --
+		// it has nothing to do with the header's Tables/Bankroll switch, so this
+		// edit never has to leave the Bankroll view to be made.
+		fireEvent.input(screen.getByLabelText('Decks'), { target: { value: '2' } });
+
+		await waitFor(() =>
+			expect(loadCalculatorConfig()).toEqual({ ...DEFAULT_CONFIG, decks: 2 })
+		);
+		await waitFor(() => expect(summaryText()).not.toBe(before));
+		expect(skeletons()).toBe(0);
+	}, 20000);
 });

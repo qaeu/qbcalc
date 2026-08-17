@@ -27,9 +27,9 @@ import {
 	type CalculatorSettings,
 } from '#utils/storage';
 import type {
+	EvSummaryResult,
 	EvWorkerRequest,
 	EvWorkerResponse,
-	EvWorkerResult,
 } from '#utils/evWorkerProtocol';
 
 import { createGlobalKeydown, isKeyConsumingTarget } from '#utils/keyboard';
@@ -60,7 +60,7 @@ function artificialLoadingMs(): number {
  */
 interface SummaryBasis {
 	config: CalculatorConfig;
-	result: EvWorkerResult;
+	result: EvSummaryResult;
 }
 
 const App: Component = () => {
@@ -201,6 +201,11 @@ const App: Component = () => {
 	let latestRequestId = 0;
 	let latestRequestStart = 0;
 	let latestRequestConfig = initialConfig;
+	// What the most recently dispatched (or, once it lands, applied) request
+	// asked the worker for. 'summary' skips the full grid walk entirely, so a
+	// settings edit made while Bankroll is on screen leaves `result` pointing
+	// at whatever the grid last showed -- see the Tables catch-up effect below.
+	let latestRequestScope: 'tables' | 'summary' = 'tables';
 	let holdTimer: number | undefined;
 
 	const getWorker = (): Worker => {
@@ -228,7 +233,10 @@ const App: Component = () => {
 					if (response.status === 'success') {
 						const config = latestRequestConfig;
 						setCalcTimeMs(elapsed);
-						setResult(response.result);
+						// A 'summary' response has no grids to apply -- the Tables view
+						// picks up the settings it was computed from when it next asks
+						// for them, via the catch-up effect below.
+						if (response.scope === 'tables') setResult(response.result);
 						// Only a settings change refreshes what the summary reads;
 						// a count-only result is applied to the grids alone.
 						if (!summaryBasisMatches(config)) {
@@ -258,19 +266,20 @@ const App: Component = () => {
 		worker?.terminate();
 	});
 
-	const runCalculation = (nextConfig: CalculatorConfig) => {
+	const runCalculation = (nextConfig: CalculatorConfig, scope: 'tables' | 'summary') => {
 		const w = getWorker();
 		clearTimeout(holdTimer);
 		latestRequestId += 1;
 		latestRequestStart = performance.now();
 		latestRequestConfig = nextConfig;
+		latestRequestScope = scope;
 		// Note that `result` is deliberately left alone here: the previous rows
 		// stay in place while the new ones are computed. EvCell keeps each cell's
 		// popover mounted for as long as it has row data, and that is what stops
 		// a Portal per cell being torn down and rebuilt mid-recalculation, which
 		// would kill the background transition out of the loading state. Clearing
 		// it here would break that animation from a distance.
-		setIsComputing(true);
+		if (scope === 'tables') setIsComputing(true);
 		// A count-only recalculation is not something the cards are waiting for:
 		// they keep their figures rather than dropping to skeletons.
 		if (!summaryBasisMatches(nextConfig)) setIsSummaryComputing(true);
@@ -281,6 +290,7 @@ const App: Component = () => {
 
 		const request: EvWorkerRequest = {
 			requestId: latestRequestId,
+			scope,
 			ruleSet: ruleSetFromConfig(nextConfig),
 			trueCount: nextConfig.trueCount,
 			tags: nextConfig.tags,
@@ -308,7 +318,7 @@ const App: Component = () => {
 			if (next === latestRequestConfig.trueCount) return;
 			// Based on the newest requested config rather than the applied one, so
 			// a count change during a recalculation keeps the rules being computed.
-			runCalculation({ ...latestRequestConfig, trueCount: next });
+			runCalculation({ ...latestRequestConfig, trueCount: next }, 'tables');
 		}, INPUT_SETTLE_MS);
 	};
 
@@ -327,29 +337,28 @@ const App: Component = () => {
 		stepCount(step);
 	});
 
-	// The seed both views need -- grid data for Tables, `summaryBasis` for
-	// Bankroll's aggregate stats -- so it runs once on mount regardless of the
-	// starting tab. Only subsequent edits are gated below.
-	runCalculation(initialConfig);
+	// Seeded on mount at whatever scope the starting tab needs -- the full grid
+	// for Tables, or just the aggregate figures for Bankroll -- so only the
+	// view actually on screen pays for its half of the first calculation.
+	runCalculation(initialConfig, tab() === 'tables' ? 'tables' : 'summary');
 
-	// Settings edited while the Tables view isn't the one on screen have
-	// nothing to draw there, so the worker request is held back until the user
-	// navigates back to it.
-	let pendingTablesSettings: CalculatorSettings | null = null;
-
-	const requestTablesCalculation = (settings: CalculatorSettings) => {
-		if (tab() === 'tables') {
-			runCalculation({ ...settings, trueCount: trueCount() });
-		} else {
-			pendingTablesSettings = settings;
-		}
+	const requestCalculation = (settings: CalculatorSettings) => {
+		// Whichever view is on screen is the one a settings edit has to reach;
+		// the other is left stale until the user navigates to it -- see the
+		// catch-up effect below, which is the Tables half of that.
+		runCalculation(
+			{ ...settings, trueCount: trueCount() },
+			tab() === 'tables' ? 'tables' : 'summary'
+		);
 	};
 
+	// A settings edit made while parked on Bankroll only refreshes the summary
+	// figures (`requestCalculation` above asks for nothing more), so the
+	// Tables grid can be left showing stale settings. Caught up here, once,
+	// whenever the user switches back to it.
 	createEffect(() => {
-		if (tab() !== 'tables' || !pendingTablesSettings) return;
-		const settings = pendingTablesSettings;
-		pendingTablesSettings = null;
-		runCalculation({ ...settings, trueCount: trueCount() });
+		if (tab() !== 'tables' || latestRequestScope === 'tables') return;
+		runCalculation({ ...latestRequestConfig, trueCount: trueCount() }, 'tables');
 	});
 
 	return (
@@ -360,7 +369,7 @@ const App: Component = () => {
 					<SettingsSidebar
 						initialConfig={initialConfig}
 						calcTimeMs={calcTimeMs()}
-						onSettingsChange={requestTablesCalculation}
+						onSettingsChange={requestCalculation}
 						bankroll={bankroll()}
 						bankrollAnalysis={bankrollAnalysis()}
 						onBankrollChange={updateBankroll}

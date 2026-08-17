@@ -151,7 +151,7 @@ function averageVariance(
 	return secondMoment - evPerRound * evPerRound;
 }
 
-function buildAverageEv(
+export function buildAverageEv(
 	baseParts: AverageEvParts,
 	countParts: AverageEvParts,
 	payout: BlackjackPayout

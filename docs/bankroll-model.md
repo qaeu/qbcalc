@@ -87,9 +87,19 @@ ramp: `analyzeBankroll` walks the ramp's own buckets, while the graph has counts
 to look a bet up for, and both land on the same half-unit cuts.
 
 The curve describes the shoe and the tags alone, never the count on screen, and is cached
-on exactly those — so sweeping the count pays for the probe shoes once. A calculation walks
-the grids once (the count-adjusted shoe), plus four more the first time a rule or a tag
-changes. The full-shoe baseline is cached per rule set and is usually free.
+on exactly those — so sweeping the count pays for the probe shoes once, the first time a
+rule or a tag changes. Each probe only ever needs `averageEvPercent` off it, so it is priced
+through `analyzeAverage` rather than a full grid walk, the same way the Bankroll view's own
+request is (see below).
+
+The worker request the app sends carries a `scope`: `'summary'` when only the Bankroll
+view's cards and graph are on screen, `'tables'` when the EV grids are too. A `'summary'`
+request prices the count-adjusted shoe's average alone, skipping the per-cell grid walk
+`EvTable` would need — so a settings edit made while parked on the Bankroll view recalculates
+without paying for tables nobody can see, and the tables catch up, once, when the user
+switches back to them. The full-shoe baseline (`'tables'`, and the plain average
+`'summary'` reads off it) is cached per rule set either way, so whichever scope asks for it
+first pays for it once.
 
 A quadratic is still a fit, not the truth. It is anchored inside ±8 and the buckets stay
 inside that, but a figure quoted at a true count of +12 is an extrapolation, and one that
