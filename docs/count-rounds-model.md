@@ -36,10 +36,10 @@ For each of 20,000 trials:
    EV engine.
 2. Deal to the cut card at `penetrationPercent`, `CARDS_PER_ROUND` — five, about a
    heads-up round — at a time.
-3. Before each round, read the true count as `runningCount / decksRemaining` and file the
-   round under the nearest whole count, adding the count and its square into that bucket.
-   Reading _before_ the round is dealt is what makes the bucket the count the round is bet
-   at.
+3. Before each round, read the true count as `runningCount / decksRemaining`, convert it
+   to its **Hi-Lo equivalent** through `hiLoCountScale`, and file the round under the
+   nearest whole count, adding the count and its square into that bucket. Reading _before_
+   the round is dealt is what makes the bucket the count the round is bet at.
 
 Rounding rather than truncating is a choice about the drawing. Truncating towards zero is
 the closer description of what a player does — at +2.9 you are betting the +2 step of the
@@ -48,6 +48,31 @@ other bucket, and a point drawn from twice the play reads as twice the weight. R
 makes every bucket one count wide, so the readings compare. It roughly halves the zero
 bucket: for six decks of Hi-Lo at 75%, truncating puts 45.5% of rounds at zero where
 rounding puts 27%.
+
+### The buckets are Hi-Lo-equivalent
+
+The axis is the ramp's, not the system's own — a round dealt at a Zen +4 files under +2,
+the Hi-Lo count of the same shoe — for the same reason `trueCountFrequencies` does it
+(bankroll-model.md §The ramp's count axis): a bucket has to read exactly one step of the
+bet ramp off its own count. Filed under the system's own counts, a system whose counts run
+on a different axis lands its buckets between the ramp's steps once they are converted,
+so several buckets collapse onto one step and other steps drive no bucket at all — under
+Ace-Five, whose counts run at under half Hi-Lo's, the +1, +3 and +5 steps moved nothing on
+the graph and the +2 step was applied at +1.
+
+Sharing the axis leaves the distribution nearly the same for every system: a count's size
+is a property of its tags rather than of the shoe, and normalising it away is the point.
+Six decks at 75% put 25%, 37% and 42% of rounds at +1 or better under Ace-Five, Hi-Lo and
+Zen when each was read in its own counts, against 36–37% for all three now. What survives
+is granularity — a coarse count like Ace-Five, which tags eight cards of a deck, sits at
+zero through stretches of the deal that move a full count off it — and that is a real
+difference between the systems rather than a unit conversion.
+
+What the systems then differ by is the edge at a count, not the frequency of it, which is
+where the difference belongs: the graph prices each bucket through the edge curve, and the
+curve is in the system's own counts, so `CountEvGraph` converts the bucket's moments back
+through the same scale before reading it. That is the meeting point `analyzeBankroll`
+makes for the summary cards, made in the same place for the same reason.
 
 Every round of every shoe goes into the same histogram, so a bucket is the share of a
 session's play at that count, not a statement about any one shoe. A count a shoe visits
@@ -70,10 +95,11 @@ most about.
 frequency(TC) · bet(TC) · edge(TC) · unit / 100 · roundsPerShoe
 ```
 
-in money. The frequency is the simulation above; the edge is the fitted curve
-(bankroll-model.md §The edge curve), taken at each bucket's own mean and mean-square count
-rather than at its label; and the bet is the ramp as it is currently set, read off through
-`betAtCount`. Those three give percent of a unit per round, which the last two factors turn
+in money, over Hi-Lo-equivalent counts (§The buckets are Hi-Lo-equivalent). The frequency
+is the simulation above; the edge is the fitted curve (bankroll-model.md §The edge curve),
+taken at each bucket's own mean and mean-square count rather than at its label, and
+converted back into the system's own counts on the way; and the bet is the ramp as it is
+currently set, read off through `betAtCount` — one bucket per step of it. Those three give percent of a unit per round, which the last two factors turn
 into pounds a shoe: the unit is what a betting unit is worth, and `roundsPerShoe` is the
 rounds the simulation dealt before the cut card.
 

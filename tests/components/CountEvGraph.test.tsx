@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@solidjs/testing-library';
 
 import CountEvGraph, { type CountEvProfile } from '#c/CountEvGraph';
+import { hiLoCountScale } from '#utils/bankroll';
 import { ROUND_TRUE_COUNTS, simulateRoundFrequency } from '#utils/countRounds';
+import { baseComposition } from '#utils/ev/composition';
 import { DEFAULT_RULE_SET } from '#utils/ev/rules';
 import { tagsForSystem } from '#utils/countingSystems';
 
@@ -127,5 +129,41 @@ describe('CountEvGraph', () => {
 		));
 
 		expect(container.querySelector('.count-ev-graph__skeleton')).toBeTruthy();
+	});
+
+	/**
+	 * Every step of the ramp has to drive exactly one bucket, whatever the system.
+	 * The buckets used to be filed under the system's own counts and converted to
+	 * the ramp's Hi-Lo-equivalent ones only to read a bet off, which rounded
+	 * several buckets onto one step and left other steps driving nothing -- under
+	 * Ace-Five, whose counts run at less than half Hi-Lo's, the +1/+3/+5 steps
+	 * moved the line not at all and the +2 step was applied at +1.
+	 */
+	describe('the ramp against a system on its own count axis', () => {
+		const ACE_FIVE = tagsForSystem('ace-five')!;
+		const RULES = { ...DEFAULT_RULE_SET, decks: 6, penetrationPercent: 75 };
+
+		const aceFiveProfile = (ramp: readonly number[]): CountEvProfile => ({
+			...PROFILE,
+			rounds: simulateRoundFrequency(RULES, ACE_FIVE),
+			ramp,
+			countScale: hiLoCountScale(baseComposition(RULES), ACE_FIVE),
+			systemLabel: 'Ace-Five',
+		});
+
+		const drawnLine = (ramp: readonly number[]) => {
+			const { container, unmount } = render(() => (
+				<CountEvGraph profile={aceFiveProfile(ramp)} loading={false} seed={0} />
+			));
+			const path = container.querySelector('.count-ev-graph__line')!.getAttribute('d');
+			unmount();
+			return path;
+		};
+
+		it.each([1, 3, 5])('redraws the line when the +%i step changes', (step) => {
+			const ramp = [1, 1, 2, 4, 8, 12, 12];
+			const edited = ramp.map((bet, index) => (index === step ? bet + 6 : bet));
+			expect(drawnLine(edited)).not.toBe(drawnLine(ramp));
+		});
 	});
 });

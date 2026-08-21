@@ -22,7 +22,10 @@ import '#styles/CountEvGraph';
 
 /** Everything the card draws, taken together so it can only ever show one shoe. */
 export interface CountEvProfile {
-	/** The simulated round shares, over `ROUND_TRUE_COUNTS`. */
+	/**
+	 * The simulated round shares, over `ROUND_TRUE_COUNTS` -- Hi-Lo-equivalent
+	 * counts, the axis the ramp is denominated on.
+	 */
 	rounds: RoundFrequency;
 	/** The edge curve the buckets are priced through, in the system's own counts. */
 	edge: EdgeCurve;
@@ -30,8 +33,9 @@ export interface CountEvProfile {
 	ramp: readonly number[];
 	/**
 	 * How many of the system's own true counts one Hi-Lo count is worth, which is
-	 * what the ramp's Hi-Lo-equivalent buckets are read through. See
-	 * `hiLoCountScale` and docs/bankroll-model.md §The ramp's count axis.
+	 * what a bucket's Hi-Lo-equivalent count is converted through before the edge
+	 * curve prices it. See `hiLoCountScale` and docs/bankroll-model.md §The ramp's
+	 * count axis.
 	 */
 	countScale: number;
 	/** What one betting unit is worth, which is what puts the line in money. */
@@ -119,22 +123,22 @@ const CountEvGraph: Component<CountEvGraphProps> = (props) => {
 	const values = createMemo(() => {
 		const profile = props.profile;
 		if (!profile) return [];
+		const scale = profile.countScale;
 		const priced = profile.rounds.rounds.map((bucket) => {
-			// The ramp is denominated in Hi-Lo-equivalent counts while the buckets
-			// are in the system's own, so the count is converted before the spread
-			// is read off it -- a level-two system reaches its top bet at twice the
-			// number. A system that counts nothing has no scale and no count to
-			// convert, so all of its play is bet from the bottom bucket.
-			const hiLoTrueCount =
-				profile.countScale > 0 ? bucket.meanTrueCount / profile.countScale : 0;
 			return {
 				trueCount: bucket.trueCount,
 				frequency: bucket.frequency,
-				bet: betAtCount(profile.ramp, hiLoTrueCount),
+				// The buckets are already on the ramp's own Hi-Lo-equivalent axis, so
+				// the spread is read straight off them -- one bucket per step, with
+				// nothing rounded away.
+				bet: betAtCount(profile.ramp, bucket.meanTrueCount),
+				// The edge curve is in the system's own counts, though, so the bucket's
+				// moments are converted back into them here -- the same meeting point
+				// `analyzeBankroll` makes for the summary cards.
 				edgePercent: edgeAtCount(
 					profile.edge,
-					bucket.meanTrueCount,
-					bucket.meanSquaredTrueCount
+					scale * bucket.meanTrueCount,
+					scale * scale * bucket.meanSquaredTrueCount
 				),
 			};
 		});
@@ -273,7 +277,7 @@ const CountEvGraph: Component<CountEvGraphProps> = (props) => {
 					class="count-ev-graph__plot"
 					viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
 					role="img"
-					aria-label={`What each true count contributes to a shoe: its player edge, weighted by how often it is played and by what the spread bets there, in money. ${summary()}`}
+					aria-label={`What each Hi-Lo-equivalent true count contributes to a shoe: its player edge, weighted by how often it is played and by what the spread bets there, in money. ${summary()}`}
 					onMouseLeave={() => setHovered(null)}
 				>
 					{/*

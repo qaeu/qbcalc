@@ -12,6 +12,7 @@
  * fitted over it.
  */
 
+import { hiLoCountScale } from './bankroll';
 import { RANKS } from './ev/cards';
 import { baseComposition, CARDS_PER_DECK, type TagValues } from './ev/composition';
 import type { RuleSet } from './ev/rules';
@@ -19,6 +20,14 @@ import type { RuleSet } from './ev/rules';
 /**
  * The buckets a round is filed under: every whole count from -6 to +6, with the
  * two outermost open, so a round dealt at +9 files under +6.
+ *
+ * **Hi-Lo-equivalent counts**, as `RAMP_TRUE_COUNTS` is, not the system's own --
+ * a round dealt at a Zen +4 files under +2, the Hi-Lo count of the same shoe. The
+ * ramp is denominated on that axis (bankroll-model.md §The ramp's count axis) and
+ * a bucket has to be able to read one bet off it: bucketed in the system's own
+ * counts, a level-two system's buckets land between the ramp's steps, so several
+ * of its steps drive no bucket at all and the spread set at them does nothing to
+ * the graph. `trueCountFrequencies` buckets the same way for the same reason.
  *
  * The count is rounded to the nearest whole one, not truncated. Truncating would
  * be the closer description of what a player bets -- at +2.9 you are on the +2
@@ -36,11 +45,12 @@ export interface CountShare {
 	/** Fraction of all rounds dealt. The buckets sum to one. */
 	frequency: number;
 	/**
-	 * The mean true count actually seen inside the bucket, which is what the
-	 * bucket's edge is priced at. It is not the label: the two end buckets are
-	 * open, so a round dealt at +9 sits in the +6 bucket and pricing the bucket
-	 * at +6 would undercount what those rounds are worth. Empty buckets report
-	 * their label.
+	 * The mean Hi-Lo-equivalent true count actually seen inside the bucket, which
+	 * is what the bucket's edge is priced at -- through `hiLoCountScale`, since
+	 * the edge curve is in the system's own counts. It is not the label: the two
+	 * end buckets are open, so a round dealt at +9 sits in the +6 bucket and
+	 * pricing the bucket at +6 would undercount what those rounds are worth. Empty
+	 * buckets report their label.
 	 */
 	meanTrueCount: number;
 	/**
@@ -162,6 +172,10 @@ export function simulateRoundFrequency(
 	const shoe = shoeTags(ruleSet, tags);
 	const cutCard = Math.floor((shoe.length * ruleSet.penetrationPercent) / 100);
 	const random = randomSource(SEED);
+	// The buckets are Hi-Lo-equivalent, so the count each round is filed under is
+	// converted as it is read. A tag vector that tells no rank from another has no
+	// scale and no count to convert: all of its play files under zero.
+	const scale = hiLoCountScale(baseComposition(ruleSet), tags);
 
 	const counts = ROUND_TRUE_COUNTS.map(() => 0);
 	// The count moments each bucket holds, summed as rounds are filed: the edge
@@ -184,7 +198,7 @@ export function simulateRoundFrequency(
 			// A shoe dealt to its last card divides by nothing, and there is no
 			// count to bet into where there is nothing left to deal.
 			if (decksLeft <= 0) break;
-			const trueCount = runningCount / decksLeft;
+			const trueCount = scale > 0 ? runningCount / decksLeft / scale : 0;
 			const bucket = bucketOf(trueCount);
 			counts[bucket] += 1;
 			moments[bucket] += trueCount;

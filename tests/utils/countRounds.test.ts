@@ -156,8 +156,10 @@ describe('simulateRoundFrequency', () => {
 	});
 
 	it('keeps a weak system nearer zero than a strong one', () => {
-		// Ace-Five tags eight cards of a single deck where Hi-Lo tags twenty times
-		// as many, so far less of the deal happens away from zero under it.
+		// Not the size of its counts -- the Hi-Lo-equivalent axis has already
+		// normalised those away. What is left is granularity: Ace-Five tags eight
+		// cards of a single deck where Hi-Lo tags twenty times as many, so its count
+		// sits at zero through stretches of the deal that move Hi-Lo's off it.
 		const aceFive = simulateRoundFrequency(SINGLE_DECK, ACE_FIVE_TAGS);
 		const hiLo = simulateRoundFrequency(SINGLE_DECK, HI_LO);
 
@@ -175,5 +177,27 @@ describe('simulateRoundFrequency', () => {
 		for (const bucket of shoe.rounds) {
 			expect(bucket.frequency).toBe(bucket.trueCount === 0 ? 1 : 0);
 		}
+	});
+
+	/**
+	 * The buckets are Hi-Lo-equivalent, not the system's own, so that each one can
+	 * read exactly one step of the bet ramp -- see `ROUND_TRUE_COUNTS`. Filed under
+	 * the system's own counts, a system whose counts run on a different axis lands
+	 * its buckets between the ramp's steps: several buckets share a step and other
+	 * steps drive no bucket at all, so the spread set at them does nothing.
+	 *
+	 * Converting the count as it is filed is what leaves the distribution below
+	 * nearly the same for every system, which is the axis being shared. The little
+	 * that is left of the difference is granularity, not scale. Filed in each
+	 * system's own counts these three read 0.25, 0.37 and 0.42 instead.
+	 */
+	it("files rounds on the ramp's own count axis, whatever the system", () => {
+		const shareFor = (tags: TagValues) =>
+			simulateRoundFrequency(SIX_DECK, tags).advantageShare;
+
+		// Ace-Five's counts run at under half Hi-Lo's, Zen's at nearly twice them.
+		const hiLo = shareFor(HI_LO);
+		expect(shareFor(ACE_FIVE_TAGS)).toBeCloseTo(hiLo, 1);
+		expect(shareFor(tagsForSystem('zen')!)).toBeCloseTo(hiLo, 1);
 	});
 });
