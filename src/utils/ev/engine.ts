@@ -23,6 +23,7 @@ import {
 	type ActionAnalysis,
 } from './outcome';
 import { PlayerModel } from './player';
+import { FAST_PRECISION, type Precision } from './precision';
 import {
 	HARD_TOTALS,
 	PAIR_RANKS,
@@ -160,6 +161,8 @@ export class ShoeEv {
 	private readonly split: SplitModel;
 	private readonly splitLimit: number;
 	private readonly peek: boolean;
+	/** Whether `analyzeAverage` takes the player's own two cards off the shoe. */
+	private readonly removePlayerCards: boolean;
 	/** The opening deal against the current root, and that deal bucketed per grid. */
 	private weights: DealWeights = new Float64Array(0);
 	private occurrence: HandOccurrence = {
@@ -168,12 +171,13 @@ export class ShoeEv {
 		split: new Map(),
 	};
 
-	constructor(ruleSet: RuleSet) {
-		this.dealer = new DealerModel(this.shoe, ruleSet);
-		this.player = new PlayerModel(this.shoe, this.dealer, ruleSet);
-		this.split = new SplitModel(this.shoe, this.dealer, this.player, ruleSet);
+	constructor(ruleSet: RuleSet, precision: Precision = FAST_PRECISION) {
+		this.dealer = new DealerModel(this.shoe, ruleSet, precision);
+		this.player = new PlayerModel(this.shoe, this.dealer, ruleSet, precision);
+		this.split = new SplitModel(this.shoe, this.dealer, this.player, ruleSet, precision);
 		this.splitLimit = ruleSet.splitLimit;
 		this.peek = ruleSet.dealerPeek;
+		this.removePlayerCards = precision.removePlayerCards;
 	}
 
 	private setRoot(comp0: Composition): void {
@@ -403,7 +407,9 @@ export class ShoeEv {
 	 *
 	 * Cheap despite pricing a few hundred hands: it runs on an engine whose grids
 	 * have already been walked, so nearly every dealer distribution and player
-	 * sub-EV it asks for is a memo hit.
+	 * sub-EV it asks for is a memo hit. That stops being true under a precision
+	 * that removes the player's cards, since each hand is then priced against a
+	 * shoe of its own -- which is most of what full mode costs.
 	 */
 	analyzeAverage(comp0: Composition): AverageEvParts {
 		this.setRoot(comp0);
@@ -438,17 +444,29 @@ export class ShoeEv {
 					}
 
 					const [total, soft] = handTotal(RANKS[low], RANKS[high]);
+					// The one place the player's own cards can come off the shoe before
+					// the hand is priced: here the two cards are enumerated, where a grid
+					// cell only knows a total. See docs/ev-model.md §Precision modes.
+					const remove = this.removePlayerCards;
+					if (remove) {
+						comp[low] -= CARD_UNITS;
+						comp[high] -= CARD_UNITS;
+					}
 					const best = bestAction(
 						this.handActions(
 							total,
 							soft,
 							upcard,
 							upcardIndex,
-							totCards,
-							key,
+							remove ? totCards - 2 * CARD_UNITS : totCards,
+							remove ? key + KEY_MULT[low] + KEY_MULT[high] : key,
 							low === high ? low : null
 						)
 					);
+					if (remove) {
+						comp[low] += CARD_UNITS;
+						comp[high] += CARD_UNITS;
+					}
 					evPercentExNatural +=
 						weight * (pRebase * -100 + (1 - pRebase) * best.evPercent);
 					// The rebased branch is a flat one-unit loss, so it contributes
@@ -476,8 +494,12 @@ export class ShoeEv {
  * depends only on `ruleSet` and `comp`, never on the count that produced `comp` --
  * see docs/ev-model.md §Performance notes.
  */
-export function computeEvGrids(ruleSet: RuleSet, comp: Composition): EvGrids {
-	const engine = new ShoeEv(ruleSet);
+export function computeEvGrids(
+	ruleSet: RuleSet,
+	comp: Composition,
+	precision: Precision = FAST_PRECISION
+): EvGrids {
+	const engine = new ShoeEv(ruleSet, precision);
 	return {
 		hard: engine.analyzeGrid(comp, HARD_TOTALS, RANKS, false),
 		soft: engine.analyzeGrid(comp, SOFT_TOTALS, RANKS, true),

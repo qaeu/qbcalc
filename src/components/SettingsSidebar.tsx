@@ -34,6 +34,17 @@ interface SettingsSidebarProps {
 	 */
 	onSettingsChange: (settings: CalculatorSettings) => void;
 	/**
+	 * Reprices what is on screen at full precision -- seconds of work rather than
+	 * the fraction of one an ordinary recalculation takes, which is why it is a
+	 * button and not something the form triggers on its own. See docs/ev-model.md
+	 * §Precision modes. Omitted where the sidebar is rendered without one.
+	 */
+	onFullCalculation?: () => void;
+	/** Whether the figures on screen are the full calculation's own. */
+	isFullResult?: boolean;
+	/** Whether a calculation is in flight, full or otherwise. */
+	isBusy?: boolean;
+	/**
 	 * The bankroll settings, which -- unlike the config above -- are owned by the
 	 * app rather than mirrored into this form. They change nothing the worker
 	 * computes, so they are applied as they are typed and never reach the
@@ -159,11 +170,34 @@ const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
 					</Tabs.Root>
 				</form>
 			</aside>
-			<Show when={props.calcTimeMs !== null}>
-				<span class="settings-sidebar__calc-time">
-					(took {formatDuration(props.calcTimeMs!)})
-				</span>
-			</Show>
+			{/*
+			 * Below the card rather than inside the form: the full calculation is not
+			 * a setting, it is a re-run of the settings already entered.
+			 */}
+			<div class="settings-sidebar__footer">
+				<Show when={props.onFullCalculation}>
+					{(run) => (
+						<button
+							type="button"
+							class="settings-sidebar__full-calc"
+							// Already full is nothing left to compute, and a run in flight
+							// is one this would only supersede.
+							disabled={props.isBusy || props.isFullResult}
+							onClick={() => run()()}
+						>
+							Run full calculation
+						</button>
+					)}
+				</Show>
+				<Show when={props.calcTimeMs !== null}>
+					<span class="settings-sidebar__calc-time">
+						<Show when={props.isFullResult}>
+							<span class="settings-sidebar__precision">full ·</span>{' '}
+						</Show>
+						(took {formatDuration(props.calcTimeMs!)})
+					</span>
+				</Show>
+			</div>
 		</div>
 	);
 };

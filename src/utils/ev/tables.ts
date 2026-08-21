@@ -22,6 +22,7 @@ import {
 } from './engine';
 import { analyzeInsurance, type InsuranceAnalysis } from './insurance';
 import type { ActionAnalysis } from './outcome';
+import { FAST_PRECISION, type Precision } from './precision';
 import {
 	HARD_TOTALS,
 	PAIR_RANKS,
@@ -244,13 +245,14 @@ export function computeEvComparison(
 	tags: TagValues = ACE_FIVE_TAGS,
 	totals: readonly number[] = HARD_TOTALS,
 	upcards: readonly Rank[] = RANKS,
-	soft = false
+	soft = false,
+	precision: Precision = FAST_PRECISION
 ): EvComparisonResult {
 	const base = baseComposition(ruleSet);
 	const modified = applyTrueCountToComposition(base, tags, trueCount);
 	return buildEvComparison(
-		new ShoeEv(ruleSet).analyzeGrid(base, totals, upcards, soft),
-		new ShoeEv(ruleSet).analyzeGrid(modified, totals, upcards, soft),
+		new ShoeEv(ruleSet, precision).analyzeGrid(base, totals, upcards, soft),
+		new ShoeEv(ruleSet, precision).analyzeGrid(modified, totals, upcards, soft),
 		totals,
 		upcards
 	);
@@ -261,13 +263,14 @@ export function computeSplitEvComparison(
 	trueCount: number,
 	tags: TagValues = ACE_FIVE_TAGS,
 	pairRanks: readonly Rank[] = PAIR_RANKS,
-	upcards: readonly Rank[] = RANKS
+	upcards: readonly Rank[] = RANKS,
+	precision: Precision = FAST_PRECISION
 ): SplitEvComparisonResult {
 	const base = baseComposition(ruleSet);
 	const modified = applyTrueCountToComposition(base, tags, trueCount);
 	return buildSplitEvComparison(
-		new ShoeEv(ruleSet).analyzeSplitGrid(base, pairRanks, upcards),
-		new ShoeEv(ruleSet).analyzeSplitGrid(modified, pairRanks, upcards),
+		new ShoeEv(ruleSet, precision).analyzeSplitGrid(base, pairRanks, upcards),
+		new ShoeEv(ruleSet, precision).analyzeSplitGrid(modified, pairRanks, upcards),
 		pairRanks,
 		upcards
 	);
@@ -306,14 +309,15 @@ export function combineEvTables(
 export function computeAllEvTables(
 	ruleSet: RuleSet,
 	trueCount: number,
-	tags: TagValues = ACE_FIVE_TAGS
+	tags: TagValues = ACE_FIVE_TAGS,
+	precision: Precision = FAST_PRECISION
 ): EvTables {
 	const base = baseComposition(ruleSet);
 	const modified = applyTrueCountToComposition(base, tags, trueCount);
 	return combineEvTables(
 		ruleSet,
-		computeEvGrids(ruleSet, base),
-		computeEvGrids(ruleSet, modified),
+		computeEvGrids(ruleSet, base, precision),
+		computeEvGrids(ruleSet, modified, precision),
 		analyzeInsurance(ruleSet, base, modified)
 	);
 }

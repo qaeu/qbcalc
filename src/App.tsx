@@ -26,6 +26,7 @@ import {
 	type CalculatorConfig,
 	type CalculatorSettings,
 } from '#utils/storage';
+import type { PrecisionId } from '#utils/ev/precision';
 import type {
 	EvSummaryResult,
 	EvWorkerRequest,
@@ -72,16 +73,26 @@ const App: Component = () => {
 	const [isComputing, setIsComputing] = createSignal(false);
 	const [error, setError] = createSignal<string | null>(null);
 	const [calcTimeMs, setCalcTimeMs] = createSignal<number | null>(null);
+	// The precision the figures on screen were actually priced at, which is what
+	// the sidebar labels them with -- not the one the pending request asked for.
+	const [resultPrecision, setResultPrecision] = createSignal<PrecisionId>('fast');
+	// The precision of the request in flight, back to 'fast' once nothing is. A
+	// signal rather than a plain `let` because it is the only thing that marks a
+	// full run as busy on the Bankroll view, where a repriced-but-unchanged
+	// summary drops neither of the computing flags.
+	const [latestRequestPrecision, setLatestRequestPrecision] =
+		createSignal<PrecisionId>('fast');
 	// Held back from `result` on purpose. The summary cards describe the whole
 	// shoe under the bet spread, not the hand in front of the player, so they
 	// must not twitch every time the arrow keys move the count -- even though
 	// the count does nudge the numbers they are derived from (the edge line is
 	// fitted through the count's own shoe where it can be). So the basis is only
-	// replaced when a *setting* changes; a count-only recalculation leaves it,
-	// and the cards, exactly where they were.
+	// replaced when a *setting* changes, or when the same settings are repriced at
+	// a different precision; a count-only recalculation leaves it, and the cards,
+	// exactly where they were.
 	const [summaryBasis, setSummaryBasis] = createSignal<SummaryBasis | null>(null);
 	// Whether the pending calculation is one the summary cards are waiting on,
-	// which is again settings changes only -- see above.
+	// which is again a settings change or a reprice -- see above.
 	const [isSummaryComputing, setIsSummaryComputing] = createSignal(false);
 	// The true count lives here rather than in the sidebar form: it is the one
 	// input a counter moves hand to hand, so the arrow keys drive it and it
@@ -184,14 +195,28 @@ const App: Component = () => {
 	 * from timers and from mount, where a reactive read would be ignored anyway.
 	 */
 	let summaryBasisSettings: CalculatorSettings | null = null;
+	/**
+	 * The precision those figures were priced at. Part of what the basis is, not
+	 * just a label on it: every bankroll figure is derived from the average, so
+	 * repricing the same settings at a different precision moves all of them --
+	 * see docs/bankroll-model.md §Precision reaches every figure here.
+	 */
+	let summaryBasisPrecision: PrecisionId | null = null;
 
 	/**
-	 * Whether a config would leave the summary cards showing the figures they
-	 * already show -- true when it differs from the basis by the true count
-	 * alone, which `calculatorSettingsEqual` ignores by construction.
+	 * Whether a calculation would leave the summary cards showing the figures they
+	 * already show -- true when it differs from the basis by the true count alone
+	 * (which `calculatorSettingsEqual` ignores by construction) *and* prices it the
+	 * same way. Without the precision half, a full run -- which re-dispatches the
+	 * settings unchanged on purpose -- would look like a count-only refresh and
+	 * never reach the cards.
 	 */
-	const summaryBasisMatches = (config: CalculatorConfig): boolean =>
+	const summaryBasisMatches = (
+		config: CalculatorConfig,
+		precision: PrecisionId
+	): boolean =>
 		summaryBasisSettings !== null
+		&& summaryBasisPrecision === precision
 		&& calculatorSettingsEqual(settingsFromConfig(config), summaryBasisSettings);
 
 	// Exact enumeration over the full shoe takes seconds; offload it to a
@@ -230,17 +255,21 @@ const App: Component = () => {
 					if (response.requestId !== latestRequestId) return;
 					setIsComputing(false);
 					setIsSummaryComputing(false);
+					setLatestRequestPrecision('fast');
 					if (response.status === 'success') {
 						const config = latestRequestConfig;
 						setCalcTimeMs(elapsed);
+						setResultPrecision(response.precision);
 						// A 'summary' response has no grids to apply -- the Tables view
 						// picks up the settings it was computed from when it next asks
 						// for them, via the catch-up effect below.
 						if (response.scope === 'tables') setResult(response.result);
-						// Only a settings change refreshes what the summary reads;
-						// a count-only result is applied to the grids alone.
-						if (!summaryBasisMatches(config)) {
+						// Only a settings change, or a reprice at a different precision,
+						// refreshes what the summary reads; a count-only result at the
+						// same precision is applied to the grids alone.
+						if (!summaryBasisMatches(config, response.precision)) {
 							summaryBasisSettings = settingsFromConfig(config);
+							summaryBasisPrecision = response.precision;
 							setSummaryBasis({ config, result: response.result });
 						}
 					} else {
@@ -266,13 +295,21 @@ const App: Component = () => {
 		worker?.terminate();
 	});
 
-	const runCalculation = (nextConfig: CalculatorConfig, scope: 'tables' | 'summary') => {
+	const runCalculation = (
+		nextConfig: CalculatorConfig,
+		scope: 'tables' | 'summary',
+		// Defaulted rather than passed by each caller, which is what makes the full
+		// calculation a one-shot: the next settings edit, count step or Tables
+		// catch-up goes back to fast without having to be told to.
+		precision: PrecisionId = 'fast'
+	) => {
 		const w = getWorker();
 		clearTimeout(holdTimer);
 		latestRequestId += 1;
 		latestRequestStart = performance.now();
 		latestRequestConfig = nextConfig;
 		latestRequestScope = scope;
+		setLatestRequestPrecision(precision);
 		// Note that `result` is deliberately left alone here: the previous rows
 		// stay in place while the new ones are computed. EvCell keeps each cell's
 		// popover mounted for as long as it has row data, and that is what stops
@@ -281,8 +318,9 @@ const App: Component = () => {
 		// it here would break that animation from a distance.
 		if (scope === 'tables') setIsComputing(true);
 		// A count-only recalculation is not something the cards are waiting for:
-		// they keep their figures rather than dropping to skeletons.
-		if (!summaryBasisMatches(nextConfig)) setIsSummaryComputing(true);
+		// they keep their figures rather than dropping to skeletons. A full run is,
+		// since it is going to move every one of them.
+		if (!summaryBasisMatches(nextConfig, precision)) setIsSummaryComputing(true);
 		setError(null);
 		// Saved here rather than in the form, since the count reaches a
 		// calculation without passing through it at all.
@@ -291,6 +329,7 @@ const App: Component = () => {
 		const request: EvWorkerRequest = {
 			requestId: latestRequestId,
 			scope,
+			precision,
 			ruleSet: ruleSetFromConfig(nextConfig),
 			trueCount: nextConfig.trueCount,
 			tags: nextConfig.tags,
@@ -352,6 +391,19 @@ const App: Component = () => {
 		);
 	};
 
+	/**
+	 * Reprices what is on screen at full precision, at whichever view's scope is
+	 * showing. Deliberate and one-shot: nothing else in the app ever asks for
+	 * 'full', so the next recalculation of any kind drops back to 'fast'.
+	 */
+	const runFullCalculation = () => {
+		runCalculation(
+			{ ...latestRequestConfig, trueCount: trueCount() },
+			tab() === 'tables' ? 'tables' : 'summary',
+			'full'
+		);
+	};
+
 	// A settings edit made while parked on Bankroll only refreshes the summary
 	// figures (`requestCalculation` above asks for nothing more), so the
 	// Tables grid can be left showing stale settings. Caught up here, once,
@@ -370,6 +422,11 @@ const App: Component = () => {
 						initialConfig={initialConfig}
 						calcTimeMs={calcTimeMs()}
 						onSettingsChange={requestCalculation}
+						onFullCalculation={runFullCalculation}
+						isFullResult={resultPrecision() === 'full'}
+						isBusy={
+							isComputing() || isSummaryComputing() || latestRequestPrecision() === 'full'
+						}
 						bankroll={bankroll()}
 						bankrollAnalysis={bankrollAnalysis()}
 						onBankrollChange={updateBankroll}

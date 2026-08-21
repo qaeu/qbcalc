@@ -17,6 +17,7 @@ import {
 	RANKS,
 	type Rank,
 } from './cards';
+import { FAST_PRECISION, type Precision } from './precision';
 import type { RuleSet } from './rules';
 import type { Shoe } from './shoe';
 
@@ -102,6 +103,8 @@ export class DealerModel {
 	private readonly comp: Int32Array;
 	private readonly h17: boolean;
 	private readonly peek: boolean;
+	/** Draws past this depth leave the shoe alone -- see docs/ev-model.md §Precision modes. */
+	private readonly drawCap: number;
 	private readonly arena = new DistArena();
 	/** Distributions for a dealer who is already finished, allocated once. */
 	private readonly terminal = new Int32Array(DIST_LEN);
@@ -116,10 +119,11 @@ export class DealerModel {
 		() => new Map()
 	);
 
-	constructor(shoe: Shoe, ruleSet: RuleSet) {
+	constructor(shoe: Shoe, ruleSet: RuleSet, precision: Precision = FAST_PRECISION) {
 		this.comp = shoe.comp;
 		this.h17 = ruleSet.dealerHitsSoft17;
 		this.peek = ruleSet.dealerPeek;
+		this.drawCap = precision.drawCap;
 		this.allocTerminals();
 	}
 
@@ -147,8 +151,21 @@ export class DealerModel {
 	 * shoe, i.e. it always equals its sum; every recursive step removes exactly one
 	 * card, so it is decremented arithmetically on the way down instead of being
 	 * re-summed at every node. `key` is threaded down the same way.
+	 *
+	 * `depth` counts the dealer's own draws, from 0 at the upcard. Once it reaches
+	 * `drawCap` the shoe freezes: the draw is still taken and priced, but nothing is
+	 * removed for it, so `comp`, `totCards` and `key` all stay where they were. That
+	 * keeps `(comp, totCards)` an exact function of `key` either side of the
+	 * boundary, which is what makes the memos safe -- see docs/ev-model.md
+	 * §Precision modes.
 	 */
-	dealerDist(total: number, soft: boolean, totCards: number, key: number): number {
+	dealerDist(
+		total: number,
+		soft: boolean,
+		totCards: number,
+		key: number,
+		depth = 0
+	): number {
 		if (total > 21) return this.terminal[BUST];
 		const stands = total >= 18 || (total === 17 && (!soft || !this.h17));
 		if (stands) return this.terminal[total];
@@ -160,7 +177,8 @@ export class DealerModel {
 		if (cached !== undefined) return cached;
 
 		const comp = this.comp;
-		const subTotCards = totCards - CARD_UNITS;
+		const frozen = depth >= this.drawCap;
+		const subTotCards = frozen ? totCards : totCards - CARD_UNITS;
 		const children: number[] = [];
 		const probabilities: number[] = [];
 		let lowest = BUST;
@@ -168,14 +186,15 @@ export class DealerModel {
 			const n = comp[index];
 			if (n < CARD_UNITS) continue;
 			const packed = addPacked(total, soft, index);
-			comp[index] = n - CARD_UNITS;
+			if (!frozen) comp[index] = n - CARD_UNITS;
 			const child = this.dealerDist(
 				packed >> 1,
 				(packed & 1) === 1,
 				subTotCards,
-				key + KEY_MULT[index]
+				frozen ? key : key + KEY_MULT[index],
+				depth + 1
 			);
-			comp[index] = n;
+			if (!frozen) comp[index] = n;
 			children.push(child);
 			probabilities.push(n / totCards);
 			if (this.arena.lowest(child) < lowest) lowest = this.arena.lowest(child);
@@ -239,11 +258,15 @@ export class DealerModel {
 			const p = n / nonNaturalCards;
 			const packed = addPacked(startTotal, startSoft, index);
 			comp[index] = n - CARD_UNITS;
+			// Depth 1, not 0: this loop has already taken the hole card off the shoe
+			// outside `dealerDist`'s own counter, so a peeking and a non-peeking dealer
+			// would otherwise freeze at different card counts.
 			const child = this.dealerDist(
 				packed >> 1,
 				(packed & 1) === 1,
 				subTotCards,
-				key + KEY_MULT[index]
+				key + KEY_MULT[index],
+				1
 			);
 			comp[index] = n;
 			const from = child * DIST_LEN;

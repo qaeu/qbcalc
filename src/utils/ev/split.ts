@@ -20,6 +20,7 @@ import {
 	type Outcome,
 } from './outcome';
 import type { PlayerModel } from './player';
+import { FAST_PRECISION, type Precision } from './precision';
 import type { RuleSet } from './rules';
 import type { Shoe } from './shoe';
 
@@ -52,8 +53,20 @@ export class SplitModel {
 	private readonly splitLimit: number;
 	private readonly resplitAces: boolean;
 	private readonly hitSplitAces: boolean;
+	/**
+	 * Draws past this depth leave the shoe alone. The mandatory second card below is
+	 * the post-split hand's own first draw, so it sits at depth 0 and everything it
+	 * hands on to `player` starts at depth 1.
+	 */
+	private readonly drawCap: number;
 
-	constructor(shoe: Shoe, dealer: DealerModel, player: PlayerModel, ruleSet: RuleSet) {
+	constructor(
+		shoe: Shoe,
+		dealer: DealerModel,
+		player: PlayerModel,
+		ruleSet: RuleSet,
+		precision: Precision = FAST_PRECISION
+	) {
 		this.comp = shoe.comp;
 		this.dealer = dealer;
 		this.player = player;
@@ -61,6 +74,7 @@ export class SplitModel {
 		this.splitLimit = ruleSet.splitLimit;
 		this.resplitAces = ruleSet.resplitAces;
 		this.hitSplitAces = ruleSet.hitSplitAces;
+		this.drawCap = precision.drawCap;
 	}
 
 	/**
@@ -85,7 +99,8 @@ export class SplitModel {
 		}
 
 		const comp = this.comp;
-		const subTotCards = totCards - CARD_UNITS;
+		const frozen = this.drawCap <= 0;
+		const subTotCards = frozen ? totCards : totCards - CARD_UNITS;
 		const drawProbs: number[] = [];
 		const drawPlayEvs: number[] = [];
 		const drawOutcomes: Outcome[] = [];
@@ -96,8 +111,8 @@ export class SplitModel {
 			const packed = addPacked(startTotal, isAce, index);
 			const newTotal = packed >> 1;
 			const newSoft = (packed & 1) === 1;
-			const drawKey = key + KEY_MULT[index];
-			comp[index] = n - CARD_UNITS;
+			const drawKey = frozen ? key : key + KEY_MULT[index];
+			if (!frozen) comp[index] = n - CARD_UNITS;
 
 			// Written as a running maximum rather than one `Math.max` so the
 			// settlement odds of the branch actually taken can be picked up alongside
@@ -117,13 +132,14 @@ export class SplitModel {
 					newSoft,
 					upcardIndex,
 					subTotCards,
-					drawKey
+					drawKey,
+					1
 				);
 				if (evHit > playEv) {
 					playEv = evHit;
 					playOutcome = outcomeFromEv(
 						evHit,
-						this.player.hitPush(newTotal, newSoft, upcardIndex, subTotCards, drawKey)
+						this.player.hitPush(newTotal, newSoft, upcardIndex, subTotCards, drawKey, 1)
 					);
 				}
 				if (this.das) {
@@ -132,7 +148,8 @@ export class SplitModel {
 						newSoft,
 						upcardIndex,
 						subTotCards,
-						drawKey
+						drawKey,
+						1
 					);
 					if (evDouble > playEv) {
 						playEv = evDouble;
@@ -143,7 +160,8 @@ export class SplitModel {
 								newSoft,
 								upcardIndex,
 								subTotCards,
-								drawKey
+								drawKey,
+								1
 							),
 							2
 						);
@@ -151,7 +169,7 @@ export class SplitModel {
 				}
 			}
 
-			comp[index] = n;
+			if (!frozen) comp[index] = n;
 			drawProbs.push(n / totCards);
 			drawPlayEvs.push(playEv);
 			drawOutcomes.push(playOutcome);

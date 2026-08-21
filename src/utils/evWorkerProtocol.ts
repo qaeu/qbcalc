@@ -15,6 +15,7 @@ import { hiLoCountScale } from './bankroll';
 import { RANKS } from './ev/cards';
 import { computeEvGrids, ShoeEv, type AverageEvParts, type EvGrids } from './ev/engine';
 import { analyzeInsurance } from './ev/insurance';
+import { precisionFor, type PrecisionId } from './ev/precision';
 import { ruleSetKey, type RuleSet } from './ev/rules';
 import {
 	averageEvPercent,
@@ -39,6 +40,14 @@ export interface EvWorkerRequest {
 	 * Omitted requests behave as 'tables', which is every pre-existing caller.
 	 */
 	scope?: 'tables' | 'summary';
+	/**
+	 * How accurately to price it. 'fast' is what every ordinary recalculation
+	 * asks for; 'full' is the deliberate, seconds-long run behind the sidebar's
+	 * button. Omitted requests behave as 'fast'. Not a rule -- it describes the
+	 * calculation, not the game -- so it stays out of `ruleSet` and is carried
+	 * here instead. See docs/ev-model.md §Precision modes.
+	 */
+	precision?: PrecisionId;
 	ruleSet: RuleSet;
 	trueCount: number;
 	/** The counting system's per-rank point values the count was kept with. */
@@ -71,9 +80,26 @@ export interface EvSummaryResult {
 
 export interface EvWorkerResult extends EvTables, EvSummaryResult {}
 
+/**
+ * `precision` is echoed rather than assumed: the UI labels the figures it applies
+ * with the precision they were actually priced at, and a response can land after
+ * the request that superseded it has changed that.
+ */
 export type EvWorkerResponse =
-	| { requestId: number; status: 'success'; scope: 'tables'; result: EvWorkerResult }
-	| { requestId: number; status: 'success'; scope: 'summary'; result: EvSummaryResult }
+	| {
+			requestId: number;
+			status: 'success';
+			scope: 'tables';
+			precision: PrecisionId;
+			result: EvWorkerResult;
+	  }
+	| {
+			requestId: number;
+			status: 'success';
+			scope: 'summary';
+			precision: PrecisionId;
+			result: EvSummaryResult;
+	  }
 	| { requestId: number; status: 'error'; message: string };
 
 /**
@@ -87,10 +113,24 @@ export type EvWorkerResponse =
  */
 let cachedBaseGrids: { key: string; grids: EvGrids } | null = null;
 
-function baseGridsFor(ruleSet: RuleSet): EvGrids {
-	const key = ruleSetKey(ruleSet);
+/**
+ * What a cached baseline belongs to. Precision joins the rule set because the two
+ * modes price the same shoe differently -- a full result served a fast cache entry
+ * would be neither. Still one entry: a full run is deliberate and rare, so evicting
+ * the fast baseline costs less than keeping a second cache alive for it.
+ */
+function baselineKey(ruleSet: RuleSet, precision: PrecisionId): string {
+	return `${ruleSetKey(ruleSet)}|${precision}`;
+}
+
+function baseGridsFor(ruleSet: RuleSet, precision: PrecisionId): EvGrids {
+	const key = baselineKey(ruleSet, precision);
 	if (cachedBaseGrids?.key === key) return cachedBaseGrids.grids;
-	const grids = computeEvGrids(ruleSet, baseComposition(ruleSet));
+	const grids = computeEvGrids(
+		ruleSet,
+		baseComposition(ruleSet),
+		precisionFor(precision)
+	);
 	cachedBaseGrids = { key, grids };
 	return grids;
 }
@@ -103,11 +143,15 @@ function baseGridsFor(ruleSet: RuleSet): EvGrids {
  */
 let cachedBaseAverage: { key: string; average: AverageEvParts } | null = null;
 
-function baseAverageFor(ruleSet: RuleSet, base: Composition): AverageEvParts {
-	const key = ruleSetKey(ruleSet);
+function baseAverageFor(
+	ruleSet: RuleSet,
+	base: Composition,
+	precision: PrecisionId
+): AverageEvParts {
+	const key = baselineKey(ruleSet, precision);
 	if (cachedBaseGrids?.key === key) return cachedBaseGrids.grids.average;
 	if (cachedBaseAverage?.key === key) return cachedBaseAverage.average;
-	const average = new ShoeEv(ruleSet).analyzeAverage(base);
+	const average = new ShoeEv(ruleSet, precisionFor(precision)).analyzeAverage(base);
 	cachedBaseAverage = { key, average };
 	return average;
 }
@@ -159,12 +203,17 @@ function fitEdgeCurve(
 	ruleSet: RuleSet,
 	base: Composition,
 	tags: TagValues,
-	baseEv: number
+	baseEv: number,
+	precision: PrecisionId
 ): EdgeCurve {
 	const payout = ruleSet.blackjackPayout;
+	// Every probe is priced at the same precision as the baseline it is fitted
+	// against. The correction full mode applies is not count-stable, so a curve
+	// fitted through fast probes cannot be offset onto a full baseline -- see
+	// docs/bankroll-model.md §The edge curve.
 	const evAt = (trueCount: number) =>
 		averageEvPercent(
-			new ShoeEv(ruleSet).analyzeAverage(
+			new ShoeEv(ruleSet, precisionFor(precision)).analyzeAverage(
 				applyTrueCountToComposition(base, tags, trueCount)
 			),
 			payout
@@ -199,8 +248,8 @@ function fitEdgeCurve(
  *
  * The curve describes the whole shoe, not the count on screen, so sweeping the
  * count would otherwise pay for the same four probe shoes over and over. Keyed on
- * both the rules and the tags, since either moves it. One entry, for the same
- * reason `cachedBaseGrids` keeps one.
+ * the rules, the precision and the tags, since any of the three moves it. One
+ * entry, for the same reason `cachedBaseGrids` keeps one.
  */
 let cachedEdgeCurve: { key: string; curve: EdgeCurve } | null = null;
 
@@ -208,18 +257,26 @@ function edgeCurveFor(
 	ruleSet: RuleSet,
 	base: Composition,
 	tags: TagValues,
-	baseEv: number
+	baseEv: number,
+	precision: PrecisionId
 ): EdgeCurve {
-	const key = `${ruleSetKey(ruleSet)}|${RANKS.map((rank) => tags[rank]).join(',')}`;
+	const key = `${baselineKey(ruleSet, precision)}|${RANKS.map((rank) => tags[rank]).join(',')}`;
 	if (cachedEdgeCurve?.key === key) return cachedEdgeCurve.curve;
-	const curve = fitEdgeCurve(ruleSet, base, tags, baseEv);
+	const curve = fitEdgeCurve(ruleSet, base, tags, baseEv, precision);
 	cachedEdgeCurve = { key, curve };
 	return curve;
 }
 
 export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerResponse {
 	try {
-		const { requestId, scope = 'tables', ruleSet, trueCount, tags } = request;
+		const {
+			requestId,
+			scope = 'tables',
+			precision = 'fast',
+			ruleSet,
+			trueCount,
+			tags,
+		} = request;
 		const base = baseComposition(ruleSet);
 		// Before anything is cached, so a request the tags give no meaning still
 		// throws rather than banking work for a doomed one.
@@ -229,15 +286,18 @@ export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerRespo
 		const unchanged = modified.every((halfCards, index) => halfCards === base[index]);
 
 		if (scope === 'summary') {
-			const baseAverage = baseAverageFor(ruleSet, base);
+			const baseAverage = baseAverageFor(ruleSet, base, precision);
 			const countAverage =
-				unchanged ? baseAverage : new ShoeEv(ruleSet).analyzeAverage(modified);
+				unchanged ? baseAverage : (
+					new ShoeEv(ruleSet, precisionFor(precision)).analyzeAverage(modified)
+				);
 			const average = buildAverageEv(baseAverage, countAverage, ruleSet.blackjackPayout);
-			const curve = edgeCurveFor(ruleSet, base, tags, average.baseEvPercent);
+			const curve = edgeCurveFor(ruleSet, base, tags, average.baseEvPercent, precision);
 			return {
 				requestId,
 				status: 'success',
 				scope: 'summary',
+				precision,
 				result: {
 					average,
 					edgeSlopePointsPerTrueCount: curve.slope,
@@ -246,19 +306,27 @@ export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerRespo
 			};
 		}
 
-		const baseGrids = baseGridsFor(ruleSet);
-		const countGrids = unchanged ? baseGrids : computeEvGrids(ruleSet, modified);
+		const baseGrids = baseGridsFor(ruleSet, precision);
+		const countGrids =
+			unchanged ? baseGrids : computeEvGrids(ruleSet, modified, precisionFor(precision));
 		const tables = combineEvTables(
 			ruleSet,
 			baseGrids,
 			countGrids,
 			analyzeInsurance(ruleSet, base, modified)
 		);
-		const curve = edgeCurveFor(ruleSet, base, tags, tables.average.baseEvPercent);
+		const curve = edgeCurveFor(
+			ruleSet,
+			base,
+			tags,
+			tables.average.baseEvPercent,
+			precision
+		);
 		return {
 			requestId,
 			status: 'success',
 			scope: 'tables',
+			precision,
 			result: {
 				...tables,
 				edgeSlopePointsPerTrueCount: curve.slope,

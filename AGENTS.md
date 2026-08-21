@@ -43,6 +43,7 @@ src/
     │   ├── rules.ts             # RuleSet, hand sets, rule-set cache key
     │   ├── composition.ts       # Shoe compositions, count adjustment
     │   ├── outcome.ts           # Win/push/lose algebra, per-action shape
+    │   ├── precision.ts         # Fast/full presets: draw cap, player-card removal
     │   ├── shoe.ts              # The mutable composition models draw against
     │   ├── dealer.ts            # Dealer distribution, stand-EV table
     │   ├── player.ts            # Hit/double/surrender EVs and push odds

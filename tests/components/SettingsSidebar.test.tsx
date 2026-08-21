@@ -613,4 +613,67 @@ describe('SettingsSidebar', () => {
 			expect(onSettingsChange).not.toHaveBeenCalled();
 		});
 	});
+
+	describe('full calculation', () => {
+		const renderWithFullCalc = (props: {
+			onFullCalculation?: () => void;
+			isFullResult?: boolean;
+			isBusy?: boolean;
+		}) => {
+			cleanup();
+			render(() => (
+				<SettingsSidebar
+					initialConfig={DEFAULT_CONFIG}
+					calcTimeMs={1234}
+					onSettingsChange={vi.fn()}
+					bankroll={DEFAULT_BANKROLL_CONFIG}
+					bankrollAnalysis={undefined}
+					onBankrollChange={() => {}}
+					{...props}
+				/>
+			));
+			return screen.queryByRole('button', {
+				name: 'Run full calculation',
+			}) as HTMLButtonElement | null;
+		};
+
+		it('asks the app to reprice at full precision', () => {
+			const onFullCalculation = vi.fn();
+			const button = renderWithFullCalc({ onFullCalculation });
+
+			fireEvent.click(button!);
+			expect(onFullCalculation).toHaveBeenCalledTimes(1);
+		});
+
+		it('is disabled while a calculation is in flight', () => {
+			const button = renderWithFullCalc({
+				onFullCalculation: vi.fn(),
+				isBusy: true,
+			});
+			expect(button!.disabled).toBe(true);
+		});
+
+		// Nothing left to compute: the figures on screen are already the ones this
+		// button produces.
+		it('is disabled once the result on screen is the full one', () => {
+			const button = renderWithFullCalc({
+				onFullCalculation: vi.fn(),
+				isFullResult: true,
+			});
+			expect(button!.disabled).toBe(true);
+			expect(screen.getByText(/full ·/)).toBeDefined();
+		});
+
+		it('labels the timing as full only once the full result has landed', () => {
+			renderWithFullCalc({ onFullCalculation: vi.fn() });
+			expect(screen.queryByText(/full ·/)).toBeNull();
+			expect(screen.getByText(/\(took 1\.2s\)/)).toBeDefined();
+		});
+
+		// Every other render site in this file leaves the three props off, which is
+		// what keeps them optional.
+		it('shows no button where the app does not offer one', () => {
+			expect(renderWithFullCalc({})).toBeNull();
+		});
+	});
 });

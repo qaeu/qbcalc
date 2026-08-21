@@ -24,13 +24,16 @@ shoe size, while a running count of +6 is a different shoe on one deck than on s
 
 These are deliberate, and they are what the numbers should be read against.
 
-1. **The player's own cards are not removed from the shoe composition.** Only the
-   dealer's upcard is removed before computing dealer and player EV. This isolates the
-   primary count effect — ten/five/ace density driving dealer bust and dealer-completion
-   probabilities — while skipping the second-order effect of exactly which cards the
-   player is holding. For split hands this extends to the sibling hand too: each split
-   hand's draws are computed independently against the same shoe composition, not
-   conditioned on what the other hand actually drew.
+1. **Whether the player's own cards are removed from the shoe composition depends on
+   the precision** (§Precision modes). In the default fast mode only the dealer's upcard
+   is removed before computing dealer and player EV, which isolates the primary count
+   effect — ten/five/ace density driving dealer bust and dealer-completion probabilities —
+   while skipping the second-order effect of exactly which cards the player is holding. In
+   full mode the average hand does remove them, because that is the one place the two
+   cards are enumerated rather than summed into a total; the grids never can, being indexed
+   by total. Either way this extends to the sibling of a split hand: each split hand's
+   draws are computed independently against the same shoe composition, not conditioned on
+   what the other hand actually drew.
 
 2. **Only the playing-decision channel of the count is captured.** The tables do not
    include the extra 3:2 payout from more player blackjacks at the deal — that only
@@ -87,9 +90,10 @@ likely it is. It is the one number in the app that answers "what is this game wo
 where a cell answers "what is this spot worth".
 
 The weights come from `dealWeights` in `ev/deal.ts`, over three cards drawn without
-replacement. This is the one place the player's own cards _are_ removed as they are dealt
-(against simplification 1), because the chance of being dealt a hand is exactly the
-question those cards answer; they still stay in the shoe for the EV of playing it.
+replacement. The player's own cards _are_ removed as they are dealt here whatever the
+precision, because the chance of being dealt a hand is exactly the question those cards
+answer; whether they then come off the shoe for the EV of _playing_ it is what
+§Precision modes decides.
 
 Two things the grids leave out have to be put back, and `analyzeAverage` in `ev/engine.ts`
 does both:
@@ -113,12 +117,77 @@ of one flat-bet round, in units². Nothing in the grids uses it — it exists fo
 and is documented in [bankroll-model.md](./bankroll-model.md) §Variance per round.
 
 The average inherits the grids' simplifications, and simplification 1 is the one that
-shows. Leaving the player's cards in the shoe is most of what the deck count is worth, so
-the average separates a single deck from a six-deck shoe by far less than a published
-house-edge table does, and reads a shade optimistic in absolute terms (about a tenth of a
-percentage point on a standard six-deck game). What it tracks closely is the _differences_
-between rule sets — H17, 6:5, surrender, no-hole-card — since those move the play grids it
-sums rather than the removal effect it skips.
+shows — how much depends on the precision it was run at (§Precision modes). In **fast**
+mode the player's cards stay in the shoe, which drops the removal effect that makes a
+shallower shoe better: a peeking 6D H17 DAS game prices at −0.706% against a published
+−0.615%, about **0.09 points pessimistic**, and a single deck is separated from an
+eight-deck shoe by 0.14 points where a published table puts the gap at 0.48. In **full**
+mode the same game prices at −0.628%, within 0.013 of the published figure, and the deck
+gap overshoots at 0.59.
+
+Full mode's removal reaches the average and nothing else: a grid cell knows a total, not
+two cards, so it has nothing to remove. In full mode the summary card and the cells
+therefore sit in slightly different frames, deliberately — the cells stay exactly the fast
+cells at a deeper freeze, and only the number above them is corrected. The natural branch
+of the average is left in the fast frame too: a natural is no play of the hand, so
+`pDealerNatural` and `naturalPayoutWeight` are read off the shoe before any removal.
+
+What the average tracks closely in either mode is the _differences_ between rule sets —
+H17, 6:5, surrender, no-hole-card — since those move the play grids it sums rather than
+the removal effect fast mode skips. `tests/utils/benchmarks.test.ts` pins both halves of
+that: the primitives the engine gets right to four digits (insurance, dealer bust rates, a
+stand EV), the fast-mode figures that are what a user actually sees, and the full-mode
+figures beside the published ones they are meant to match.
+
+## Precision modes
+
+The engine answers at one of two precisions, defined in `ev/precision.ts` and chosen per
+request. Precision is **not** a rule — it says nothing about the game being played — so it
+stays out of `RuleSet` and out of `ruleSetKey`, and travels as its own
+`EvWorkerRequest.precision`. Only the id `'fast' | 'full'` crosses the worker boundary; the
+`Precision` object itself never leaves the engine.
+
+|                    | `drawCap` | removes the player's cards | 6D H17 DAS peek | cold average |
+| ------------------ | --------- | -------------------------- | --------------- | ------------ |
+| **fast** (default) | 2         | no                         | −0.706%         | ~200 ms      |
+| **full** (button)  | 4         | yes                        | **−0.628%**     | ~900 ms      |
+| uncapped + removal | ∞         | yes                        | −0.628%         | ~1200 ms     |
+| published          |           |                            | −0.615%         |              |
+
+Fast is what every ordinary recalculation runs at — a settings edit, a count step, the
+Tables catch-up — and full is a one-shot behind the sidebar's button, so the next
+recalculation of any kind drops back to fast on its own.
+
+### Freezing the shoe
+
+`drawCap` caps how many cards a recursion tracks removals for. At draw depth `>= drawCap` a
+node still takes and prices the draw, but stops decrementing `comp`, stops adding
+`KEY_MULT[index]` to its key, and passes `totCards` through unchanged.
+
+This is safe against the memos because it keeps `(comp, totCards)` an exact function of
+`key` on both sides of the boundary: below the cap the key names the removals, and at or
+past it every path shares the one shoe frozen at the boundary — whose key is the boundary's
+key. A memo entry therefore always describes the composition its key says it does, and the
+only thing a hit can carry across is how many further removals were tracked below it, which
+is a difference in the approximation rather than in the shoe.
+
+Depth is counted per recursion, from that hand's own first draw, so the dealer's cap and
+the player's cap are independent budgets:
+
+- `DealerModel.dealerDist` starts at depth 0 on the upcard. `upcardDist`'s explicit
+  hole-card enumeration passes **depth 1**, since it has already taken a card off the shoe
+  outside that counter — without it a peeking and a non-peeking dealer would freeze at
+  different card counts and the peek/no-peek identity would break.
+- `PlayerModel`'s `hitEv`/`hitPush`/`bestEv`/`bestPush`/`doubleEv`/`doublePush` start at
+  depth 0 and thread `depth + 1`.
+- `SplitModel.analyse`'s mandatory second card is the post-split hand's own first draw, so
+  it sits at depth 0 and hands depth 1 to every `player.*` call it makes.
+
+The error a freeze at cap 2 costs is an order of magnitude smaller than the removal bias
+above it: it moves the six-deck average by about 0.005 points and the dealer bust
+percentages in the cell popovers by about 0.01. Cap 2 costs most in a small shoe, where a
+removal is worth most; if a single-deck game ever looks visibly wrong in fast mode, the fix
+is to scale `drawCap` with the deck count rather than to raise it globally.
 
 ## How often a cell comes up
 

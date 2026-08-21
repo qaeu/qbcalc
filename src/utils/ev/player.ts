@@ -11,6 +11,7 @@ import {
 	type Rank,
 } from './cards';
 import type { DealerModel } from './dealer';
+import { FAST_PRECISION, type Precision } from './precision';
 import type { RuleSet, Surrender } from './rules';
 import type { Shoe } from './shoe';
 
@@ -37,6 +38,12 @@ export class PlayerModel {
 	private readonly dealer: DealerModel;
 	private readonly peek: boolean;
 	private readonly surrender: Surrender;
+	/**
+	 * Draws past this depth leave the shoe alone. Depth is this hand's own, counted
+	 * from its first draw -- the dealer's recursion keeps its own count. See
+	 * docs/ev-model.md §Precision modes.
+	 */
+	private readonly drawCap: number;
 	/** memoPlayer[(total * 2 + soft) * 10 + upcard]: removal key -> best EV. */
 	private readonly memoPlayer: Map<number, number>[] = Array.from(
 		{ length: 64 * RANK_COUNT },
@@ -48,11 +55,17 @@ export class PlayerModel {
 		() => new Map()
 	);
 
-	constructor(shoe: Shoe, dealer: DealerModel, ruleSet: RuleSet) {
+	constructor(
+		shoe: Shoe,
+		dealer: DealerModel,
+		ruleSet: RuleSet,
+		precision: Precision = FAST_PRECISION
+	) {
 		this.comp = shoe.comp;
 		this.dealer = dealer;
 		this.peek = ruleSet.dealerPeek;
 		this.surrender = ruleSet.surrender;
+		this.drawCap = precision.drawCap;
 	}
 
 	/** Drops everything memoised against a root composition that has been replaced. */
@@ -66,17 +79,19 @@ export class PlayerModel {
 		soft: boolean,
 		upcardIndex: number,
 		totCards: number,
-		key: number
+		key: number,
+		depth = 0
 	): number {
 		const comp = this.comp;
-		const subTotCards = totCards - CARD_UNITS;
+		const frozen = depth >= this.drawCap;
+		const subTotCards = frozen ? totCards : totCards - CARD_UNITS;
 		let evHit = 0.0;
 		for (let index = 0; index < RANK_COUNT; index += 1) {
 			const n = comp[index];
 			if (n < CARD_UNITS) continue;
 			const p = n / totCards;
 			const packed = addPacked(total, soft, index);
-			comp[index] = n - CARD_UNITS;
+			if (!frozen) comp[index] = n - CARD_UNITS;
 			evHit +=
 				p
 				* this.bestEv(
@@ -84,9 +99,10 @@ export class PlayerModel {
 					(packed & 1) === 1,
 					upcardIndex,
 					subTotCards,
-					key + KEY_MULT[index]
+					frozen ? key : key + KEY_MULT[index],
+					depth + 1
 				);
-			comp[index] = n;
+			if (!frozen) comp[index] = n;
 		}
 		return evHit;
 	}
@@ -96,7 +112,8 @@ export class PlayerModel {
 		soft: boolean,
 		upcardIndex: number,
 		totCards: number,
-		key: number
+		key: number,
+		depth = 0
 	): number {
 		if (total > 21) return -1.0;
 
@@ -111,7 +128,9 @@ export class PlayerModel {
 		}
 
 		const evHit =
-			totCards >= CARD_UNITS ? this.hitEv(total, soft, upcardIndex, totCards, key) : 0.0;
+			totCards >= CARD_UNITS ?
+				this.hitEv(total, soft, upcardIndex, totCards, key, depth)
+			:	0.0;
 
 		const best = Math.max(evStand, evHit);
 		memo.set(key, best);
@@ -128,7 +147,8 @@ export class PlayerModel {
 		soft: boolean,
 		upcardIndex: number,
 		totCards: number,
-		key: number
+		key: number,
+		depth = 0
 	): number {
 		// A busted hand is a loss, never a push.
 		if (total > 21) return 0;
@@ -138,12 +158,12 @@ export class PlayerModel {
 		if (cached !== undefined) return cached;
 
 		const evStand = this.dealer.standEv(total, upcardIndex, totCards, key);
-		const best = this.bestEv(total, soft, upcardIndex, totCards, key);
+		const best = this.bestEv(total, soft, upcardIndex, totCards, key, depth);
 		// A hand only stands where standing is at least as good, so a best EV
 		// strictly above the stand EV is one that hit.
 		const push =
 			best > evStand ?
-				this.hitPush(total, soft, upcardIndex, totCards, key)
+				this.hitPush(total, soft, upcardIndex, totCards, key, depth)
 			:	this.dealer.standPush(total, upcardIndex, totCards, key);
 
 		memo.set(key, push);
@@ -156,17 +176,19 @@ export class PlayerModel {
 		soft: boolean,
 		upcardIndex: number,
 		totCards: number,
-		key: number
+		key: number,
+		depth = 0
 	): number {
 		const comp = this.comp;
-		const subTotCards = totCards - CARD_UNITS;
+		const frozen = depth >= this.drawCap;
+		const subTotCards = frozen ? totCards : totCards - CARD_UNITS;
 		let push = 0.0;
 		for (let index = 0; index < RANK_COUNT; index += 1) {
 			const n = comp[index];
 			if (n < CARD_UNITS) continue;
 			const p = n / totCards;
 			const packed = addPacked(total, soft, index);
-			comp[index] = n - CARD_UNITS;
+			if (!frozen) comp[index] = n - CARD_UNITS;
 			push +=
 				p
 				* this.bestPush(
@@ -174,9 +196,10 @@ export class PlayerModel {
 					(packed & 1) === 1,
 					upcardIndex,
 					subTotCards,
-					key + KEY_MULT[index]
+					frozen ? key : key + KEY_MULT[index],
+					depth + 1
 				);
-			comp[index] = n;
+			if (!frozen) comp[index] = n;
 		}
 		return push;
 	}
@@ -187,14 +210,16 @@ export class PlayerModel {
 		soft: boolean,
 		upcardIndex: number,
 		totCards: number,
-		key: number
+		key: number,
+		depth = 0
 	): number {
 		if (totCards < CARD_UNITS) {
 			return this.dealer.standEv(total, upcardIndex, totCards, key) * 2;
 		}
 
 		const comp = this.comp;
-		const subTotCards = totCards - CARD_UNITS;
+		const frozen = depth >= this.drawCap;
+		const subTotCards = frozen ? totCards : totCards - CARD_UNITS;
 		let ev = 0.0;
 		for (let index = 0; index < RANK_COUNT; index += 1) {
 			const n = comp[index];
@@ -205,12 +230,17 @@ export class PlayerModel {
 				ev += p * -2;
 				continue;
 			}
-			comp[index] = n - CARD_UNITS;
+			if (!frozen) comp[index] = n - CARD_UNITS;
 			ev +=
 				p
 				* 2
-				* this.dealer.standEv(newTotal, upcardIndex, subTotCards, key + KEY_MULT[index]);
-			comp[index] = n;
+				* this.dealer.standEv(
+					newTotal,
+					upcardIndex,
+					subTotCards,
+					frozen ? key : key + KEY_MULT[index]
+				);
+			if (!frozen) comp[index] = n;
 		}
 		return ev;
 	}
@@ -221,14 +251,16 @@ export class PlayerModel {
 		soft: boolean,
 		upcardIndex: number,
 		totCards: number,
-		key: number
+		key: number,
+		depth = 0
 	): number {
 		if (totCards < CARD_UNITS) {
 			return this.dealer.standPush(total, upcardIndex, totCards, key);
 		}
 
 		const comp = this.comp;
-		const subTotCards = totCards - CARD_UNITS;
+		const frozen = depth >= this.drawCap;
+		const subTotCards = frozen ? totCards : totCards - CARD_UNITS;
 		let push = 0.0;
 		for (let index = 0; index < RANK_COUNT; index += 1) {
 			const n = comp[index];
@@ -236,16 +268,16 @@ export class PlayerModel {
 			const newTotal = addPacked(total, soft, index) >> 1;
 			// A busted double is a loss outright, so it contributes no push.
 			if (newTotal > 21) continue;
-			comp[index] = n - CARD_UNITS;
+			if (!frozen) comp[index] = n - CARD_UNITS;
 			push +=
 				(n / totCards)
 				* this.dealer.standPush(
 					newTotal,
 					upcardIndex,
 					subTotCards,
-					key + KEY_MULT[index]
+					frozen ? key : key + KEY_MULT[index]
 				);
-			comp[index] = n;
+			if (!frozen) comp[index] = n;
 		}
 		return push;
 	}

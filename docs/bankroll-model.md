@@ -52,6 +52,20 @@ each other. Two pairs rather than one because the coefficients want different le
 the inner pair sits where the ramp's own money is, while the curvature is a second
 difference and needs the wider pair before the bend clears that same noise.
 
+### Precision reaches every figure here
+
+Every number on the Bankroll view — win rate, N0, risk of ruin, the graph — is derived from
+the average hand, so a run at full precision (ev-model.md §Precision modes) moves all of
+them together. That includes the curve: `fitEdgeCurve` prices all four probes at the same
+precision as the baseline they are fitted against, and the cached curve is keyed on the
+precision alongside the rules and the tags.
+
+The probes cannot be shortcut by fitting a cheap curve and offsetting it, because the
+correction full mode applies is not count-stable. Measured on six decks under Hi-Lo it is
+worth +0.073 points at true count 0, +0.049 at −8 and +0.018 at +8 — removing the player's
+own two cards matters most in the shoe that has the most of them left to matter. A constant
+offset onto fast probes would therefore flatten the slope the whole bet spread is read off.
+
 ### Why a straight line was not enough
 
 The curve is **convex** — both tails sit above any line drawn through it. That is not the
@@ -98,8 +112,8 @@ request prices the count-adjusted shoe's average alone, skipping the per-cell gr
 `EvTable` would need — so a settings edit made while parked on the Bankroll view recalculates
 without paying for tables nobody can see, and the tables catch up, once, when the user
 switches back to them. The full-shoe baseline (`'tables'`, and the plain average
-`'summary'` reads off it) is cached per rule set either way, so whichever scope asks for it
-first pays for it once.
+`'summary'` reads off it) is cached per rule set and precision either way, so whichever
+scope asks for it first pays for it once.
 
 A quadratic is still a fit, not the truth. It is anchored inside ±8 and the buckets stay
 inside that, but a figure quoted at a true count of +12 is an extrapolation, and one that

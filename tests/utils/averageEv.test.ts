@@ -73,9 +73,10 @@ describe('dealWeights', () => {
 
 describe('average EV', () => {
 	it('costs the house a fraction of a percent on a standard six-deck game', () => {
-		// Published basic-strategy figures put this near -0.4%. The engine reads a
-		// touch optimistic because it leaves the player's own cards in the shoe --
-		// see docs/ev-model.md §The average hand.
+		// Published basic-strategy figures put this near -0.4%. The engine reads
+		// about 0.09 points pessimistic because it leaves the player's own cards in
+		// the shoe -- see docs/ev-model.md §The average hand, and
+		// benchmarks.test.ts, which pins that offset rather than bracketing it.
 		expect(averageEv()).toBeGreaterThan(-0.6);
 		expect(averageEv()).toBeLessThan(-0.1);
 	});

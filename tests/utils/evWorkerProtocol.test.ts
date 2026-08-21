@@ -9,11 +9,14 @@ const HI_LO = tagsForSystem('hi-lo')!;
 /** Two decks rather than six: the same maths, a fraction of the enumeration. */
 const RULE_SET = { ...DEFAULT_RULE_SET, decks: 2 };
 
-function curveAt(trueCount: number, tags = HI_LO) {
-	const request: EvWorkerRequest = { requestId: 1, ruleSet: RULE_SET, trueCount, tags };
+function respondTo(request: EvWorkerRequest) {
 	const response = computeEvWorkerResponse(request);
 	if (response.status !== 'success') throw new Error(response.message);
-	return response.result;
+	return response;
+}
+
+function curveAt(trueCount: number, tags = HI_LO) {
+	return respondTo({ requestId: 1, ruleSet: RULE_SET, trueCount, tags }).result;
 }
 
 function slopeAt(trueCount: number, tags = HI_LO): number {
@@ -62,5 +65,53 @@ describe('the edge slope', () => {
 		const rpc = slopeAt(0, tagsForSystem('rpc')!);
 		expect(rpc).toBeGreaterThan(0);
 		expect(rpc).toBeLessThan(slopeAt(0) * 0.75);
+	});
+});
+
+describe('precision', () => {
+	const summaryAt = (precision: EvWorkerRequest['precision']) =>
+		respondTo({
+			requestId: 1,
+			scope: 'summary',
+			precision,
+			ruleSet: RULE_SET,
+			trueCount: 0,
+			tags: HI_LO,
+		});
+
+	it('prices a full request differently from a fast one', () => {
+		// Full mode takes the player's own two cards off the shoe before pricing
+		// the hand, which is worth the better part of a tenth of a point -- see
+		// docs/ev-model.md §Precision modes.
+		const fast = summaryAt('fast').result.average.baseEvPercent;
+		const full = summaryAt('full').result.average.baseEvPercent;
+		expect(full).toBeGreaterThan(fast);
+		expect(full - fast).toBeGreaterThan(0.02);
+	});
+
+	it('echoes the precision it priced at, and defaults to fast', () => {
+		expect(summaryAt('full').precision).toBe('full');
+		expect(summaryAt('fast').precision).toBe('fast');
+		expect(summaryAt(undefined).precision).toBe('fast');
+	});
+
+	it('keeps the two precisions from sharing a cached baseline', () => {
+		// The worker keeps one baseline per rule set, and precision is part of what
+		// a baseline belongs to: a full run evicts the fast one rather than being
+		// answered by it.
+		const first = summaryAt('fast').result.average.baseEvPercent;
+		const full = summaryAt('full').result.average.baseEvPercent;
+		const again = summaryAt('fast').result.average.baseEvPercent;
+		expect(again).toBe(first);
+		expect(full).not.toBe(first);
+		expect(summaryAt('full').result.average.baseEvPercent).toBe(full);
+	});
+
+	it('fits the edge curve at the precision of the baseline under it', () => {
+		// The correction full mode applies is not count-stable, so the curve moves
+		// with the baseline rather than sliding along with it.
+		expect(summaryAt('full').result.edgeSlopePointsPerTrueCount).not.toBe(
+			summaryAt('fast').result.edgeSlopePointsPerTrueCount
+		);
 	});
 });
