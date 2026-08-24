@@ -10,13 +10,23 @@ import {
 	saveBankrollConfig,
 	saveCalculatorConfig,
 	saveCellDisplayMode,
+	DEFAULT_PLAY_CONFIG,
+	loadPlayConfig,
+	loadPlayStats,
+	resetPlayStats,
+	savePlayConfig,
+	savePlayStats,
 	type BankrollConfig,
 	type CalculatorConfig,
+	type PlayConfig,
 } from '#utils/storage';
+import { EMPTY_PLAY_STATS, type PlayStats } from '#utils/play/stats';
 
 const STORAGE_KEY = 'qbcalc:calculator-config';
 const DISPLAY_MODE_KEY = 'qbcalc:cell-display-mode';
 const BANKROLL_KEY = 'qbcalc:bankroll';
+const PLAY_CONFIG_KEY = 'qbcalc:play-config';
+const PLAY_STATS_KEY = 'qbcalc:play-stats';
 /** Mirrors the module's own constant: the schema `saveCalculatorConfig` writes. */
 const STORAGE_VERSION = 5;
 
@@ -311,5 +321,96 @@ describe('cell display mode', () => {
 	it('returns null for a stored value that is not a mode', () => {
 		localStorage.setItem(DISPLAY_MODE_KEY, 'nonsense');
 		expect(loadCellDisplayMode()).toBeNull();
+	});
+});
+
+describe('play config', () => {
+	const CONFIG: PlayConfig = {
+		coaching: 'deviations',
+		showCount: true,
+		tableMinimum: 10,
+	};
+
+	it('defaults to basic coaching, a hidden count and a ten-unit minimum', () => {
+		expect(DEFAULT_PLAY_CONFIG).toEqual({
+			coaching: 'basic',
+			showCount: false,
+			tableMinimum: 10,
+		});
+	});
+
+	it('round-trips a saved config', () => {
+		savePlayConfig(CONFIG);
+		expect(loadPlayConfig()).toEqual(CONFIG);
+	});
+
+	it('returns null when nothing has been saved', () => {
+		expect(loadPlayConfig()).toBeNull();
+	});
+
+	it('rejects a stored config from another schema version', () => {
+		localStorage.setItem(
+			PLAY_CONFIG_KEY,
+			JSON.stringify({ version: 99, ...DEFAULT_PLAY_CONFIG })
+		);
+		expect(loadPlayConfig()).toBeNull();
+	});
+
+	it('rejects a coaching level it does not know, and a broken payload', () => {
+		localStorage.setItem(
+			PLAY_CONFIG_KEY,
+			JSON.stringify({ version: 1, ...DEFAULT_PLAY_CONFIG, coaching: 'psychic' })
+		);
+		expect(loadPlayConfig()).toBeNull();
+
+		localStorage.setItem(PLAY_CONFIG_KEY, 'not json');
+		expect(loadPlayConfig()).toBeNull();
+	});
+});
+
+describe('play stats', () => {
+	const STATS: PlayStats = {
+		av: -125.5,
+		ev: 42.25,
+		hands: 310,
+		rounds: 290,
+		decisions: 402,
+		optimalDecisions: 388,
+		basicErrors: 9,
+		deviationErrors: 5,
+		evLost: 18.75,
+	};
+
+	it('round-trips a saved record', () => {
+		savePlayStats(STATS);
+		expect(loadPlayStats()).toEqual(STATS);
+	});
+
+	it('returns null when nothing has been saved', () => {
+		expect(loadPlayStats()).toBeNull();
+	});
+
+	it('rejects a record from another schema version, defaults taking over', () => {
+		localStorage.setItem(PLAY_STATS_KEY, JSON.stringify({ version: 2, ...STATS }));
+		expect(loadPlayStats()).toBeNull();
+	});
+
+	it('rejects a record missing a field', () => {
+		const partial: Record<string, number> = { ...STATS };
+		delete partial.evLost;
+		localStorage.setItem(PLAY_STATS_KEY, JSON.stringify({ version: 1, ...partial }));
+		expect(loadPlayStats()).toBeNull();
+	});
+
+	it('clears the record on reset', () => {
+		savePlayStats(STATS);
+		resetPlayStats();
+		expect(loadPlayStats()).toBeNull();
+		expect(localStorage.getItem(PLAY_STATS_KEY)).toBeNull();
+	});
+
+	it('stores an empty record as the zeroes it is', () => {
+		savePlayStats(EMPTY_PLAY_STATS);
+		expect(loadPlayStats()).toEqual(EMPTY_PLAY_STATS);
 	});
 });

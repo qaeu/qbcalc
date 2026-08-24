@@ -16,6 +16,7 @@ import { hiLoCountScale } from './bankroll';
 import { RANKS } from './ev/cards';
 import { baseComposition, CARDS_PER_DECK, type TagValues } from './ev/composition';
 import type { RuleSet } from './ev/rules';
+import { mulberry32 } from './play/rng';
 
 /**
  * The buckets a round is filed under: every whole count from -6 to +6, with the
@@ -97,17 +98,6 @@ const SEED = 0x9e3779b9;
  */
 const CARDS_PER_ROUND = 5;
 
-/** Mulberry32: small, fast, and seeded, which is all the shuffle needs. */
-function randomSource(seed: number): () => number {
-	let state = seed >>> 0;
-	return () => {
-		state = (state + 0x6d2b79f5) >>> 0;
-		let t = Math.imul(state ^ (state >>> 15), 1 | state);
-		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-	};
-}
-
 /**
  * One entry per card in the shoe, holding that card's tag centred on the tag
  * vector's own frequency-weighted mean. Centring is what lets an unbalanced
@@ -171,7 +161,7 @@ export function simulateRoundFrequency(
 ): RoundFrequency {
 	const shoe = shoeTags(ruleSet, tags);
 	const cutCard = Math.floor((shoe.length * ruleSet.penetrationPercent) / 100);
-	const random = randomSource(SEED);
+	const random = mulberry32(SEED);
 	// The buckets are Hi-Lo-equivalent, so the count each round is filed under is
 	// converted as it is read. A tag vector that tells no rank from another has no
 	// scale and no count to convert: all of its play files under zero.

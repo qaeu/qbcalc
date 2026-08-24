@@ -16,9 +16,16 @@ const settlingTime = () => new Promise((resolve) => setTimeout(resolve, 800));
  * two are told apart by which bar they live in.
  */
 function goToBankroll(): void {
-	const header = document.querySelector('.app-header');
+	const header = document.querySelector<HTMLElement>('.app-header');
 	if (!header) throw new Error('App header not found');
 	fireEvent.click(within(header).getByRole('tab', { name: /Bankroll/ }));
+}
+
+/** As `goToBankroll`, for the third view. */
+function goToPlay(): void {
+	const header = document.querySelector<HTMLElement>('.app-header');
+	if (!header) throw new Error('App header not found');
+	fireEvent.click(within(header).getByRole('tab', { name: /Play/ }));
 }
 
 describe('App', () => {
@@ -121,7 +128,7 @@ describe('App', () => {
 		// before pressing the arrow key -- the Bankroll view ignores it. The
 		// hash change that drives the switch fires as a separate browser event,
 		// so it has to be waited out before the key press can rely on it.
-		const header = document.querySelector('.app-header');
+		const header = document.querySelector<HTMLElement>('.app-header');
 		if (!header) throw new Error('App header not found');
 		fireEvent.click(within(header).getByRole('tab', { name: /Tables/ }));
 		await waitFor(() => expect(document.querySelector('.ev-table__mode')).not.toBeNull());
@@ -236,5 +243,39 @@ describe('App', () => {
 			await waitFor(() => expect(skeletons()).toBe(0));
 			await waitFor(() => expect(summaryText()).toBe(fast));
 		}, 30000);
+	});
+
+	describe('the Play view', () => {
+		it('offers a third tab that deals a shoe under the current rules', async () => {
+			render(() => <App />);
+
+			const header = document.querySelector<HTMLElement>('.app-header');
+			if (!header) throw new Error('App header not found');
+			expect(within(header).getAllByRole('tab')).toHaveLength(3);
+
+			goToPlay();
+			await waitFor(() => expect(document.querySelector('.play-table')).not.toBeNull());
+			expect(window.location.hash).toBe('#play');
+
+			// The felt opens on the bet phase, with the rail waiting for a chip.
+			expect(screen.getByRole('button', { name: /Deal/ })).toBeDefined();
+		}, 20000);
+
+		it('opens on the Play view when the hash asks for it', async () => {
+			window.location.hash = '#play';
+			render(() => <App />);
+
+			await waitFor(() => expect(document.querySelector('.play-table')).not.toBeNull());
+			// The grids are the Tables view's, and it is not the view on screen.
+			expect(document.querySelector('.ev-table__mode')).toBeNull();
+		}, 20000);
+
+		it('hides the full-calculation button, which Play never asks for', async () => {
+			window.location.hash = '#play';
+			render(() => <App />);
+
+			await waitFor(() => expect(document.querySelector('.play-table')).not.toBeNull());
+			expect(screen.queryByRole('button', { name: 'Run full calculation' })).toBeNull();
+		}, 20000);
 	});
 });

@@ -25,6 +25,9 @@ const AppHeader: Component<AppHeaderProps> = (props) => (
 				<Tabs.Trigger value="bankroll" class="app-header__tab">
 					Bankroll
 				</Tabs.Trigger>
+				<Tabs.Trigger value="play" class="app-header__tab">
+					Play
+				</Tabs.Trigger>
 			</Tabs.List>
 		</Tabs.Root>
 	</header>

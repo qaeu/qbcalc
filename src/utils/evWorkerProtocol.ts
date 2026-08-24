@@ -13,10 +13,17 @@ import {
 } from './ev/composition';
 import { hiLoCountScale } from './bankroll';
 import { RANKS } from './ev/cards';
-import { computeEvGrids, ShoeEv, type AverageEvParts, type EvGrids } from './ev/engine';
+import {
+	computeEvGrids,
+	ShoeEv,
+	type AverageEvParts,
+	type CellAnalysis,
+	type EvGrids,
+} from './ev/engine';
 import { analyzeInsurance } from './ev/insurance';
+import type { ActionAnalysis } from './ev/outcome';
 import { precisionFor, type PrecisionId } from './ev/precision';
-import { ruleSetKey, type RuleSet } from './ev/rules';
+import { PAIR_RANKS, ruleSetKey, type RuleSet } from './ev/rules';
 import {
 	averageEvPercent,
 	buildAverageEv,
@@ -37,9 +44,11 @@ export interface EvWorkerRequest {
 	 * What the caller actually needs back. 'tables' walks and returns every grid
 	 * cell, for the Tables view. 'summary' skips that walk entirely and returns
 	 * only the aggregate figures the Bankroll view reads -- see `EvSummaryResult`.
-	 * Omitted requests behave as 'tables', which is every pre-existing caller.
+	 * 'play' walks widened grids and returns each cell's priced actions alone, for
+	 * the Play view's coach -- see `PlayGrids`. Omitted requests behave as
+	 * 'tables', which is every pre-existing caller.
 	 */
-	scope?: 'tables' | 'summary';
+	scope?: 'tables' | 'summary' | 'play';
 	/**
 	 * How accurately to price it. 'fast' is what every ordinary recalculation
 	 * asks for; 'full' is the deliberate, seconds-long run behind the sidebar's
@@ -81,6 +90,42 @@ export interface EvSummaryResult {
 export interface EvWorkerResult extends EvTables, EvSummaryResult {}
 
 /**
+ * Hard totals the Play grids are walked over. Wider than `HARD_TOTALS`, which
+ * covers the totals a strategy table has anything to say about: a played hand can
+ * hold hard 4 (2,2) or hit its way to hard 20, and a hand the grids do not reach
+ * is a hand the coach cannot grade.
+ */
+export const PLAY_HARD_TOTALS: readonly number[] = [
+	4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+];
+
+/**
+ * Soft totals the same grids are walked over: A,A (12) through soft 21. Soft 21
+ * is priced as the stand it always is -- see `ShoeEv.analyzeGrid` -- so its cell
+ * carries one action, which the coach handles like any other.
+ */
+export const PLAY_SOFT_TOTALS: readonly number[] = [
+	12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
+];
+
+/**
+ * One graded cell: every action the table offers this hand, priced against the
+ * count-adjusted shoe and against the unadjusted one. The pair is what separates
+ * a basic-strategy error from a missed deviation -- see `play/coach.ts`.
+ */
+export interface PlayCell {
+	actions: readonly ActionAnalysis[];
+	baseActions: readonly ActionAnalysis[];
+}
+
+/** The three grids the Play view's coach looks a live hand up in. */
+export interface PlayGrids {
+	hard: Map<string, PlayCell>;
+	soft: Map<string, PlayCell>;
+	split: Map<string, PlayCell>;
+}
+
+/**
  * `precision` is echoed rather than assumed: the UI labels the figures it applies
  * with the precision they were actually priced at, and a response can land after
  * the request that superseded it has changed that.
@@ -99,6 +144,13 @@ export type EvWorkerResponse =
 			scope: 'summary';
 			precision: PrecisionId;
 			result: EvSummaryResult;
+	  }
+	| {
+			requestId: number;
+			status: 'success';
+			scope: 'play';
+			precision: PrecisionId;
+			result: PlayGrids;
 	  }
 	| { requestId: number; status: 'error'; message: string };
 
@@ -267,6 +319,94 @@ function edgeCurveFor(
 	return curve;
 }
 
+/** One composition's Play grids, before a base set and a count set are paired. */
+interface PlayRawGrids {
+	hard: Map<string, CellAnalysis>;
+	soft: Map<string, CellAnalysis>;
+	split: Map<string, CellAnalysis>;
+}
+
+/**
+ * The widened grids for one composition. One engine for all three, as
+ * `computeEvGrids` does, so the memos the first grid fills serve the other two --
+ * and no `analyzeAverage` and no edge curve, neither of which the Play view reads.
+ */
+function playGridsFor(
+	ruleSet: RuleSet,
+	comp: Composition,
+	precision: PrecisionId
+): PlayRawGrids {
+	const engine = new ShoeEv(ruleSet, precisionFor(precision));
+	return {
+		hard: engine.analyzeGrid(comp, PLAY_HARD_TOTALS, RANKS, false),
+		soft: engine.analyzeGrid(comp, PLAY_SOFT_TOTALS, RANKS, true),
+		split: engine.analyzeSplitGrid(comp, PAIR_RANKS, RANKS),
+	};
+}
+
+/**
+ * The unadjusted shoe's Play grids, kept for the same reason `cachedBaseGrids`
+ * keeps the Tables view's: every graded hand is measured against them, and they
+ * move only when the rules do.
+ */
+let cachedPlayBaseGrids: { key: string; grids: PlayRawGrids } | null = null;
+
+function playBaseGridsFor(ruleSet: RuleSet, precision: PrecisionId): PlayRawGrids {
+	const key = baselineKey(ruleSet, precision);
+	if (cachedPlayBaseGrids?.key === key) return cachedPlayBaseGrids.grids;
+	const grids = playGridsFor(ruleSet, baseComposition(ruleSet), precision);
+	cachedPlayBaseGrids = { key, grids };
+	return grids;
+}
+
+/**
+ * How many count-adjusted Play grid sets are kept. Unlike the Tables view, which
+ * sweeps the count, a shoe wanders back and forth over a handful of whole counts
+ * and revisits each of them for round after round -- so a small cache turns most
+ * of a session's grading into no work at all.
+ */
+const PLAY_COUNT_CACHE_SIZE = 8;
+
+/** Insertion-ordered, and re-inserted on a hit, which makes the eviction LRU. */
+const playCountGrids = new Map<string, PlayRawGrids>();
+
+function playCountGridsFor(
+	ruleSet: RuleSet,
+	comp: Composition,
+	tags: TagValues,
+	trueCount: number,
+	precision: PrecisionId
+): PlayRawGrids {
+	const key = [
+		baselineKey(ruleSet, precision),
+		RANKS.map((rank) => tags[rank]).join(','),
+		trueCount,
+	].join('|');
+	const cached = playCountGrids.get(key);
+	if (cached !== undefined) {
+		playCountGrids.delete(key);
+		playCountGrids.set(key, cached);
+		return cached;
+	}
+	const grids = playGridsFor(ruleSet, comp, precision);
+	playCountGrids.set(key, grids);
+	if (playCountGrids.size > PLAY_COUNT_CACHE_SIZE) {
+		playCountGrids.delete(playCountGrids.keys().next().value!);
+	}
+	return grids;
+}
+
+function pairPlayGrid(
+	baseGrid: Map<string, CellAnalysis>,
+	countGrid: Map<string, CellAnalysis>
+): Map<string, PlayCell> {
+	const out = new Map<string, PlayCell>();
+	for (const [key, countCell] of countGrid) {
+		out.set(key, { actions: countCell.actions, baseActions: baseGrid.get(key)!.actions });
+	}
+	return out;
+}
+
 export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerResponse {
 	try {
 		const {
@@ -284,6 +424,33 @@ export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerRespo
 		// A count that leaves the shoe untouched -- zero, or one too small to
 		// move a whole half-card -- is the baseline, already computed.
 		const unchanged = modified.every((halfCards, index) => halfCards === base[index]);
+
+		if (scope === 'play') {
+			// Graded at the whole count, which is both what a player is playing off
+			// and what makes a count's grids worth caching -- see
+			// docs/play-model.md §The grading basis.
+			const rounded = Math.round(trueCount);
+			const baseGrids = playBaseGridsFor(ruleSet, precision);
+			const countComp =
+				rounded === trueCount ? modified : (
+					applyTrueCountToComposition(base, tags, rounded)
+				);
+			const countGrids =
+				countComp.every((halfCards, index) => halfCards === base[index]) ? baseGrids : (
+					playCountGridsFor(ruleSet, countComp, tags, rounded, precision)
+				);
+			return {
+				requestId,
+				status: 'success',
+				scope: 'play',
+				precision,
+				result: {
+					hard: pairPlayGrid(baseGrids.hard, countGrids.hard),
+					soft: pairPlayGrid(baseGrids.soft, countGrids.soft),
+					split: pairPlayGrid(baseGrids.split, countGrids.split),
+				},
+			};
+		}
 
 		if (scope === 'summary') {
 			const baseAverage = baseAverageFor(ruleSet, base, precision);

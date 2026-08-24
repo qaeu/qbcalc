@@ -16,6 +16,7 @@ import {
 import { RAMP_TRUE_COUNTS } from './bankroll';
 import { HI_LO_TAGS, isCountingSystemId, type CountingSystemId } from './countingSystems';
 import { isCellDisplayMode, type CellDisplayMode } from './cellDisplay';
+import { EMPTY_PLAY_STATS, type PlayStats } from './play/stats';
 
 /**
  * Everything the sidebar owns: the engine's calculator params plus the
@@ -68,6 +69,40 @@ export const DEFAULT_BANKROLL_CONFIG: BankrollConfig = {
 	ramp: [1, 1, 2, 3, 5, 8, 12],
 };
 
+/**
+ * How much of the coach's verdict the felt shows: nothing, basic strategy
+ * alone, or basic strategy plus the count's deviations. Grading itself always
+ * runs -- see docs/play-model.md §Grading a decision.
+ */
+export type CoachingLevel = 'none' | 'basic' | 'deviations';
+
+/**
+ * What the Play view is set to. Like the bankroll config it is owned by the app
+ * rather than mirrored into the calculator config: none of it changes anything
+ * the worker computes, so it saves as it is typed.
+ */
+export interface PlayConfig {
+	/** How much of the grading is *shown*. Grading itself always runs. */
+	coaching: CoachingLevel;
+	/** Whether the running and true counts appear in the play HUD. */
+	showCount: boolean;
+	/** Floor for the chip rail, in the same currency as the bankroll. */
+	tableMinimum: number;
+}
+
+export const DEFAULT_PLAY_CONFIG: PlayConfig = {
+	coaching: 'basic',
+	showCount: false,
+	tableMinimum: 10,
+};
+
+/** The coaching levels, in increasing order of help, for the settings select. */
+export const COACHING_LEVELS: readonly { value: CoachingLevel; label: string }[] = [
+	{ value: 'none', label: 'None' },
+	{ value: 'basic', label: 'Basic strategy' },
+	{ value: 'deviations', label: 'Deviations' },
+];
+
 const STORAGE_KEY = 'qbcalc:calculator-config';
 const STORAGE_VERSION = 6;
 
@@ -91,6 +126,19 @@ const DISPLAY_MODE_KEY = 'qbcalc:cell-display-mode';
 const BANKROLL_KEY = 'qbcalc:bankroll';
 
 const BANKROLL_VERSION = 1;
+
+/**
+ * The Play view's two records, kept apart from each other and from everything
+ * above: the config is a setting the user chooses, the stats are a lifetime
+ * training record. Neither is segmented by rule set -- the point is a single
+ * figure for how the player is playing, across every game they practise on. The
+ * shoe and the hand in progress are deliberately not stored; a reload deals fresh.
+ */
+const PLAY_CONFIG_KEY = 'qbcalc:play-config';
+const PLAY_STATS_KEY = 'qbcalc:play-stats';
+
+const PLAY_CONFIG_VERSION = 1;
+const PLAY_STATS_VERSION = 1;
 
 interface StoredConfig extends CalculatorConfig {
 	version: number;
@@ -158,6 +206,35 @@ function isStoredBankroll(value: unknown): value is StoredBankroll {
 		// length would silently leave the top counts unbet -- reject it instead.
 		&& config.ramp.length === RAMP_TRUE_COUNTS.length
 		&& config.ramp.every((units) => Number.isFinite(units))
+	);
+}
+
+interface StoredPlayConfig extends PlayConfig {
+	version: number;
+}
+
+function isStoredPlayConfig(value: unknown): value is StoredPlayConfig {
+	if (typeof value !== 'object' || value === null) return false;
+	const config = value as Record<string, unknown>;
+	return (
+		config.version === PLAY_CONFIG_VERSION
+		&& COACHING_LEVELS.some((level) => level.value === config.coaching)
+		&& typeof config.showCount === 'boolean'
+		&& Number.isFinite(config.tableMinimum)
+	);
+}
+
+interface StoredPlayStats extends PlayStats {
+	version: number;
+}
+
+/** Every field is a number, so the guard is the field list plus finiteness. */
+function isStoredPlayStats(value: unknown): value is StoredPlayStats {
+	if (typeof value !== 'object' || value === null) return false;
+	const stats = value as Record<string, unknown>;
+	return (
+		stats.version === PLAY_STATS_VERSION
+		&& Object.keys(EMPTY_PLAY_STATS).every((field) => Number.isFinite(stats[field]))
 	);
 }
 
@@ -452,6 +529,72 @@ export function saveBankrollConfig(config: BankrollConfig): void {
 	try {
 		const stored: StoredBankroll = { version: BANKROLL_VERSION, ...config };
 		localStorage.setItem(BANKROLL_KEY, JSON.stringify(stored));
+	} catch {
+		// As above.
+	}
+}
+
+export function loadPlayConfig(): PlayConfig | null {
+	try {
+		const raw = localStorage.getItem(PLAY_CONFIG_KEY);
+		if (!raw) return null;
+		const parsed: unknown = JSON.parse(raw);
+		return isStoredPlayConfig(parsed) ?
+				{
+					coaching: parsed.coaching,
+					showCount: parsed.showCount,
+					tableMinimum: parsed.tableMinimum,
+				}
+			:	null;
+	} catch {
+		return null;
+	}
+}
+
+export function savePlayConfig(config: PlayConfig): void {
+	try {
+		const stored: StoredPlayConfig = { version: PLAY_CONFIG_VERSION, ...config };
+		localStorage.setItem(PLAY_CONFIG_KEY, JSON.stringify(stored));
+	} catch {
+		// As above.
+	}
+}
+
+export function loadPlayStats(): PlayStats | null {
+	try {
+		const raw = localStorage.getItem(PLAY_STATS_KEY);
+		if (!raw) return null;
+		const parsed: unknown = JSON.parse(raw);
+		if (!isStoredPlayStats(parsed)) return null;
+		return {
+			av: parsed.av,
+			ev: parsed.ev,
+			hands: parsed.hands,
+			rounds: parsed.rounds,
+			decisions: parsed.decisions,
+			optimalDecisions: parsed.optimalDecisions,
+			basicErrors: parsed.basicErrors,
+			deviationErrors: parsed.deviationErrors,
+			evLost: parsed.evLost,
+		};
+	} catch {
+		return null;
+	}
+}
+
+export function savePlayStats(stats: PlayStats): void {
+	try {
+		const stored: StoredPlayStats = { version: PLAY_STATS_VERSION, ...stats };
+		localStorage.setItem(PLAY_STATS_KEY, JSON.stringify(stored));
+	} catch {
+		// As above.
+	}
+}
+
+/** Drops the lifetime record entirely; the next load falls back to `EMPTY_PLAY_STATS`. */
+export function resetPlayStats(): void {
+	try {
+		localStorage.removeItem(PLAY_STATS_KEY);
 	} catch {
 		// As above.
 	}

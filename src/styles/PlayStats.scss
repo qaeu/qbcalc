@@ -1,0 +1,69 @@
+@use 'base' as *;
+
+@layer screen {
+	.play-stats {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+
+		&__grid {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 20px;
+
+			@media (max-width: $breakpoint-tablet) {
+				grid-template-columns: repeat(2, minmax(0, 1fr));
+			}
+		}
+
+		&__card {
+			@include card;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 4px;
+			margin-bottom: 0;
+		}
+
+		&__label {
+			font-size: 13px;
+			color: get($neutrals, 'fg-light');
+			text-align: center;
+		}
+
+		&__value {
+			font-variant-numeric: tabular-nums;
+			font-size: 26px;
+			font-weight: 600;
+			line-height: 1.2;
+
+			&.is-positive {
+				color: get($primaries, 'fg-light');
+			}
+
+			&.is-negative {
+				color: get($errors, 'fg-light');
+			}
+		}
+
+		&__unit {
+			margin-left: 1px;
+			font-size: 15px;
+			font-weight: 400;
+		}
+
+		&__reset {
+			display: flex;
+			gap: 8px;
+		}
+
+		&__reset-button {
+			@include button($errors);
+
+			&.is-confirming {
+				border-color: get($errors, 'sep-dark');
+				color: get($errors, 'fg-light');
+			}
+		}
+	}
+}

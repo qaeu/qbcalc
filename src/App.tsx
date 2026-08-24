@@ -16,21 +16,27 @@ import {
 	calculatorSettingsEqual,
 	DEFAULT_BANKROLL_CONFIG,
 	DEFAULT_CONFIG,
+	DEFAULT_PLAY_CONFIG,
 	loadBankrollConfig,
 	loadCalculatorConfig,
+	loadPlayConfig,
 	ruleSetFromConfig,
 	saveBankrollConfig,
 	saveCalculatorConfig,
+	savePlayConfig,
 	settingsFromConfig,
 	type BankrollConfig,
 	type CalculatorConfig,
 	type CalculatorSettings,
+	type PlayConfig,
 } from '#utils/storage';
 import type { PrecisionId } from '#utils/ev/precision';
 import type {
 	EvSummaryResult,
 	EvWorkerRequest,
 	EvWorkerResponse,
+	EvWorkerResult,
+	PlayGrids,
 } from '#utils/evWorkerProtocol';
 
 import { createGlobalKeydown, isKeyConsumingTarget } from '#utils/keyboard';
@@ -40,6 +46,7 @@ import AppHeader from '#c/AppHeader';
 import BankrollOutput from '#c/BankrollOutput';
 import type { CountEvProfile } from '#c/CountEvGraph';
 import EvTable from '#c/EvTable';
+import PlayView from '#c/PlayView';
 import SettingsSidebar from '#c/SettingsSidebar';
 
 import '#styles/App';
@@ -101,6 +108,45 @@ const App: Component = () => {
 	const [bankroll, setBankroll] = createSignal<BankrollConfig>(
 		loadBankrollConfig() ?? DEFAULT_BANKROLL_CONFIG
 	);
+
+	const [play, setPlay] = createSignal<PlayConfig>(
+		loadPlayConfig() ?? DEFAULT_PLAY_CONFIG
+	);
+
+	const updatePlay = <K extends keyof PlayConfig>(key: K, value: PlayConfig[K]) => {
+		const next = { ...play(), [key]: value };
+		setPlay(next);
+		// Saved as typed, like the bankroll settings and for the same reason:
+		// none of it reaches the worker, so there is nothing to recalculate.
+		savePlayConfig(next);
+	};
+
+	/**
+	 * The settings every dispatched calculation is running under. `latestRequestConfig`
+	 * below holds the same thing, but as a plain `let` the Play view cannot follow it --
+	 * and the felt has to re-deal when the rules move under it. Compared by value, so
+	 * the count sweeping (or a play request re-dispatching the same settings) never
+	 * looks like a change.
+	 */
+	const [liveSettings, setLiveSettings] = createSignal<CalculatorSettings>(
+		settingsFromConfig(initialConfig),
+		{ equals: calculatorSettingsEqual }
+	);
+
+	const playRuleSet = createMemo(() =>
+		ruleSetFromConfig({ ...liveSettings(), trueCount: 0 })
+	);
+
+	/**
+	 * The grids the Play view's coach grades against, and every count already
+	 * priced this session. A shoe revisits the same handful of counts, so the
+	 * cache means a count seen once never costs a second round trip.
+	 */
+	const [playGrids, setPlayGrids] = createSignal<PlayGrids | null>(null);
+	const playGridCache = new Map<number, PlayGrids>();
+	// What a cached entry belongs to: the grids are priced under the rules and
+	// the tags as much as the count, so a settings change empties the cache.
+	let playGridBasis = '';
 
 	const updateBankroll = <K extends keyof BankrollConfig>(
 		key: K,
@@ -230,7 +276,7 @@ const App: Component = () => {
 	// asked the worker for. 'summary' skips the full grid walk entirely, so a
 	// settings edit made while Bankroll is on screen leaves `result` pointing
 	// at whatever the grid last showed -- see the Tables catch-up effect below.
-	let latestRequestScope: 'tables' | 'summary' = 'tables';
+	let latestRequestScope: 'tables' | 'summary' | 'play' = 'tables';
 	let holdTimer: number | undefined;
 
 	const getWorker = (): Worker => {
@@ -253,6 +299,14 @@ const App: Component = () => {
 					// Re-checked because a newer request can be dispatched during the
 					// hold, and this response must not overwrite it.
 					if (response.requestId !== latestRequestId) return;
+					// Ahead of everything below: the Play grids are neither a result
+					// the tables read nor a basis the summary cards are built from,
+					// and a play request never marked anything as computing.
+					if (response.status === 'success' && response.scope === 'play') {
+						playGridCache.set(latestRequestConfig.trueCount, response.result);
+						setPlayGrids(response.result);
+						return;
+					}
 					setIsComputing(false);
 					setIsSummaryComputing(false);
 					setLatestRequestPrecision('fast');
@@ -297,7 +351,7 @@ const App: Component = () => {
 
 	const runCalculation = (
 		nextConfig: CalculatorConfig,
-		scope: 'tables' | 'summary',
+		scope: 'tables' | 'summary' | 'play',
 		// Defaulted rather than passed by each caller, which is what makes the full
 		// calculation a one-shot: the next settings edit, count step or Tables
 		// catch-up goes back to fast without having to be told to.
@@ -309,6 +363,7 @@ const App: Component = () => {
 		latestRequestStart = performance.now();
 		latestRequestConfig = nextConfig;
 		latestRequestScope = scope;
+		setLiveSettings(settingsFromConfig(nextConfig));
 		setLatestRequestPrecision(precision);
 		// Note that `result` is deliberately left alone here: the previous rows
 		// stay in place while the new ones are computed. EvCell keeps each cell's
@@ -319,12 +374,16 @@ const App: Component = () => {
 		if (scope === 'tables') setIsComputing(true);
 		// A count-only recalculation is not something the cards are waiting for:
 		// they keep their figures rather than dropping to skeletons. A full run is,
-		// since it is going to move every one of them.
-		if (!summaryBasisMatches(nextConfig, precision)) setIsSummaryComputing(true);
+		// since it is going to move every one of them. A play request is neither --
+		// it computes nothing either the grids or the cards are showing.
+		if (scope !== 'play' && !summaryBasisMatches(nextConfig, precision)) {
+			setIsSummaryComputing(true);
+		}
 		setError(null);
 		// Saved here rather than in the form, since the count reaches a
-		// calculation without passing through it at all.
-		saveCalculatorConfig(nextConfig);
+		// calculation without passing through it at all. Not for a play request:
+		// its count is the felt's shoe, not the count the user left the grids on.
+		if (scope !== 'play') saveCalculatorConfig(nextConfig);
 
 		const request: EvWorkerRequest = {
 			requestId: latestRequestId,
@@ -404,6 +463,27 @@ const App: Component = () => {
 		);
 	};
 
+	/**
+	 * Prices the grids the Play view's coach needs at `count`, unless a cache
+	 * entry already answers it. The felt asks on every transition, so this is
+	 * called far more often than it dispatches anything.
+	 */
+	const requestPlayGrids = (count: number) => {
+		// The settings alone: the count is what the cache is keyed by, so it is
+		// the one field that must not invalidate it.
+		const basis = JSON.stringify(liveSettings());
+		if (basis !== playGridBasis) {
+			playGridCache.clear();
+			playGridBasis = basis;
+		}
+		const cached = playGridCache.get(count);
+		if (cached) {
+			setPlayGrids(cached);
+			return;
+		}
+		runCalculation({ ...latestRequestConfig, trueCount: count }, 'play');
+	};
+
 	// A settings edit made while parked on Bankroll only refreshes the summary
 	// figures (`requestCalculation` above asks for nothing more), so the
 	// Tables grid can be left showing stale settings. Caught up here, once,
@@ -422,7 +502,9 @@ const App: Component = () => {
 						initialConfig={initialConfig}
 						calcTimeMs={calcTimeMs()}
 						onSettingsChange={requestCalculation}
-						onFullCalculation={runFullCalculation}
+						// Play always grades at 'fast': the felt asks for a new count every
+						// few cards, and a seconds-long run has nothing to offer it.
+						onFullCalculation={tab() === 'play' ? undefined : runFullCalculation}
 						isFullResult={resultPrecision() === 'full'}
 						isBusy={
 							isComputing() || isSummaryComputing() || latestRequestPrecision() === 'full'
@@ -430,6 +512,8 @@ const App: Component = () => {
 						bankroll={bankroll()}
 						bankrollAnalysis={bankrollAnalysis()}
 						onBankrollChange={updateBankroll}
+						play={play()}
+						onPlayChange={updatePlay}
 					/>
 					<Show when={tab() === 'tables'}>
 						<EvTable
@@ -445,6 +529,16 @@ const App: Component = () => {
 							isSummaryComputing={isSummaryComputing}
 							bankroll={bankrollAnalysis}
 							countEv={countEv}
+						/>
+					</Show>
+					<Show when={tab() === 'play'}>
+						<PlayView
+							ruleSet={playRuleSet()}
+							tags={liveSettings().tags}
+							config={play()}
+							bankroll={bankroll().bankroll}
+							grids={playGrids()}
+							onCountChange={requestPlayGrids}
 						/>
 					</Show>
 				</div>

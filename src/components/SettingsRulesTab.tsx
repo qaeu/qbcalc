@@ -13,7 +13,7 @@ import {
 	rulesForPreset,
 	type RulePresetId,
 } from '#utils/rulePresets';
-import { ruleSetFromConfig, type CalculatorConfig } from '#utils/storage';
+import { ruleSetFromConfig, type CalculatorSettings } from '#utils/storage';
 
 import SettingSelect, { type SettingOption } from '#c/SettingSelect';
 import SettingsItem from '#c/SettingsItem';
@@ -21,8 +21,13 @@ import SettingsItem from '#c/SettingsItem';
 import '#styles/SettingsRulesTab';
 
 interface SettingsRulesTabProps {
-	config: CalculatorConfig;
-	setConfig: SetStoreFunction<CalculatorConfig>;
+	/**
+	 * The settings alone. The true count is not one of them -- it is the app's,
+	 * moved by the arrow keys -- so the rules are read out of a config without it
+	 * and `ruleSetFromConfig` is handed a placeholder for the field it ignores.
+	 */
+	config: CalculatorSettings;
+	setConfig: SetStoreFunction<CalculatorSettings>;
 }
 
 const PAYOUT_OPTIONS: readonly SettingOption<BlackjackPayout>[] = BLACKJACK_PAYOUTS.map(
@@ -83,7 +88,9 @@ const SettingsRulesTab: Component<SettingsRulesTabProps> = (props) => {
 	// Derived rather than stored: the rules are the single source of truth for
 	// which preset is selected, so editing any one of them drops the select to
 	// 'Custom' on its own.
-	const preset = createMemo(() => presetForRules(ruleSetFromConfig(props.config)));
+	const preset = createMemo(() =>
+		presetForRules(ruleSetFromConfig({ ...props.config, trueCount: 0 }))
+	);
 
 	const setPreset = (id: RulePresetId) => {
 		const rules = rulesForPreset(id);

@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
 
-import { computeEvWorkerResponse, type EvWorkerRequest } from '#utils/evWorkerProtocol';
+import {
+	computeEvWorkerResponse,
+	PLAY_HARD_TOTALS,
+	PLAY_SOFT_TOTALS,
+	type EvWorkerRequest,
+} from '#utils/evWorkerProtocol';
+import { RANKS } from '#utils/ev/cards';
+import { gridKey, splitGridKey } from '#utils/ev/engine';
+import { PAIR_RANKS } from '#utils/ev/rules';
 import { DEFAULT_RULE_SET } from '#utils/ev/rules';
 import { tagsForSystem } from '#utils/countingSystems';
 
@@ -15,8 +23,15 @@ function respondTo(request: EvWorkerRequest) {
 	return response;
 }
 
+/** Narrows away the 'play' scope, which carries none of these figures. */
+function figuresFrom(request: EvWorkerRequest) {
+	const response = respondTo(request);
+	if (response.scope === 'play') throw new Error('expected a tables or summary response');
+	return response;
+}
+
 function curveAt(trueCount: number, tags = HI_LO) {
-	return respondTo({ requestId: 1, ruleSet: RULE_SET, trueCount, tags }).result;
+	return figuresFrom({ requestId: 1, ruleSet: RULE_SET, trueCount, tags }).result;
 }
 
 function slopeAt(trueCount: number, tags = HI_LO): number {
@@ -70,7 +85,7 @@ describe('the edge slope', () => {
 
 describe('precision', () => {
 	const summaryAt = (precision: EvWorkerRequest['precision']) =>
-		respondTo({
+		figuresFrom({
 			requestId: 1,
 			scope: 'summary',
 			precision,
@@ -113,5 +128,74 @@ describe('precision', () => {
 		expect(summaryAt('full').result.edgeSlopePointsPerTrueCount).not.toBe(
 			summaryAt('fast').result.edgeSlopePointsPerTrueCount
 		);
+	});
+});
+
+describe('the play scope', () => {
+	const playAt = (
+		trueCount: number,
+		precision: EvWorkerRequest['precision'] = 'fast'
+	) => {
+		const response = respondTo({
+			requestId: 1,
+			scope: 'play',
+			precision,
+			ruleSet: RULE_SET,
+			trueCount,
+			tags: HI_LO,
+		});
+		if (response.scope !== 'play') throw new Error('expected play grids');
+		return response;
+	};
+
+	it('answers with play grids, echoing the precision it priced at', () => {
+		const response = playAt(0);
+		expect(response.scope).toBe('play');
+		expect(response.precision).toBe('fast');
+	});
+
+	it('covers every total a live hand can hold, against every upcard', () => {
+		const { hard, soft, split } = playAt(0).result;
+		expect(hard.size).toBe(PLAY_HARD_TOTALS.length * RANKS.length);
+		expect(soft.size).toBe(PLAY_SOFT_TOTALS.length * RANKS.length);
+		expect(split.size).toBe(PAIR_RANKS.length * RANKS.length);
+		// The widened ends: a hard 4 off a pair of twos, and a hit-to-20.
+		expect(hard.get(gridKey(4, 'T'))).toBeDefined();
+		expect(hard.get(gridKey(20, 'A'))).toBeDefined();
+		expect(soft.get(gridKey(12, '6'))).toBeDefined();
+		expect(soft.get(gridKey(21, '6'))).toBeDefined();
+		expect(split.get(splitGridKey('A', 'T'))).toBeDefined();
+	});
+
+	it('pairs each cell with the same hand priced on the unadjusted shoe', () => {
+		const zero = playAt(0).result.hard.get(gridKey(16, 'T'))!;
+		// At the baseline the two shoes are the same shoe.
+		expect(zero.actions.map((action) => action.evPercent)).toEqual(
+			zero.baseActions.map((action) => action.evPercent)
+		);
+
+		const high = playAt(6).result.hard.get(gridKey(16, 'T'))!;
+		expect(high.actions.map((action) => action.evPercent)).not.toEqual(
+			high.baseActions.map((action) => action.evPercent)
+		);
+		// The base half is the baseline's, whatever count is asked about.
+		expect(high.baseActions.map((action) => action.evPercent)).toEqual(
+			zero.baseActions.map((action) => action.evPercent)
+		);
+	});
+
+	it('grades at the whole count, so a fractional one lands on its neighbour', () => {
+		const rounded = playAt(6).result.hard.get(gridKey(16, 'T'))!;
+		const fractional = playAt(6.4).result.hard.get(gridKey(16, 'T'))!;
+		expect(fractional.actions.map((action) => action.evPercent)).toEqual(
+			rounded.actions.map((action) => action.evPercent)
+		);
+	});
+
+	it('leaves the other scopes’ caches alone', () => {
+		const before = curveAt(0).edgeSlopePointsPerTrueCount;
+		// A count the play cache has already been asked for, so this costs nothing.
+		playAt(6);
+		expect(curveAt(0).edgeSlopePointsPerTrueCount).toBe(before);
 	});
 });

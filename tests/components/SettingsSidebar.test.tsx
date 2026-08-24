@@ -7,6 +7,7 @@ import { HI_LO_TAGS } from '#utils/countingSystems';
 import {
 	DEFAULT_BANKROLL_CONFIG,
 	DEFAULT_CONFIG,
+	DEFAULT_PLAY_CONFIG,
 	settingsFromConfig,
 	type CalculatorSettings,
 } from '#utils/storage';
@@ -40,6 +41,8 @@ describe('SettingsSidebar', () => {
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
+				play={DEFAULT_PLAY_CONFIG}
+				onPlayChange={() => {}}
 			/>
 		));
 
@@ -72,6 +75,8 @@ describe('SettingsSidebar', () => {
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
+				play={DEFAULT_PLAY_CONFIG}
+				onPlayChange={() => {}}
 			/>
 		));
 
@@ -89,6 +94,8 @@ describe('SettingsSidebar', () => {
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
+				play={DEFAULT_PLAY_CONFIG}
+				onPlayChange={() => {}}
 			/>
 		));
 
@@ -130,6 +137,8 @@ describe('SettingsSidebar', () => {
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
+				play={DEFAULT_PLAY_CONFIG}
+				onPlayChange={() => {}}
 			/>
 		));
 
@@ -158,6 +167,8 @@ describe('SettingsSidebar', () => {
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
+				play={DEFAULT_PLAY_CONFIG}
+				onPlayChange={() => {}}
 			/>
 		));
 
@@ -184,6 +195,8 @@ describe('SettingsSidebar', () => {
 					bankroll={DEFAULT_BANKROLL_CONFIG}
 					bankrollAnalysis={undefined}
 					onBankrollChange={() => {}}
+					play={DEFAULT_PLAY_CONFIG}
+					onPlayChange={() => {}}
 				/>
 			));
 			return screen.getByRole('combobox', { name: 'Preset' });
@@ -250,6 +263,8 @@ describe('SettingsSidebar', () => {
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
+				play={DEFAULT_PLAY_CONFIG}
+				onPlayChange={() => {}}
 			/>
 		));
 
@@ -276,6 +291,8 @@ describe('SettingsSidebar', () => {
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
+				play={DEFAULT_PLAY_CONFIG}
+				onPlayChange={() => {}}
 			/>
 		));
 
@@ -308,6 +325,8 @@ describe('SettingsSidebar', () => {
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
+				play={DEFAULT_PLAY_CONFIG}
+				onPlayChange={() => {}}
 			/>
 		));
 
@@ -329,6 +348,8 @@ describe('SettingsSidebar', () => {
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
+				play={DEFAULT_PLAY_CONFIG}
+				onPlayChange={() => {}}
 			/>
 		));
 
@@ -357,6 +378,8 @@ describe('SettingsSidebar', () => {
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
+				play={DEFAULT_PLAY_CONFIG}
+				onPlayChange={() => {}}
 			/>
 		));
 
@@ -381,6 +404,8 @@ describe('SettingsSidebar', () => {
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
+				play={DEFAULT_PLAY_CONFIG}
+				onPlayChange={() => {}}
 			/>
 		));
 
@@ -412,6 +437,8 @@ describe('SettingsSidebar', () => {
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
+				play={DEFAULT_PLAY_CONFIG}
+				onPlayChange={() => {}}
 			/>
 		));
 
@@ -442,6 +469,8 @@ describe('SettingsSidebar', () => {
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
+				play={DEFAULT_PLAY_CONFIG}
+				onPlayChange={() => {}}
 			/>
 		));
 
@@ -475,6 +504,8 @@ describe('SettingsSidebar', () => {
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
+				play={DEFAULT_PLAY_CONFIG}
+				onPlayChange={() => {}}
 			/>
 		));
 
@@ -514,6 +545,8 @@ describe('SettingsSidebar', () => {
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
+				play={DEFAULT_PLAY_CONFIG}
+				onPlayChange={() => {}}
 			/>
 		));
 
@@ -536,6 +569,8 @@ describe('SettingsSidebar', () => {
 				bankroll={DEFAULT_BANKROLL_CONFIG}
 				bankrollAnalysis={undefined}
 				onBankrollChange={() => {}}
+				play={DEFAULT_PLAY_CONFIG}
+				onPlayChange={() => {}}
 			/>
 		));
 
@@ -555,6 +590,8 @@ describe('SettingsSidebar', () => {
 					bankroll={DEFAULT_BANKROLL_CONFIG}
 					bankrollAnalysis={undefined}
 					onBankrollChange={onBankrollChange}
+					play={DEFAULT_PLAY_CONFIG}
+					onPlayChange={() => {}}
 				/>
 			));
 			fireEvent.click(screen.getByRole('tab', { name: 'Bankroll' }));
@@ -629,6 +666,8 @@ describe('SettingsSidebar', () => {
 					bankroll={DEFAULT_BANKROLL_CONFIG}
 					bankrollAnalysis={undefined}
 					onBankrollChange={() => {}}
+					play={DEFAULT_PLAY_CONFIG}
+					onPlayChange={() => {}}
 					{...props}
 				/>
 			));

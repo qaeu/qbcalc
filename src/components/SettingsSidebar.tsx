@@ -2,7 +2,7 @@ import { Tabs } from '@ark-ui/solid/tabs';
 import { createEffect, createSignal, onCleanup, Show, type Component } from 'solid-js';
 import { createStore } from 'solid-js/store';
 
-import { LayoutGrid, SlidersHorizontal, Wallet } from 'lucide-solid';
+import { LayoutGrid, SlidersHorizontal, Spade, Wallet } from 'lucide-solid';
 
 import type { BankrollAnalysis } from '#utils/bankroll';
 import { type Rank } from '#utils/ev/cards';
@@ -16,10 +16,12 @@ import {
 	type BankrollConfig,
 	type CalculatorConfig,
 	type CalculatorSettings,
+	type PlayConfig,
 } from '#utils/storage';
 
 import SettingsBankrollTab from '#c/SettingsBankrollTab';
 import SettingsCountTab from '#c/SettingsCountTab';
+import SettingsPlayTab from '#c/SettingsPlayTab';
 import SettingsRulesTab from '#c/SettingsRulesTab';
 
 import '#styles/SettingsSidebar';
@@ -56,6 +58,9 @@ interface SettingsSidebarProps {
 		key: K,
 		value: BankrollConfig[K]
 	) => void;
+	/** The Play view's own settings, owned by the app for the same reason. */
+	play: PlayConfig;
+	onPlayChange: <K extends keyof PlayConfig>(key: K, value: PlayConfig[K]) => void;
 }
 
 const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
@@ -148,6 +153,10 @@ const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
 								<Wallet />
 								Bankroll
 							</Tabs.Trigger>
+							<Tabs.Trigger value="play" class="settings-sidebar__tab">
+								<Spade />
+								Play
+							</Tabs.Trigger>
 						</Tabs.List>
 						<Tabs.Content value="rules" class="settings-sidebar__tab-panel">
 							<SettingsRulesTab config={config} setConfig={setConfig} />
@@ -166,6 +175,9 @@ const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
 								analysis={props.bankrollAnalysis}
 								onChange={props.onBankrollChange}
 							/>
+						</Tabs.Content>
+						<Tabs.Content value="play" class="settings-sidebar__tab-panel">
+							<SettingsPlayTab config={props.play} onChange={props.onPlayChange} />
 						</Tabs.Content>
 					</Tabs.Root>
 				</form>

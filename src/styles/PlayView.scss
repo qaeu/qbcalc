@@ -1,0 +1,44 @@
+@use 'base' as *;
+
+@layer screen {
+	.play-view {
+		display: flex;
+		flex-direction: column;
+		// As with the Bankroll view: nothing in here is wide enough to claim the
+		// space on its own, so the column is told to take it.
+		flex: 1 1 0%;
+		min-width: 0;
+		gap: 20px;
+
+		&__tabs {
+			display: flex;
+			flex-direction: column;
+			gap: 16px;
+		}
+
+		&__tab-list {
+			display: flex;
+			gap: 4px;
+			padding: 3px;
+			align-self: flex-start;
+			border-radius: 6px;
+			background-color: get($neutrals, 'fade');
+		}
+
+		&__tab {
+			padding: 6px 16px;
+			border: none;
+			border-radius: 4px;
+			background: none;
+			color: get($neutrals, 'fg-light');
+			font-size: 14px;
+			cursor: pointer;
+			transition: all 0.2s ease;
+
+			&[data-selected] {
+				background-color: $background;
+				color: $foreground;
+			}
+		}
+	}
+}

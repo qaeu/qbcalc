@@ -1,16 +1,18 @@
 /**
- * The two top-level views, addressed by a URL fragment (`#tables` /
- * `#bankroll`) rather than an always-mounted tab-panel pair, so switching is a
- * real navigation, the view is linkable/bookmarkable, and it survives a
- * reload.
+ * The three top-level views, addressed by a URL fragment (`#tables` /
+ * `#bankroll` / `#play`) rather than an always-mounted tab-panel pair, so
+ * switching is a real navigation, the view is linkable/bookmarkable, and it
+ * survives a reload.
  */
 
 import { createSignal, onCleanup, onMount } from 'solid-js';
 
-export type AppTab = 'tables' | 'bankroll';
+export type AppTab = 'tables' | 'bankroll' | 'play';
 
 function tabFromHash(hash: string): AppTab {
-	return hash === '#bankroll' ? 'bankroll' : 'tables';
+	if (hash === '#bankroll') return 'bankroll';
+	if (hash === '#play') return 'play';
+	return 'tables';
 }
 
 /**

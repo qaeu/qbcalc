@@ -8,7 +8,6 @@ import { onCleanup, onMount } from 'solid-js';
  * given the key a meaning in.
  */
 const KEY_CONSUMING_SELECTOR = [
-	'button',
 	'input',
 	'textarea',
 	'select',
@@ -19,13 +18,31 @@ const KEY_CONSUMING_SELECTOR = [
 ].join(',');
 
 /**
+ * Buttons, which consume a key press for every caller but one. The Play view's
+ * action bar binds the number keys to the same actions its buttons fire, so a
+ * focused button there must not swallow the shortcut that just pressed it.
+ */
+const BUTTON_SELECTOR = 'button';
+
+/**
  * Whether the key press landed somewhere that already has its own use for the
  * key. Grid cells are deliberately absent from the list: space cycles the
  * table's display mode even with a cell focused, and the cell keeps Enter for
  * its drill-down.
+ *
+ * `allowButtons` drops plain buttons from that list -- see `BUTTON_SELECTOR`.
+ * Everything else still consumes as it did.
  */
-export function isKeyConsumingTarget(target: EventTarget | null): boolean {
-	return target instanceof Element && target.closest(KEY_CONSUMING_SELECTOR) !== null;
+export function isKeyConsumingTarget(
+	target: EventTarget | null,
+	options?: { allowButtons?: boolean }
+): boolean {
+	if (!(target instanceof Element)) return false;
+	const selector =
+		options?.allowButtons === true ?
+			KEY_CONSUMING_SELECTOR
+		:	`${BUTTON_SELECTOR},${KEY_CONSUMING_SELECTOR}`;
+	return target.closest(selector) !== null;
 }
 
 /**
