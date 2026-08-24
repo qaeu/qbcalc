@@ -222,7 +222,7 @@ function settleHand(hand: PlayHand, ruleSet: RuleSet, dealer: DealerHand): void 
 	hand.net = hand.bet;
 }
 
-export function createGame(ruleSet: RuleSet, shoe: DealtShoe): GameState {
+function emptyState(ruleSet: RuleSet, shoe: DealtShoe): GameState {
 	return {
 		phase: 'bet',
 		shoe,
@@ -241,6 +241,21 @@ export function createGame(ruleSet: RuleSet, shoe: DealtShoe): GameState {
 		net: 0,
 		insuranceOffered: false,
 	};
+}
+
+export function createGame(ruleSet: RuleSet, shoe: DealtShoe): GameState {
+	return emptyState(ruleSet, shoe);
+}
+
+/**
+ * Leaves the settled round behind for a fresh pre-round felt -- the cards and
+ * result of the hand just played are gone, same as a dealer clearing the
+ * table before the next bet. A no-op outside `settled`, since there is
+ * nothing yet to clear.
+ */
+export function preRound(state: GameState): GameState {
+	if (state.phase !== 'settled') return state;
+	return emptyState(state.ruleSet, state.shoe);
 }
 
 /**

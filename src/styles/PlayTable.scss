@@ -115,12 +115,12 @@ $chip-colours: (
 			flex-direction: column;
 			align-items: center;
 			justify-content: center;
-			width: 34px;
-			height: 48px;
-			border-radius: 4px;
+			width: 68px;
+			height: 96px;
+			border-radius: 8px;
 			background-color: $white;
 			color: #1a1a1a;
-			font-size: 15px;
+			font-size: 30px;
 			font-weight: 600;
 			line-height: 1;
 
@@ -140,8 +140,8 @@ $chip-colours: (
 		}
 
 		&__card-suit {
-			margin-top: 2px;
-			font-size: 12px;
+			margin-top: 4px;
+			font-size: 24px;
 			font-weight: 400;
 		}
 
@@ -150,8 +150,20 @@ $chip-colours: (
 			color: get($neutrals, 'fg-light');
 		}
 
+		&__outcome {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+		}
+
+		&__results {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 12px;
+		}
+
 		&__result {
-			margin-left: auto;
 			font-size: 13px;
 			font-weight: 600;
 
@@ -171,9 +183,33 @@ $chip-colours: (
 			}
 		}
 
+		&__rail-header {
+			display: flex;
+			justify-content: flex-start;
+		}
+
+		&__bet-amount {
+			font-size: 14px;
+			color: get($neutrals, 'fg-light');
+
+			strong {
+				font-variant-numeric: tabular-nums;
+				color: $foreground;
+			}
+		}
+
 		&__rail {
 			display: flex;
 			flex-wrap: wrap;
+			gap: 8px;
+		}
+
+		// The result of the round just settled, paused until the player says what
+		// happens next -- redeal at the same bet, or size a fresh one.
+		&__pause {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
 			gap: 8px;
 		}
 
@@ -190,13 +226,13 @@ $chip-colours: (
 			@include shadow-short;
 			display: inline-flex;
 			align-items: center;
-			width: 60px;
-			height: 60px;
+			width: 44px;
+			height: 44px;
 			justify-content: center;
-			border: 3px dashed rgba(255, 255, 255, 0.7);
+			border: 2px dashed rgba(255, 255, 255, 0.7);
 			border-radius: 50%;
 			color: $white;
-			font-size: 13px;
+			font-size: 11px;
 			font-weight: 700;
 			cursor: pointer;
 
@@ -228,13 +264,16 @@ $chip-colours: (
 
 		&__control {
 			@include button;
+			min-width: 140px;
 		}
 
 		&__action {
 			@include button;
 			display: inline-flex;
 			align-items: center;
+			justify-content: center;
 			gap: 6px;
+			min-width: 140px;
 
 			// The action colours the grids already use, so a Stand on the felt and
 			// a Stand in a cell are the same colour.
@@ -269,7 +308,6 @@ $chip-colours: (
 		}
 
 		&__net {
-			margin-left: auto;
 			font-variant-numeric: tabular-nums;
 			font-size: 18px;
 			font-weight: 600;

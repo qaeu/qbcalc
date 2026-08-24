@@ -7,6 +7,7 @@ import {
 	applyAction,
 	createGame,
 	legalActions,
+	preRound,
 	resolveInsurance,
 	settleRound,
 	startRound,
@@ -396,5 +397,22 @@ describe('the state itself', () => {
 	it('refuses to deal a second round over a live one', () => {
 		const state = deal(rules(), ['5', '9', '6', '8']);
 		expect(() => startRound(state, 10)).toThrow();
+	});
+});
+
+describe('the pre-round felt', () => {
+	it('clears the settled hand off the table but keeps the shoe', () => {
+		const settled = settleRound(applyAction(deal(rules(), ['T', '9', 'T', '8']), 'S'));
+		const next = preRound(settled);
+
+		expect(next.phase).toBe('bet');
+		expect(next.hands).toHaveLength(0);
+		expect(next.dealer.cards).toHaveLength(0);
+		expect(next.shoe).toBe(settled.shoe);
+	});
+
+	it('is a no-op outside settled', () => {
+		const state = deal(rules(), ['5', '9', '6', '8']);
+		expect(preRound(state)).toBe(state);
 	});
 });

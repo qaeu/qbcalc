@@ -23,6 +23,7 @@ import { gradeDecision, type Grading } from '#utils/play/coach';
 import {
 	applyAction,
 	createGame,
+	preRound,
 	resolveInsurance,
 	settleRound,
 	startRound,
@@ -204,6 +205,7 @@ const PlayView: Component<PlayViewProps> = (props) => {
 						onClear={() => setBet(0)}
 						onRepeat={() => setBet(Math.min(lastBet(), stack()))}
 						onDeal={deal}
+						onNextHand={() => setGame(preRound(game()))}
 					/>
 				</Tabs.Content>
 				<Tabs.Content value="stats" class="play-view__panel">

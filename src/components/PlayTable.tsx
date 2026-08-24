@@ -116,6 +116,8 @@ interface PlayTableProps {
 	onClear: () => void;
 	onRepeat: () => void;
 	onDeal: () => void;
+	/** Clears the settled round off the felt and returns to bet sizing. */
+	onNextHand: () => void;
 }
 
 const PlayTable: Component<PlayTableProps> = (props) => {
@@ -168,9 +170,21 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 			props.onInsurance(digit === 1);
 			return;
 		}
-		// Settled shares the betting rail's keys: the next round's bet is built
-		// on the felt exactly like the first, chip by chip.
-		if (phase() !== 'bet' && phase() !== 'settled') return;
+		if (phase() === 'settled') {
+			if (event.key === ' ') {
+				event.preventDefault();
+				props.onNextHand();
+				return;
+			}
+			if (event.key === 'r' || event.key === 'R') {
+				event.preventDefault();
+				if (canDeal()) props.onDeal();
+				return;
+			}
+			return;
+		}
+
+		if (phase() !== 'bet') return;
 
 		if (event.key === '0') {
 			event.preventDefault();
@@ -222,9 +236,6 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 			<div class="play-table__money">
 				<span>
 					Stack <strong>{money(props.stack)}</strong>
-				</span>
-				<span>
-					Bet <strong>{money(props.bet)}</strong>
 				</span>
 			</div>
 
@@ -284,26 +295,69 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 								</For>
 							</div>
 							<span class="play-table__total">{totalLabel(hand)}</span>
-							<Show when={hand.result}>
-								{(result) => (
-									<span class={`play-table__result is-${result()}`}>
-										{RESULT_LABELS[result()]}
-									</span>
-								)}
-							</Show>
 						</div>
 					)}
 				</For>
 			</div>
 
-			<Show when={phase() === 'bet' || phase() === 'settled'}>
-				<Show when={phase() === 'settled'}>
+			<Show when={phase() === 'settled'}>
+				<div class="play-table__outcome">
+					<div class="play-table__results">
+						<For each={props.state.hands}>
+							{(hand, handIndex) => (
+								<Show when={hand.result}>
+									{(result) => (
+										<span class={`play-table__result is-${result()}`}>
+											<Show when={props.state.hands.length > 1}>
+												<span class="play-table__hand-index">
+													#{handIndex() + 1}
+												</span>{' '}
+											</Show>
+											{RESULT_LABELS[result()]}
+										</span>
+									)}
+								</Show>
+							)}
+						</For>
+					</div>
 					<span
 						class={`play-table__net ${props.state.net < 0 ? 'is-negative' : 'is-positive'}`}
 					>
 						{formatCurrency(props.state.net)}
 					</span>
-				</Show>
+				</div>
+
+				<div class="play-table__pause">
+					<div class="play-table__slot">
+						<span class="play-table__key">Space</span>
+						<button
+							type="button"
+							class="play-table__control highlight"
+							onClick={() => props.onNextHand()}
+						>
+							Next hand
+						</button>
+					</div>
+					<div class="play-table__slot">
+						<span class="play-table__key">R</span>
+						<button
+							type="button"
+							class="play-table__control"
+							disabled={!canDeal()}
+							onClick={() => props.onDeal()}
+						>
+							Redeal same bet
+						</button>
+					</div>
+				</div>
+			</Show>
+
+			<Show when={phase() === 'bet'}>
+				<div class="play-table__rail-header">
+					<span class="play-table__bet-amount">
+						Bet <strong>{money(props.bet)}</strong>
+					</span>
+				</div>
 				<div class="play-table__rail">
 					<div class="play-table__slot">
 						<span class="play-table__key">0</span>

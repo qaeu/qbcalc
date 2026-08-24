@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen } from '@solidjs/testing-library';
+import { createSignal } from 'solid-js';
 
 import type { Rank } from '#utils/ev/cards';
 import { DEFAULT_RULE_SET, type PlayerAction, type RuleSet } from '#utils/ev/rules';
@@ -7,6 +8,7 @@ import type { Grading } from '#utils/play/coach';
 import {
 	applyAction,
 	createGame,
+	preRound,
 	settleRound,
 	startRound,
 	type GameState,
@@ -55,6 +57,7 @@ function renderTable(overrides: Partial<Parameters<typeof PlayTable>[0]> = {}): 
 			onClear={() => {}}
 			onRepeat={() => {}}
 			onDeal={() => {}}
+			onNextHand={() => {}}
 			{...overrides}
 		/>
 	));
@@ -78,16 +81,71 @@ function grading(overrides: Partial<Grading> = {}): Grading {
 
 describe('PlayTable', () => {
 	describe('the betting rail', () => {
-		it('offers the chip rail again once a round settles, not just the first', () => {
+		it('pauses on the result instead of dropping straight into bet sizing', () => {
 			// Stand on 16 against a 9 with plenty of shoe left for the dealer to
-			// draw out on, then settle -- the round a second bet is built for.
+			// draw out on, then settle -- the round that pauses.
 			const settled = settleRound(applyAction(dealtState(HARD_16, {}, 20), 'S'));
 			expect(settled.phase).toBe('settled');
 
 			renderTable({ state: settled, bet: 0 });
 
+			expect(document.querySelector('.play-table__chip--25')).toBeNull();
+			expect(screen.getByRole('button', { name: 'Next hand' })).toBeDefined();
+			expect(screen.getByRole('button', { name: 'Redeal same bet' })).toBeDefined();
+		});
+
+		it('reports the result alongside the win/loss amount, below the table', () => {
+			const settled = settleRound(applyAction(dealtState(HARD_16, {}, 20), 'S'));
+
+			renderTable({ state: settled, bet: 0 });
+
+			const outcome = document.querySelector('.play-table__outcome');
+			expect(outcome?.textContent).toContain('Lose');
+			expect(outcome?.textContent).toContain('£25');
+			// No longer sat inline on the hand itself.
+			expect(document.querySelector('.play-table__seat .play-table__result')).toBeNull();
+		});
+
+		it('clears the felt and offers the chip rail once Next hand is chosen', () => {
+			const settled = settleRound(applyAction(dealtState(HARD_16, {}, 20), 'S'));
+			const [state, setState] = createSignal<GameState>(settled);
+			const config: PlayConfig = { ...DEFAULT_PLAY_CONFIG };
+			render(() => (
+				<PlayTable
+					state={state()}
+					stack={1000}
+					bet={0}
+					unit={10}
+					config={config}
+					grading={null}
+					onAction={() => {}}
+					onInsurance={() => {}}
+					onChip={() => {}}
+					onClear={() => {}}
+					onRepeat={() => {}}
+					onDeal={() => {}}
+					onNextHand={() => setState((current) => preRound(current))}
+				/>
+			));
+
+			expect(screen.getByText('Lose')).toBeDefined();
+			fireEvent.click(screen.getByRole('button', { name: 'Next hand' }));
+
 			expect(document.querySelector('.play-table__chip--25')).not.toBeNull();
 			expect(screen.getByRole('button', { name: 'Repeat' })).toBeDefined();
+			expect(screen.queryByText('Lose')).toBeNull();
+			expect(document.querySelector('.play-table__card')).toBeNull();
+		});
+
+		it('redeals immediately at the same bet without visiting the rail', () => {
+			const onDeal = vi.fn();
+			const settled = settleRound(applyAction(dealtState(HARD_16, {}, 20), 'S'));
+
+			renderTable({ state: settled, bet: 25, onDeal });
+			fireEvent.click(screen.getByRole('button', { name: 'Redeal same bet' }));
+
+			expect(onDeal).toHaveBeenCalledOnce();
+			expect(document.querySelector('.play-table__chip--25')).toBeNull();
 		});
 
 		it('answers 0, r and space for Clear, Repeat and Deal', () => {
