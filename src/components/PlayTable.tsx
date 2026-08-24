@@ -237,10 +237,15 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 								<Show
 									when={!(props.state.dealer.holeHidden && index() === 1)}
 									fallback={
-										<span
-											class="play-table__card play-table__card--back"
-											aria-label="Hole card"
-										/>
+										// ENHC tables never deal a hole card at all until the
+										// player's turn is over, so there is nothing to draw face
+										// down -- unlike a peek table, which has already dealt it.
+										<Show when={props.state.ruleSet.dealerPeek}>
+											<span
+												class="play-table__card play-table__card--back"
+												aria-label="Hole card"
+											/>
+										</Show>
 									}
 								>
 									<Card rank={rank} row={0} index={index()} />
