@@ -53,6 +53,8 @@ interface PlayViewProps {
 	config: PlayConfig;
 	/** The bankroll the stack starts from, off the sidebar's Bankroll tab. */
 	bankroll: number;
+	/** What one betting unit is worth, off the sidebar's Bankroll tab. Doubles as the chip rail's floor. */
+	unit: number;
 	/** The grids the coach grades against, or null until the first pair lands. */
 	grids: PlayGrids | null;
 	/**
@@ -71,7 +73,7 @@ const PlayView: Component<PlayViewProps> = (props) => {
 	// Read once and deliberately: a session's seed is what it started with, and a
 	// later change to any of these is not something to re-derive it from.
 	const baseSeed = untrack(() => props.seed) ?? Date.now();
-	const openingBet = untrack(() => props.config.tableMinimum);
+	const openingBet = untrack(() => props.unit);
 
 	const freshGame = (): GameState =>
 		createGame(
@@ -96,9 +98,11 @@ const PlayView: Component<PlayViewProps> = (props) => {
 	 * What the felt calls the bet: what is being built on the rail while betting,
 	 * and what the live round was dealt for once it is. Never the money actually
 	 * riding on a hand -- a double or a split puts more out than this, and the
-	 * felt shows that against the hand itself.
+	 * felt shows that against the hand itself. Settled shares the rail with
+	 * betting -- the next round's wager is being built there too.
 	 */
-	const roundBet = () => (game().phase === 'bet' ? bet() : lastBet());
+	const roundBet = () =>
+		game().phase === 'bet' || game().phase === 'settled' ? bet() : lastBet();
 
 	const updateStats = (update: (stats: PlayStatsRecord) => PlayStatsRecord) => {
 		const next = update(stats());
@@ -168,7 +172,7 @@ const PlayView: Component<PlayViewProps> = (props) => {
 
 	const deal = () => {
 		const amount = Math.min(bet(), stack());
-		if (amount < props.config.tableMinimum) return;
+		if (amount < props.unit) return;
 		setBet(amount);
 		setLastBet(amount);
 		setGrading(null);
@@ -191,6 +195,7 @@ const PlayView: Component<PlayViewProps> = (props) => {
 						state={game()}
 						stack={stack()}
 						bet={roundBet()}
+						unit={props.unit}
 						config={props.config}
 						grading={grading()}
 						onAction={handleAction}

@@ -328,14 +328,12 @@ describe('play config', () => {
 	const CONFIG: PlayConfig = {
 		coaching: 'deviations',
 		showCount: true,
-		tableMinimum: 10,
 	};
 
-	it('defaults to basic coaching, a hidden count and a ten-unit minimum', () => {
+	it('defaults to basic coaching and a hidden count', () => {
 		expect(DEFAULT_PLAY_CONFIG).toEqual({
 			coaching: 'basic',
 			showCount: false,
-			tableMinimum: 10,
 		});
 	});
 

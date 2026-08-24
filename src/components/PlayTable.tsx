@@ -32,7 +32,7 @@ import '#styles/PlayTable';
 /**
  * The chips on the rail, smallest first. Standard casino denominations rather
  * than anything derived from the bankroll: a rail is a physical thing, and the
- * table minimum decides which of them a bet may stop at, not which exist.
+ * unit decides which of them a bet may stop at, not which exist.
  */
 export const CHIP_DENOMINATIONS: readonly number[] = [1, 5, 25, 100, 500, 1000];
 
@@ -105,6 +105,8 @@ interface PlayTableProps {
 	stack: number;
 	/** What the next round is being bet, or what the live round was bet.  */
 	bet: number;
+	/** Floor for the chip rail, off the Bankroll tab's own unit. */
+	unit: number;
 	config: PlayConfig;
 	/** The most recent graded decision, or null when there is nothing to say. */
 	grading: Grading | null;
@@ -119,8 +121,7 @@ interface PlayTableProps {
 const PlayTable: Component<PlayTableProps> = (props) => {
 	const phase = () => props.state.phase;
 	const legal = createMemo(() => legalActions(props.state));
-	const canDeal = () =>
-		props.bet >= props.config.tableMinimum && props.bet <= props.stack;
+	const canDeal = () => props.bet >= props.unit && props.bet <= props.stack;
 
 	// Rounded up: a shoe with a card left in it is still a shoe you are playing
 	// out of, and "0 decks left" would read as one already shuffled.
@@ -149,10 +150,10 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 		// Buttons are transparent here: the action bar is what the number keys
 		// drive, and a button that has just been clicked must not swallow them.
 		if (isKeyConsumingTarget(event.target, { allowButtons: true })) return;
-		const digit = Number(event.key);
-		if (!Number.isInteger(digit) || digit < 1) return;
 
 		if (phase() === 'act') {
+			const digit = Number(event.key);
+			if (!Number.isInteger(digit) || digit < 1) return;
 			const action = ACTION_KEYS[digit - 1];
 			if (action !== undefined && legal().includes(action)) {
 				event.preventDefault();
@@ -161,19 +162,33 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 			return;
 		}
 		if (phase() === 'insurance') {
-			if (digit > 2) return;
+			const digit = Number(event.key);
+			if (!Number.isInteger(digit) || digit < 1 || digit > 2) return;
 			event.preventDefault();
 			props.onInsurance(digit === 1);
 			return;
 		}
-		// Betting and settled share the digit: a chip on the rail before the deal,
-		// and the deal itself once the round is paid.
-		if (phase() === 'settled') {
-			if (digit !== 1) return;
+		// Settled shares the betting rail's keys: the next round's bet is built
+		// on the felt exactly like the first, chip by chip.
+		if (phase() !== 'bet' && phase() !== 'settled') return;
+
+		if (event.key === '0') {
 			event.preventDefault();
-			props.onDeal();
+			props.onClear();
 			return;
 		}
+		if (event.key === 'r' || event.key === 'R') {
+			event.preventDefault();
+			props.onRepeat();
+			return;
+		}
+		if (event.key === ' ') {
+			event.preventDefault();
+			if (canDeal()) props.onDeal();
+			return;
+		}
+		const digit = Number(event.key);
+		if (!Number.isInteger(digit) || digit < 1) return;
 		const chip = CHIP_DENOMINATIONS[digit - 1];
 		if (chip === undefined) return;
 		event.preventDefault();
@@ -276,50 +291,66 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 				</For>
 			</div>
 
-			<Show when={phase() === 'bet'}>
+			<Show when={phase() === 'bet' || phase() === 'settled'}>
+				<Show when={phase() === 'settled'}>
+					<span
+						class={`play-table__net ${props.state.net < 0 ? 'is-negative' : 'is-positive'}`}
+					>
+						{formatCurrency(props.state.net)}
+					</span>
+				</Show>
 				<div class="play-table__rail">
+					<div class="play-table__slot">
+						<span class="play-table__key">0</span>
+						<button
+							type="button"
+							class="play-table__control"
+							onClick={() => props.onClear()}
+						>
+							Clear
+						</button>
+					</div>
 					<For each={CHIP_DENOMINATIONS}>
 						{(chip, index) => (
-							<button
-								type="button"
-								class={`play-table__chip play-table__chip--${chip}`}
-								disabled={props.bet + chip > props.stack}
-								onClick={() => props.onChip(chip)}
-							>
+							<div class="play-table__slot">
 								<span class="play-table__key">{index() + 1}</span>
-								{chip}
-							</button>
+								<button
+									type="button"
+									class={`play-table__chip play-table__chip--${chip}`}
+									disabled={props.bet + chip > props.stack}
+									onClick={() => props.onChip(chip)}
+								>
+									{chip}
+								</button>
+							</div>
 						)}
 					</For>
 				</div>
 				<div class="play-table__rail-controls">
-					<button
-						type="button"
-						class="play-table__control"
-						onClick={() => props.onClear()}
-					>
-						Clear
-					</button>
-					<button
-						type="button"
-						class="play-table__control"
-						onClick={() => props.onRepeat()}
-					>
-						Repeat
-					</button>
-					<button
-						type="button"
-						class="play-table__control highlight"
-						disabled={!canDeal()}
-						onClick={() => props.onDeal()}
-					>
-						Deal
-					</button>
+					<div class="play-table__slot">
+						<span class="play-table__key">R</span>
+						<button
+							type="button"
+							class="play-table__control"
+							onClick={() => props.onRepeat()}
+						>
+							Repeat
+						</button>
+					</div>
+					<div class="play-table__slot">
+						<span class="play-table__key">Space</span>
+						<button
+							type="button"
+							class="play-table__control highlight"
+							disabled={!canDeal()}
+							onClick={() => props.onDeal()}
+						>
+							Deal
+						</button>
+					</div>
 				</div>
-				<Show when={props.bet < props.config.tableMinimum}>
-					<p class="play-table__hint">
-						Table minimum is {money(props.config.tableMinimum)}.
-					</p>
+				<Show when={props.bet < props.unit}>
+					<p class="play-table__hint">Table minimum is {money(props.unit)}.</p>
 				</Show>
 			</Show>
 
@@ -360,23 +391,6 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 							</button>
 						)}
 					</For>
-				</div>
-			</Show>
-
-			<Show when={phase() === 'settled'}>
-				<div class="play-table__actions">
-					<button
-						type="button"
-						class="play-table__action highlight"
-						onClick={() => props.onDeal()}
-					>
-						<span class="play-table__key">1</span>Deal
-					</button>
-					<span
-						class={`play-table__net ${props.state.net < 0 ? 'is-negative' : 'is-positive'}`}
-					>
-						{formatCurrency(props.state.net)}
-					</span>
 				</div>
 			</Show>
 

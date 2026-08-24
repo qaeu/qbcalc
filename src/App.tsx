@@ -537,6 +537,7 @@ const App: Component = () => {
 							tags={liveSettings().tags}
 							config={play()}
 							bankroll={bankroll().bankroll}
+							unit={bankroll().unit}
 							grids={playGrids()}
 							onCountChange={requestPlayGrids}
 						/>

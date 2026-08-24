@@ -86,14 +86,11 @@ export interface PlayConfig {
 	coaching: CoachingLevel;
 	/** Whether the running and true counts appear in the play HUD. */
 	showCount: boolean;
-	/** Floor for the chip rail, in the same currency as the bankroll. */
-	tableMinimum: number;
 }
 
 export const DEFAULT_PLAY_CONFIG: PlayConfig = {
 	coaching: 'basic',
 	showCount: false,
-	tableMinimum: 10,
 };
 
 /** The coaching levels, in increasing order of help, for the settings select. */
@@ -220,7 +217,6 @@ function isStoredPlayConfig(value: unknown): value is StoredPlayConfig {
 		config.version === PLAY_CONFIG_VERSION
 		&& COACHING_LEVELS.some((level) => level.value === config.coaching)
 		&& typeof config.showCount === 'boolean'
-		&& Number.isFinite(config.tableMinimum)
 	);
 }
 
@@ -540,11 +536,7 @@ export function loadPlayConfig(): PlayConfig | null {
 		if (!raw) return null;
 		const parsed: unknown = JSON.parse(raw);
 		return isStoredPlayConfig(parsed) ?
-				{
-					coaching: parsed.coaching,
-					showCount: parsed.showCount,
-					tableMinimum: parsed.tableMinimum,
-				}
+				{ coaching: parsed.coaching, showCount: parsed.showCount }
 			:	null;
 	} catch {
 		return null;

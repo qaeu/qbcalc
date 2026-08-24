@@ -177,11 +177,19 @@ $chip-colours: (
 			gap: 8px;
 		}
 
+		// A hotkey label stacked above the button it fires -- shared by the chip
+		// row and the Repeat/Deal row so every rail control reads the same way.
+		&__slot {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 4px;
+		}
+
 		&__chip {
 			@include shadow-short;
 			display: inline-flex;
 			align-items: center;
-			gap: 6px;
 			width: 60px;
 			height: 60px;
 			justify-content: center;

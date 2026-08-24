@@ -45,17 +45,6 @@ const SettingsPlayTab: Component<SettingsPlayTabProps> = (props) => (
 				onChange={(event) => props.onChange('showCount', event.currentTarget.checked)}
 			/>
 		</SettingsItem>
-		<SettingsItem label="Table minimum" helptext="The smallest bet the table takes">
-			<input
-				type="number"
-				min="1"
-				step="1"
-				value={props.config.tableMinimum}
-				onInput={(event) =>
-					props.onChange('tableMinimum', Number(event.currentTarget.value))
-				}
-			/>
-		</SettingsItem>
 	</div>
 );
 

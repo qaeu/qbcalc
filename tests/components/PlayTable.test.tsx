@@ -4,7 +4,13 @@ import { fireEvent, render, screen } from '@solidjs/testing-library';
 import type { Rank } from '#utils/ev/cards';
 import { DEFAULT_RULE_SET, type PlayerAction, type RuleSet } from '#utils/ev/rules';
 import type { Grading } from '#utils/play/coach';
-import { createGame, startRound, type GameState } from '#utils/play/game';
+import {
+	applyAction,
+	createGame,
+	settleRound,
+	startRound,
+	type GameState,
+} from '#utils/play/game';
 import { DEFAULT_PLAY_CONFIG, type PlayConfig } from '#utils/storage';
 
 import PlayTable from '#c/PlayTable';
@@ -34,12 +40,13 @@ function renderTable(overrides: Partial<Parameters<typeof PlayTable>[0]> = {}): 
 	onAction: ReturnType<typeof vi.fn>;
 } {
 	const onAction = vi.fn();
-	const config: PlayConfig = { ...DEFAULT_PLAY_CONFIG, tableMinimum: 10 };
+	const config: PlayConfig = { ...DEFAULT_PLAY_CONFIG };
 	render(() => (
 		<PlayTable
 			state={dealtState(HARD_16)}
 			stack={1000}
 			bet={25}
+			unit={10}
 			config={config}
 			grading={null}
 			onAction={onAction}
@@ -70,6 +77,36 @@ function grading(overrides: Partial<Grading> = {}): Grading {
 }
 
 describe('PlayTable', () => {
+	describe('the betting rail', () => {
+		it('offers the chip rail again once a round settles, not just the first', () => {
+			// Stand on 16 against a 9 with plenty of shoe left for the dealer to
+			// draw out on, then settle -- the round a second bet is built for.
+			const settled = settleRound(applyAction(dealtState(HARD_16, {}, 20), 'S'));
+			expect(settled.phase).toBe('settled');
+
+			renderTable({ state: settled, bet: 0 });
+
+			expect(document.querySelector('.play-table__chip--25')).not.toBeNull();
+			expect(screen.getByRole('button', { name: 'Repeat' })).toBeDefined();
+		});
+
+		it('answers 0, r and space for Clear, Repeat and Deal', () => {
+			const onClear = vi.fn();
+			const onRepeat = vi.fn();
+			const onDeal = vi.fn();
+			const betting = createGame(DEFAULT_RULE_SET, scriptedShoe([...HARD_16]));
+			renderTable({ state: betting, bet: 25, onClear, onRepeat, onDeal });
+
+			fireEvent.keyDown(document.body, { key: '0' });
+			fireEvent.keyDown(document.body, { key: 'r' });
+			fireEvent.keyDown(document.body, { key: ' ' });
+
+			expect(onClear).toHaveBeenCalledOnce();
+			expect(onRepeat).toHaveBeenCalledOnce();
+			expect(onDeal).toHaveBeenCalledOnce();
+		});
+	});
+
 	describe('the action bar', () => {
 		it('fires the action each number key is bound to', () => {
 			const { onAction } = renderTable();
