@@ -423,42 +423,65 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 							)}
 						</For>
 					</div>
-					<Show when={dealerLabel()}>
-						{(label) => <span class="play-table__total">{label()}</span>}
-					</Show>
+					<span class="play-table__total">{dealerLabel() ?? ''}</span>
 				</div>
 
-				<For each={props.state.hands}>
-					{(hand, handIndex) => (
-						<div
-							class={`play-table__seat ${
-								handIndex() === props.state.activeHandIndex ? 'is-active' : ''
-							}`}
-						>
-							<span class="play-table__seat-label">
-								You
-								<Show when={props.state.hands.length > 1}>
-									{' '}
-									<span class="play-table__hand-index">#{handIndex() + 1}</span>
-								</Show>
-							</span>
-							<div class="play-table__cards">
-								<For each={hand.cards.slice(0, revealed().hands[handIndex()] ?? 0)}>
-									{(rank, index) => (
-										<Card rank={rank} row={handIndex() + 1} index={index()} />
-									)}
-								</For>
-							</div>
-							<span class="play-table__total">
-								{totalLabel(hand, revealed().hands[handIndex()] ?? 0)}
-							</span>
+				<Show
+					when={props.state.hands.length > 0}
+					fallback={
+						// Before the first card is dealt there is no hand yet to loop
+						// over, but the seat itself -- and the space it holds -- is
+						// there the whole time, same as the dealer's.
+						<div class="play-table__seat">
+							<span class="play-table__seat-label">Player</span>
+							<div class="play-table__cards" />
+							<span class="play-table__total" />
 						</div>
-					)}
-				</For>
+					}
+				>
+					<For each={props.state.hands}>
+						{(hand, handIndex) => (
+							<div
+								class={`play-table__seat ${
+									handIndex() === props.state.activeHandIndex ? 'is-active' : ''
+								}`}
+							>
+								<span class="play-table__seat-label">
+									You
+									<Show when={props.state.hands.length > 1}>
+										{' '}
+										<span class="play-table__hand-index">#{handIndex() + 1}</span>
+									</Show>
+								</span>
+								<div class="play-table__cards">
+									<For each={hand.cards.slice(0, revealed().hands[handIndex()] ?? 0)}>
+										{(rank, index) => (
+											<Card rank={rank} row={handIndex() + 1} index={index()} />
+										)}
+									</For>
+								</div>
+								<span class="play-table__total">
+									{totalLabel(hand, revealed().hands[handIndex()] ?? 0)}
+								</span>
+							</div>
+						)}
+					</For>
+				</Show>
 			</div>
 
-			<Show when={phase() === 'settled'}>
-				<div class="play-table__outcome">
+			<div class="play-table__info">
+				<Show
+					when={phase() === 'settled'}
+					fallback={
+						// Between the bet being placed and the round settling there is
+						// nothing to report yet, but the amount riding on the hand is
+						// still live information -- unlike the rail below, it doesn't
+						// belong to the bet phase alone.
+						<span class="play-table__bet-amount">
+							Bet <strong>{money(props.bet)}</strong>
+						</span>
+					}
+				>
 					<div class="play-table__results">
 						<For each={props.state.hands}>
 							{(hand, handIndex) => (
@@ -482,8 +505,10 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 					>
 						{formatCurrency(props.state.net)}
 					</span>
-				</div>
+				</Show>
+			</div>
 
+			<Show when={phase() === 'settled'}>
 				<div class="play-table__pause">
 					<div class="play-table__slot">
 						<span class="play-table__key">Space</span>
@@ -510,11 +535,6 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 			</Show>
 
 			<Show when={phase() === 'bet'}>
-				<div class="play-table__rail-header">
-					<span class="play-table__bet-amount">
-						Bet <strong>{money(props.bet)}</strong>
-					</span>
-				</div>
 				<div class="play-table__rail">
 					<div class="play-table__slot">
 						<span class="play-table__key">0</span>

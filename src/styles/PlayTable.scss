@@ -107,6 +107,10 @@ $chip-colours: (
 		&__cards {
 			display: flex;
 			gap: 6px;
+			// Reserved at the height of a card so a seat holds its place before its
+			// first card lands, instead of the felt growing under everything below
+			// it as the reveal queue lands each card.
+			min-height: 96px;
 		}
 
 		&__card {
@@ -148,13 +152,21 @@ $chip-colours: (
 		&__total {
 			font-size: 13px;
 			color: get($neutrals, 'fg-light');
+			// Reserved even with nothing to say yet, so the label filling in doesn't
+			// nudge the seat below it down.
+			min-height: 1em;
 		}
 
-		&__outcome {
+		// The bet while a round is live, the result and net once it's settled --
+		// one slot, always mounted, so neither ever displaces the rail below it.
+		&__info {
 			display: flex;
 			align-items: center;
 			justify-content: space-between;
 			gap: 12px;
+			// Reserved to the height a wrapped, multi-hand result line can reach, so
+			// a split settling doesn't push the Next hand / Redeal row below it.
+			min-height: 40px;
 		}
 
 		&__results {
@@ -181,11 +193,6 @@ $chip-colours: (
 			&.is-surrendered {
 				color: get($errors, 'fg-light');
 			}
-		}
-
-		&__rail-header {
-			display: flex;
-			justify-content: flex-start;
 		}
 
 		&__bet-amount {
