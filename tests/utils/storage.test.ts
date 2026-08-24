@@ -328,12 +328,14 @@ describe('play config', () => {
 	const CONFIG: PlayConfig = {
 		coaching: 'deviations',
 		showCount: true,
+		animationSpeed: '2x',
 	};
 
-	it('defaults to basic coaching and a hidden count', () => {
+	it('defaults to basic coaching, a hidden count and 1x animation', () => {
 		expect(DEFAULT_PLAY_CONFIG).toEqual({
 			coaching: 'basic',
 			showCount: false,
+			animationSpeed: '1x',
 		});
 	});
 
@@ -362,6 +364,14 @@ describe('play config', () => {
 		expect(loadPlayConfig()).toBeNull();
 
 		localStorage.setItem(PLAY_CONFIG_KEY, 'not json');
+		expect(loadPlayConfig()).toBeNull();
+	});
+
+	it('rejects an animation speed it does not know', () => {
+		localStorage.setItem(
+			PLAY_CONFIG_KEY,
+			JSON.stringify({ version: 1, ...DEFAULT_PLAY_CONFIG, animationSpeed: 'ludicrous' })
+		);
 		expect(loadPlayConfig()).toBeNull();
 	});
 });

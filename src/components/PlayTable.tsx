@@ -5,10 +5,18 @@
  */
 
 import { Progress } from '@ark-ui/solid/progress';
-import { createMemo, For, Show, type Component } from 'solid-js';
+import {
+	createEffect,
+	createMemo,
+	createSignal,
+	For,
+	onCleanup,
+	Show,
+	type Component,
+} from 'solid-js';
 
 import { ACTION_CLASS } from '#utils/actionStyle';
-import type { Rank } from '#utils/ev/cards';
+import { addValue, type Rank } from '#utils/ev/cards';
 import { CARDS_PER_DECK } from '#utils/ev/composition';
 import type { PlayerAction } from '#utils/ev/rules';
 import {
@@ -25,7 +33,7 @@ import {
 	type PlayHand,
 } from '#utils/play/game';
 import type { Grading } from '#utils/play/coach';
-import type { PlayConfig } from '#utils/storage';
+import type { AnimationSpeed, PlayConfig } from '#utils/storage';
 
 import '#styles/PlayTable';
 
@@ -74,10 +82,102 @@ function rankLabel(rank: Rank): string {
 	return rank === 'T' ? '10' : rank;
 }
 
-/** How a hand reads aloud: "hard 16", "soft 18", "blackjack". */
-function totalLabel(hand: PlayHand): string {
-	if (hand.blackjack) return 'blackjack';
-	return `${hand.soft ? 'soft' : 'hard'} ${hand.total}`;
+/**
+ * The pause before each new card lands, per animation speed. `instant` is a
+ * flat zero rather than a fast version of the others, so it skips the reveal
+ * queue below entirely instead of racing through it.
+ */
+const CARD_DEAL_DELAY_MS: Record<AnimationSpeed, number> = {
+	'1x': 800,
+	'2x': 400,
+	'4x': 200,
+	instant: 0,
+};
+
+/** How many of each seat's cards are currently shown, for the reveal queue below. */
+interface RevealCounts {
+	dealer: number;
+	hands: number[];
+}
+
+function targetCounts(state: GameState): RevealCounts {
+	return {
+		dealer: state.dealer.cards.length,
+		hands: state.hands.map((hand) => hand.cards.length),
+	};
+}
+
+function countsReached(revealed: RevealCounts, target: RevealCounts): boolean {
+	return (
+		revealed.dealer >= target.dealer
+		&& target.hands.every((count, index) => (revealed.hands[index] ?? 0) >= count)
+	);
+}
+
+/**
+ * One more card than `revealed`, toward `target` -- the dealer's seat first,
+ * then each hand left to right. Dealing order within a single state jump
+ * (a split, or the dealer's whole draw-out settling in one transition) is
+ * therefore only approximate, but the point is a card at a time, not a replay
+ * of the table's exact order.
+ */
+function revealOneMore(revealed: RevealCounts, target: RevealCounts): RevealCounts {
+	if (revealed.dealer < target.dealer) {
+		return { ...revealed, dealer: revealed.dealer + 1 };
+	}
+	const hands = [...revealed.hands];
+	for (let index = 0; index < target.hands.length; index += 1) {
+		const have = hands[index] ?? 0;
+		if (have < target.hands[index]) {
+			hands[index] = have + 1;
+			return { dealer: revealed.dealer, hands };
+		}
+	}
+	return revealed;
+}
+
+/**
+ * The total of just the cards dealt so far -- `PlayHand.total` and
+ * `DealerHand.total` are the hand's *final* total, computed the instant the
+ * state machine deals the card, which would say "bust" or "21" before the
+ * felt has shown the card that made it true. Mirrors `totalOf` in game.ts.
+ */
+function partialTotal(cards: readonly Rank[]): [number, boolean] {
+	let total = 0;
+	let soft = false;
+	for (const card of cards) [total, soft] = addValue(total, soft, card);
+	return [total, soft];
+}
+
+/**
+ * How a hand reads aloud as its cards land: "hard 16", "soft 18", "blackjack".
+ * Read off `visibleCount` cards rather than the hand's own total, so the
+ * total only ever reflects what has actually been dealt onto the felt.
+ */
+function totalLabel(hand: PlayHand, visibleCount: number): string {
+	const cards = hand.cards.slice(0, visibleCount);
+	if (cards.length === 0) return '';
+	if (hand.blackjack && visibleCount >= hand.cards.length) return 'blackjack';
+	const [total, soft] = partialTotal(cards);
+	return `${soft ? 'soft' : 'hard'} ${total}`;
+}
+
+/**
+ * The dealer's own total, read off `visibleCount` cards the same way -- and,
+ * while the hole card is still hidden, off the upcard alone regardless of
+ * `visibleCount`, since a hidden card is not information the felt gives out
+ * just because the reveal queue has nominally reached its slot.
+ */
+function dealerTotalLabel(state: GameState, visibleCount: number): string | null {
+	const dealer = state.dealer;
+	const cards = dealer.cards
+		.slice(0, visibleCount)
+		.filter((_, index) => !(dealer.holeHidden && index === 1));
+	if (cards.length === 0) return null;
+	const [total] = partialTotal(cards);
+	if (dealer.holeHidden) return `showing ${total}`;
+	const fullyRevealed = visibleCount >= dealer.cards.length;
+	return `${fullyRevealed && total > 21 ? 'bust ' : ''}${total}`;
 }
 
 interface CardProps {
@@ -124,6 +224,65 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 	const phase = () => props.state.phase;
 	const legal = createMemo(() => legalActions(props.state));
 	const canDeal = () => props.bet >= props.unit && props.bet <= props.stack;
+
+	/**
+	 * What is actually drawn on the felt right now, which lags `props.state`
+	 * while new cards queue up one at a time. Clamped down rather than reset on
+	 * every state change, since a fresh round's empty hands are themselves a
+	 * lower target and a split's two-card hands already carry one revealed card
+	 * each.
+	 */
+	const [revealed, setRevealed] = createSignal<RevealCounts>({ dealer: 0, hands: [] });
+	let dealTimer: ReturnType<typeof setTimeout> | undefined;
+	// `Redeal same bet` deals straight from `settled` into the next round
+	// without passing through `bet` in between, so a same-shaped hand (the
+	// common case, no split) would otherwise read as already fully dealt and
+	// skip the queue below entirely.
+	let lastPhase: GameState['phase'] | undefined;
+
+	const clearDealTimer = () => {
+		if (dealTimer !== undefined) {
+			clearTimeout(dealTimer);
+			dealTimer = undefined;
+		}
+	};
+	onCleanup(clearDealTimer);
+
+	createEffect(() => {
+		const target = targetCounts(props.state);
+		const delay = CARD_DEAL_DELAY_MS[props.config.animationSpeed];
+		const freshlyDealt = lastPhase === 'settled' && props.state.phase !== 'settled';
+		lastPhase = props.state.phase;
+
+		clearDealTimer();
+
+		if (delay === 0) {
+			setRevealed(target);
+			return;
+		}
+
+		setRevealed((current) => {
+			const baseline = freshlyDealt ? { dealer: 0, hands: [] as number[] } : current;
+			return {
+				dealer: Math.min(baseline.dealer, target.dealer),
+				hands: target.hands.map((count, index) =>
+					Math.min(baseline.hands[index] ?? 0, count)
+				),
+			};
+		});
+
+		const step = () => {
+			setRevealed((current) => revealOneMore(current, target));
+			if (!countsReached(revealed(), target)) {
+				dealTimer = setTimeout(step, delay);
+			}
+		};
+		if (!countsReached(revealed(), target)) {
+			dealTimer = setTimeout(step, delay);
+		}
+	});
+
+	const dealerLabel = createMemo(() => dealerTotalLabel(props.state, revealed().dealer));
 
 	// Rounded up: a shoe with a card left in it is still a shoe you are playing
 	// out of, and "0 decks left" would read as one already shuffled.
@@ -243,7 +402,7 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 				<div class="play-table__seat">
 					<span class="play-table__seat-label">Dealer</span>
 					<div class="play-table__cards">
-						<For each={props.state.dealer.cards}>
+						<For each={props.state.dealer.cards.slice(0, revealed().dealer)}>
 							{(rank, index) => (
 								<Show
 									when={!(props.state.dealer.holeHidden && index() === 1)}
@@ -264,12 +423,8 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 							)}
 						</For>
 					</div>
-					<Show when={props.state.dealer.cards.length > 0}>
-						<span class="play-table__total">
-							{props.state.dealer.holeHidden ?
-								`showing ${props.state.dealer.total}`
-							:	`${props.state.dealer.busted ? 'bust ' : ''}${props.state.dealer.total}`}
-						</span>
+					<Show when={dealerLabel()}>
+						{(label) => <span class="play-table__total">{label()}</span>}
 					</Show>
 				</div>
 
@@ -288,13 +443,15 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 								</Show>
 							</span>
 							<div class="play-table__cards">
-								<For each={hand.cards}>
+								<For each={hand.cards.slice(0, revealed().hands[handIndex()] ?? 0)}>
 									{(rank, index) => (
 										<Card rank={rank} row={handIndex() + 1} index={index()} />
 									)}
 								</For>
 							</div>
-							<span class="play-table__total">{totalLabel(hand)}</span>
+							<span class="play-table__total">
+								{totalLabel(hand, revealed().hands[handIndex()] ?? 0)}
+							</span>
 						</div>
 					)}
 				</For>

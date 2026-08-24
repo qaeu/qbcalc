@@ -77,6 +77,13 @@ export const DEFAULT_BANKROLL_CONFIG: BankrollConfig = {
 export type CoachingLevel = 'none' | 'basic' | 'deviations';
 
 /**
+ * How fast new cards land on the felt. Each step is a flat per-card delay --
+ * see `CARD_DEAL_DELAY_MS` in PlayTable -- rather than a scaled duration, so
+ * `instant` is simply zero rather than a special case of the others.
+ */
+export type AnimationSpeed = '1x' | '2x' | '4x' | 'instant';
+
+/**
  * What the Play view is set to. Like the bankroll config it is owned by the app
  * rather than mirrored into the calculator config: none of it changes anything
  * the worker computes, so it saves as it is typed.
@@ -86,11 +93,14 @@ export interface PlayConfig {
 	coaching: CoachingLevel;
 	/** Whether the running and true counts appear in the play HUD. */
 	showCount: boolean;
+	/** How fast cards are dealt onto the felt. */
+	animationSpeed: AnimationSpeed;
 }
 
 export const DEFAULT_PLAY_CONFIG: PlayConfig = {
 	coaching: 'basic',
 	showCount: false,
+	animationSpeed: '1x',
 };
 
 /** The coaching levels, in increasing order of help, for the settings select. */
@@ -98,6 +108,14 @@ export const COACHING_LEVELS: readonly { value: CoachingLevel; label: string }[]
 	{ value: 'none', label: 'None' },
 	{ value: 'basic', label: 'Basic strategy' },
 	{ value: 'deviations', label: 'Deviations' },
+];
+
+/** The animation speeds, slowest first, for the settings select. */
+export const ANIMATION_SPEEDS: readonly { value: AnimationSpeed; label: string }[] = [
+	{ value: '1x', label: '1x' },
+	{ value: '2x', label: '2x' },
+	{ value: '4x', label: '4x' },
+	{ value: 'instant', label: 'Instant' },
 ];
 
 const STORAGE_KEY = 'qbcalc:calculator-config';
@@ -217,6 +235,7 @@ function isStoredPlayConfig(value: unknown): value is StoredPlayConfig {
 		config.version === PLAY_CONFIG_VERSION
 		&& COACHING_LEVELS.some((level) => level.value === config.coaching)
 		&& typeof config.showCount === 'boolean'
+		&& ANIMATION_SPEEDS.some((speed) => speed.value === config.animationSpeed)
 	);
 }
 
@@ -536,7 +555,11 @@ export function loadPlayConfig(): PlayConfig | null {
 		if (!raw) return null;
 		const parsed: unknown = JSON.parse(raw);
 		return isStoredPlayConfig(parsed) ?
-				{ coaching: parsed.coaching, showCount: parsed.showCount }
+				{
+					coaching: parsed.coaching,
+					showCount: parsed.showCount,
+					animationSpeed: parsed.animationSpeed,
+				}
 			:	null;
 	} catch {
 		return null;

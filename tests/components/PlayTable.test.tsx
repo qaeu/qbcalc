@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { fireEvent, render, screen } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
 
@@ -290,6 +290,137 @@ describe('PlayTable', () => {
 			const banner = screen.getByText(/was right here/);
 			expect(banner.textContent).toContain('Stand was right here');
 			expect(banner.textContent).toContain('TC +4');
+		});
+	});
+
+	describe('the deal animation', () => {
+		beforeEach(() => vi.useFakeTimers());
+		afterEach(() => vi.useRealTimers());
+
+		it('deals every card at once when the speed is instant', () => {
+			renderTable({
+				state: dealtState(HARD_16),
+				config: { ...DEFAULT_PLAY_CONFIG, animationSpeed: 'instant' },
+			});
+
+			// The dealer's up card plus both of the player's -- the default rule
+			// set is ENHC, so the hole card is not dealt at all until settling.
+			expect(document.querySelectorAll('.play-table__card').length).toBe(3);
+		});
+
+		it('reveals one card at a time, 800ms apart at 1x', () => {
+			renderTable({
+				state: dealtState(HARD_16),
+				config: { ...DEFAULT_PLAY_CONFIG, animationSpeed: '1x' },
+			});
+
+			expect(document.querySelectorAll('.play-table__card').length).toBe(0);
+
+			// Dealer's up card first...
+			vi.advanceTimersByTime(800);
+			expect(document.querySelectorAll('.play-table__card').length).toBe(1);
+
+			// ...then its hole card, which an ENHC table has nothing to draw for.
+			vi.advanceTimersByTime(800);
+			expect(document.querySelectorAll('.play-table__card').length).toBe(1);
+
+			// Then the player's two, one at a time.
+			vi.advanceTimersByTime(800);
+			expect(document.querySelectorAll('.play-table__card').length).toBe(2);
+
+			vi.advanceTimersByTime(800);
+			expect(document.querySelectorAll('.play-table__card').length).toBe(3);
+		});
+
+		it('reveals a card every 200ms at 4x', () => {
+			renderTable({
+				state: dealtState(HARD_16),
+				config: { ...DEFAULT_PLAY_CONFIG, animationSpeed: '4x' },
+			});
+
+			vi.advanceTimersByTime(200);
+			expect(document.querySelectorAll('.play-table__card').length).toBe(1);
+		});
+
+		it("shows a hand's total as its own cards land, not the final total up front", () => {
+			// Player cards are T, 6 -- hard 10 once the first is down, hard 16
+			// only once both are, never the finished total before then.
+			renderTable({
+				state: dealtState(HARD_16),
+				config: { ...DEFAULT_PLAY_CONFIG, animationSpeed: '1x' },
+			});
+
+			const totals = () =>
+				Array.from(document.querySelectorAll('.play-table__total')).map(
+					(node) => node.textContent
+				);
+
+			vi.advanceTimersByTime(800); // dealer's up card
+			vi.advanceTimersByTime(800); // dealer's hidden hole card
+			expect(totals()).not.toContain('hard 16');
+
+			vi.advanceTimersByTime(800); // player's first card
+			expect(totals()).toContain('hard 10');
+			expect(totals()).not.toContain('hard 16');
+
+			vi.advanceTimersByTime(800); // player's second card
+			expect(totals()).toContain('hard 16');
+		});
+
+		it("shows the dealer's total as its own cards land through the draw-out", () => {
+			// Stand on 16 against a 9, with an all-fives shoe behind it: the
+			// dealer draws to 9 + 5 + 5 = 19, deterministically, three cards the
+			// felt should read out one at a time rather than jumping to 19.
+			const settled = settleRound(applyAction(dealtState(HARD_16, {}, 20), 'S'));
+			expect(settled.dealer.cards).toEqual(['9', '5', '5']);
+			renderTable({
+				state: settled,
+				config: { ...DEFAULT_PLAY_CONFIG, animationSpeed: '1x' },
+			});
+
+			const dealerTotal = () =>
+				document.querySelector('.play-table__seat .play-table__total')?.textContent;
+
+			vi.advanceTimersByTime(800);
+			expect(dealerTotal()).toBe('9');
+
+			vi.advanceTimersByTime(800);
+			expect(dealerTotal()).toBe('14');
+
+			vi.advanceTimersByTime(800);
+			expect(dealerTotal()).toBe('19');
+		});
+
+		it('does not skip the delay when a redeal follows a settled round', () => {
+			const settled = settleRound(applyAction(dealtState(HARD_16, {}, 20), 'S'));
+			const [state, setState] = createSignal<GameState>(settled);
+			const config: PlayConfig = { ...DEFAULT_PLAY_CONFIG, animationSpeed: '1x' };
+			render(() => (
+				<PlayTable
+					state={state()}
+					stack={1000}
+					bet={25}
+					unit={10}
+					config={config}
+					grading={null}
+					onAction={() => {}}
+					onInsurance={() => {}}
+					onChip={() => {}}
+					onClear={() => {}}
+					onRepeat={() => {}}
+					onDeal={() => {}}
+					onNextHand={() => {}}
+				/>
+			));
+
+			// Redeals straight from `settled` without visiting `bet`, and the new
+			// hand happens to be the same shape (one dealer up card, two player
+			// cards) as the one just cleared off the felt.
+			setState(dealtState(HARD_16, {}, 20));
+
+			expect(document.querySelectorAll('.play-table__card').length).toBe(0);
+			vi.advanceTimersByTime(800);
+			expect(document.querySelectorAll('.play-table__card').length).toBe(1);
 		});
 	});
 });

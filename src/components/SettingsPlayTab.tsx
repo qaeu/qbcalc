@@ -1,6 +1,12 @@
 import type { Component } from 'solid-js';
 
-import { COACHING_LEVELS, type CoachingLevel, type PlayConfig } from '#utils/storage';
+import {
+	ANIMATION_SPEEDS,
+	COACHING_LEVELS,
+	type AnimationSpeed,
+	type CoachingLevel,
+	type PlayConfig,
+} from '#utils/storage';
 
 import SettingSelect, { type SettingOption } from '#c/SettingSelect';
 import SettingsItem from '#c/SettingsItem';
@@ -15,6 +21,9 @@ interface SettingsPlayTabProps {
 const COACHING_OPTIONS: readonly SettingOption<CoachingLevel>[] = COACHING_LEVELS.map(
 	(level) => ({ value: level.value, label: level.label })
 );
+
+const ANIMATION_SPEED_OPTIONS: readonly SettingOption<AnimationSpeed>[] =
+	ANIMATION_SPEEDS.map((speed) => ({ value: speed.value, label: speed.label }));
 
 /**
  * How the Play view is set up. None of it reaches the worker -- the coaching
@@ -43,6 +52,16 @@ const SettingsPlayTab: Component<SettingsPlayTabProps> = (props) => (
 				type="checkbox"
 				checked={props.config.showCount}
 				onChange={(event) => props.onChange('showCount', event.currentTarget.checked)}
+			/>
+		</SettingsItem>
+		<SettingsItem
+			label="Animation speed"
+			helptext="How fast cards land on the felt. Instant skips the deal entirely"
+		>
+			<SettingSelect
+				options={ANIMATION_SPEED_OPTIONS}
+				value={props.config.animationSpeed}
+				onChange={(animationSpeed) => props.onChange('animationSpeed', animationSpeed)}
 			/>
 		</SettingsItem>
 	</div>
