@@ -86,14 +86,13 @@ const PlayView: Component<PlayViewProps> = (props) => {
 	const [bet, setBet] = createSignal(openingBet);
 	const [lastBet, setLastBet] = createSignal(openingBet);
 	const [grading, setGrading] = createSignal<Grading | null>(null);
-	// Everything settled this session. The stack is the bankroll plus this, so a
-	// live bet is never deducted twice -- a round's whole result arrives at once.
-	const [net, setNet] = createSignal(0);
 	const [stats, setStats] = createSignal<PlayStatsRecord>(
 		loadPlayStats() ?? EMPTY_PLAY_STATS
 	);
 
-	const stack = () => props.bankroll + net();
+	// AV is lifetime money won or lost, persisted with the rest of the stats, so
+	// the stack survives a reload instead of resetting to the bare bankroll.
+	const stack = () => props.bankroll + stats().av;
 
 	/**
 	 * What the felt calls the bet: what is being built on the rail while betting,
@@ -152,7 +151,6 @@ const PlayView: Component<PlayViewProps> = (props) => {
 		}
 		const settled = settleRound(next);
 		setGame(settled);
-		setNet(net() + settled.net);
 		updateStats((current) => recordRound(current, settled.net, settled.hands.length));
 	};
 
