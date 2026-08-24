@@ -7,8 +7,8 @@ import PlayStats from '#c/PlayStats';
 
 /** A session's worth of play, with every card's figure distinguishable. */
 const SAMPLE: PlayStatsRecord = {
-	av: 420,
-	ev: 210,
+	av: 420.5,
+	ev: 210.25,
 	hands: 260,
 	rounds: 240,
 	decisions: 200,
@@ -16,6 +16,7 @@ const SAMPLE: PlayStatsRecord = {
 	basicErrors: 11,
 	deviationErrors: 5,
 	evLost: 37,
+	variance: 10000,
 };
 
 /** The card whose label this is, as the value beside it. */
@@ -29,24 +30,24 @@ describe('PlayStats', () => {
 	it('renders every figure from the record', () => {
 		render(() => <PlayStats stats={SAMPLE} onReset={() => {}} />);
 
-		expect(figure('AV')).toContain('£420');
+		expect(figure('AV')).toContain('£420.50');
+		expect(figure('EV')).toContain('£210.25');
 		expect(figure('Hands played')).toContain('260');
 		// 184 of 200 decisions.
 		expect(figure('Optimal play')).toContain('92.0%');
 		expect(figure('Basic-strategy errors')).toContain('11');
 		expect(figure('Deviation errors')).toContain('5');
 		expect(figure('EV lost')).toContain('£37');
-		// 420 / 210.
-		expect(figure('AV / EV')).toContain('2.00');
+		// (420.5 - 210.25) / sqrt(10000).
+		expect(figure('EV deviation')).toContain('2.10');
 	});
 
 	it('suppresses the figures nothing supports yet', () => {
 		render(() => <PlayStats stats={EMPTY_PLAY_STATS} onReset={() => {}} />);
 
-		// No decisions to have played optimally, and an expectation too near zero
-		// to divide by.
+		// No decisions to have played optimally, and no variance yet to divide by.
 		expect(figure('Optimal play')).toContain('—');
-		expect(figure('AV / EV')).toContain('—');
+		expect(figure('EV deviation')).toContain('—');
 	});
 
 	describe('reset', () => {

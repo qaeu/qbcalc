@@ -2,9 +2,8 @@ import { describe, it, expect, afterEach } from 'vitest';
 
 import type { Grading } from '#utils/play/coach';
 import {
-	AV_OVER_EV_MIN_EV,
 	EMPTY_PLAY_STATS,
-	avOverEv,
+	evDeviation,
 	optimalPlayPercent,
 	recordDecision,
 	recordRound,
@@ -21,6 +20,7 @@ function grading(overrides: Partial<Grading> = {}): Grading {
 		countAction: 'H',
 		evLostPercent: 0,
 		chosenEvPercent: -20,
+		chosenSecondMoment: 1,
 		basicError: false,
 		deviationError: false,
 		trueCount: 0,
@@ -99,12 +99,12 @@ describe('the derived figures', () => {
 		expect(optimalPlayPercent(stats)).toBeCloseTo(75, 10);
 	});
 
-	it('suppresses AV/EV until the expectation is worth dividing by', () => {
-		const tiny: PlayStats = { ...EMPTY_PLAY_STATS, av: 100, ev: AV_OVER_EV_MIN_EV / 2 };
-		expect(avOverEv(tiny)).toBeNull();
+	it('suppresses EV deviation until there is a variance to divide by', () => {
+		const untouched: PlayStats = { ...EMPTY_PLAY_STATS, av: 100, ev: 50 };
+		expect(evDeviation(untouched)).toBeNull();
 
-		const real: PlayStats = { ...EMPTY_PLAY_STATS, av: -60, ev: -30 };
-		expect(avOverEv(real)).toBeCloseTo(2, 10);
+		const real: PlayStats = { ...EMPTY_PLAY_STATS, av: -10, ev: -30, variance: 100 };
+		expect(evDeviation(real)).toBeCloseTo(2, 10);
 	});
 });
 

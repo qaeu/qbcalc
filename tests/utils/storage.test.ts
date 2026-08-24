@@ -387,6 +387,7 @@ describe('play stats', () => {
 		basicErrors: 9,
 		deviationErrors: 5,
 		evLost: 18.75,
+		variance: 640.5,
 	};
 
 	it('round-trips a saved record', () => {
@@ -399,14 +400,14 @@ describe('play stats', () => {
 	});
 
 	it('rejects a record from another schema version, defaults taking over', () => {
-		localStorage.setItem(PLAY_STATS_KEY, JSON.stringify({ version: 2, ...STATS }));
+		localStorage.setItem(PLAY_STATS_KEY, JSON.stringify({ version: 1, ...STATS }));
 		expect(loadPlayStats()).toBeNull();
 	});
 
 	it('rejects a record missing a field', () => {
 		const partial: Record<string, number> = { ...STATS };
 		delete partial.evLost;
-		localStorage.setItem(PLAY_STATS_KEY, JSON.stringify({ version: 1, ...partial }));
+		localStorage.setItem(PLAY_STATS_KEY, JSON.stringify({ version: 2, ...partial }));
 		expect(loadPlayStats()).toBeNull();
 	});
 

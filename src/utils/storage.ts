@@ -153,7 +153,14 @@ const PLAY_CONFIG_KEY = 'qbcalc:play-config';
 const PLAY_STATS_KEY = 'qbcalc:play-stats';
 
 const PLAY_CONFIG_VERSION = 1;
-const PLAY_STATS_VERSION = 1;
+/**
+ * Bumped from 1 to 2 when `variance` was added to `PlayStats` -- a v1 record
+ * would otherwise still pass `isStoredPlayStats`' field check by accident
+ * rather than by design, since that check derives its field list from
+ * `EMPTY_PLAY_STATS` and would only reject it for lacking a value, not for
+ * being the wrong shape.
+ */
+const PLAY_STATS_VERSION = 2;
 
 interface StoredConfig extends CalculatorConfig {
 	version: number;
@@ -591,6 +598,7 @@ export function loadPlayStats(): PlayStats | null {
 			basicErrors: parsed.basicErrors,
 			deviationErrors: parsed.deviationErrors,
 			evLost: parsed.evLost,
+			variance: parsed.variance,
 		};
 	} catch {
 		return null;

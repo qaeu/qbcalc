@@ -21,6 +21,13 @@ export interface PlayStats {
 	deviationErrors: number;
 	/** Money of EV given up to misplays, positive. */
 	evLost: number;
+	/**
+	 * Running variance of the money on each graded decision, in currency².
+	 * Summed as if decisions were independent -- the same simplification `ev`
+	 * already makes by folding in every decision of a hand rather than just its
+	 * first. See `evDeviation`.
+	 */
+	variance: number;
 }
 
 export const EMPTY_PLAY_STATS: PlayStats = {
@@ -33,15 +40,8 @@ export const EMPTY_PLAY_STATS: PlayStats = {
 	basicErrors: 0,
 	deviationErrors: 0,
 	evLost: 0,
+	variance: 0,
 };
-
-/**
- * The smallest expectation `avOverEv` will divide by. A session's EV starts at
- * zero and crosses it freely -- the house edge is a fraction of a percent of the
- * money staked -- so a ratio taken too early is a number with no information in
- * it at all, and the card says "not yet" instead.
- */
-export const AV_OVER_EV_MIN_EV = 1;
 
 /**
  * Folds one graded decision in. `wager` is the money on the hand, which is what
@@ -56,10 +56,16 @@ export function recordDecision(
 	// a correctly taken deviation is an optimal decision even though it departs
 	// from basic strategy. See docs/play-model.md §What the stats measure.
 	const optimal = grading.chosen === grading.countAction;
+	// `chosenSecondMoment` is E[X²] per unit wagered; Var(money) = wager² x
+	// (E[X²] - E[X]²) for this one decision, and the record sums those as if
+	// every graded decision were independent -- see `PlayStats.variance`.
+	const chosenEvFraction = grading.chosenEvPercent / 100;
+	const decisionVariance =
+		wager * wager * (grading.chosenSecondMoment - chosenEvFraction * chosenEvFraction);
 	return {
 		...stats,
 		// The EV of the hand *as actually played*, so a misplay lands in `evLost`
-		// below rather than quietly widening the gap AV/EV is meant to read.
+		// below rather than quietly widening the gap `evDeviation` is meant to read.
 		ev: stats.ev + (wager * grading.chosenEvPercent) / 100,
 		decisions: stats.decisions + 1,
 		optimalDecisions: stats.optimalDecisions + (optimal ? 1 : 0),
@@ -67,6 +73,7 @@ export function recordDecision(
 		deviationErrors: stats.deviationErrors + (grading.deviationError ? 1 : 0),
 		// `evLostPercent` is zero or negative; the record keeps the loss positive.
 		evLost: stats.evLost - (wager * grading.evLostPercent) / 100,
+		variance: stats.variance + decisionVariance,
 	};
 }
 
@@ -86,8 +93,12 @@ export function optimalPlayPercent(stats: PlayStats): number | null {
 	return (stats.optimalDecisions / stats.decisions) * 100;
 }
 
-/** av / ev, or null when |ev| is below `AV_OVER_EV_MIN_EV`. */
-export function avOverEv(stats: PlayStats): number | null {
-	if (Math.abs(stats.ev) < AV_OVER_EV_MIN_EV) return null;
-	return stats.av / stats.ev;
+/**
+ * `(av - ev) / sigma`: how far the money actually won sits from what the hands
+ * played were worth, in standard deviations. Null before the first graded
+ * decision, since `sigma` is zero and the ratio has nothing to divide by.
+ */
+export function evDeviation(stats: PlayStats): number | null {
+	if (stats.variance <= 0) return null;
+	return (stats.av - stats.ev) / Math.sqrt(stats.variance);
 }

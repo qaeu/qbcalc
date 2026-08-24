@@ -131,14 +131,15 @@ comparable across sessions.
 
 `stats.ts` accumulates one lifetime record, in currency units, not segmented by rule set:
 
-| Field                            | What it holds                                             |
-| -------------------------------- | --------------------------------------------------------- |
-| `av`                             | Money actually won or lost                                |
-| `ev`                             | Expectation of the hands **as they were actually played** |
-| `hands`, `rounds`                | Hands settled and rounds dealt                            |
-| `decisions`, `optimalDecisions`  | Graded decisions, and those taking `countAction`          |
-| `basicErrors`, `deviationErrors` | The two error kinds, attributed as above                  |
-| `evLost`                         | Currency given away by the errors                         |
+| Field                            | What it holds                                                    |
+| -------------------------------- | ---------------------------------------------------------------- |
+| `av`                             | Money actually won or lost                                       |
+| `ev`                             | Expectation of the hands **as they were actually played**        |
+| `hands`, `rounds`                | Hands settled and rounds dealt                                   |
+| `decisions`, `optimalDecisions`  | Graded decisions, and those taking `countAction`                 |
+| `basicErrors`, `deviationErrors` | The two error kinds, attributed as above                         |
+| `evLost`                         | Currency given away by the errors                                |
+| `variance`                       | Running variance of the money on each graded decision, currency² |
 
 `ev` is summed over the action the player _chose_, not the best one available. That is the
 whole point of the split: AV/EV then measures luck alone — how the cards ran against what the
@@ -152,9 +153,24 @@ negative, because it is a difference of EVs and the banner reads it as "−2.1% 
 positive and a bigger number is plainly worse.
 
 `optimalPlayPercent` is `optimalDecisions / decisions` as a percentage, and `null` — shown as
-"—" — before the first graded decision, since a record with nothing in it has no rate to report. `avOverEv` is suppressed — returned as `null`, shown as
-"—" — while `|ev|` is under one unit of currency: the ratio divides by a number that starts at
-zero and grows slowly, and a few early rounds can otherwise put it anywhere at all.
+"—" — before the first graded decision, since a record with nothing in it has no rate to report.
+
+`variance` is built from `ev/outcome.ts`'s `actionSecondMoment`, the same `E[X²]` figure
+`bankroll.ts` derives its own variance from (docs/bankroll-model.md §Variance per round), but
+computed per graded decision rather than per round: `Grading.chosenSecondMoment` is
+`actionSecondMoment` of the action actually chosen, and `recordDecision` folds in
+`wager² x (chosenSecondMoment - (chosenEvPercent/100)²)` — the variance of that one decision's
+money, in currency². The record sums these across every graded decision as if they were
+independent, which is the same simplification `ev` already makes by folding in every decision of
+a hand rather than just its first (a hand with a hit and then a stand contributes variance twice,
+nested rather than independent draws) — see docs/bankroll-model.md's own per-round independence
+assumption for the parallel at the session level.
+
+`evDeviation` is `(av - ev) / sqrt(variance)`: how far the money actually won sits from what the
+hands played were worth, in standard deviations — a hot or cold session reads as a signed number
+of sigmas rather than a ratio that can flip sign or blow up near zero. It is suppressed —
+returned as `null`, shown as "—" — while `variance` is zero, i.e. before the first graded
+decision, since there is nothing to divide by yet.
 
 ## The bookkeeping around it
 

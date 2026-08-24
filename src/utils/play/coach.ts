@@ -8,7 +8,7 @@
  */
 
 import { gridKey, splitGridKey } from '../ev/engine';
-import { bestAction, type ActionAnalysis } from '../ev/outcome';
+import { actionSecondMoment, bestAction, type ActionAnalysis } from '../ev/outcome';
 import type { PlayerAction } from '../ev/rules';
 import type { PlayCell, PlayGrids } from '../evWorkerProtocol';
 import { legalActions, type GameState } from './game';
@@ -28,6 +28,11 @@ export interface Grading {
 	evLostPercent: number;
 	/** EV of the action actually chosen, percent of the wager. */
 	chosenEvPercent: number;
+	/**
+	 * `E[X²]` of the action actually chosen, in units² of the wager -- see
+	 * `actionSecondMoment`. What `stats.ts` builds the running variance from.
+	 */
+	chosenSecondMoment: number;
 	/** chosen !== basicAction */
 	basicError: boolean;
 	/** chosen === basicAction but chosen !== countAction */
@@ -108,6 +113,7 @@ export function gradeDecision(
 		// what the play cost at this shoe rather than the gap between two frames.
 		evLostPercent: chosen.evPercent - countAction.evPercent,
 		chosenEvPercent: chosen.evPercent,
+		chosenSecondMoment: actionSecondMoment(chosen),
 		basicError,
 		deviationError: !basicError && action !== countAction.action,
 		trueCount: Math.round(trueCount),

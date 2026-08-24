@@ -7,9 +7,9 @@
 import { createSignal, Show, type Component } from 'solid-js';
 
 import { signClass } from '#utils/actionStyle';
-import { formatCurrency, formatPercent, formatRounds } from '#utils/format';
+import { formatEvCurrency, formatPercent, formatRounds } from '#utils/format';
 import {
-	avOverEv,
+	evDeviation,
 	optimalPlayPercent,
 	type PlayStats as PlayStatsRecord,
 } from '#utils/play/stats';
@@ -53,15 +53,20 @@ const PlayStats: Component<PlayStatsProps> = (props) => {
 	// and losing it to a stray click is the one mistake it cannot recover from.
 	const [confirming, setConfirming] = createSignal(false);
 	const optimal = () => optimalPlayPercent(props.stats);
-	const ratio = () => avOverEv(props.stats);
+	const deviation = () => evDeviation(props.stats);
 
 	return (
 		<div class="play-stats">
 			<div class="play-stats__grid">
 				<StatCard
 					label="AV"
-					value={formatCurrency(props.stats.av)}
+					value={formatEvCurrency(props.stats.av)}
 					sign={props.stats.av}
+				/>
+				<StatCard
+					label="EV"
+					value={formatEvCurrency(props.stats.ev)}
+					sign={props.stats.ev}
 				/>
 				<StatCard label="Hands played" value={formatRounds(props.stats.hands)} />
 				<StatCard
@@ -78,12 +83,14 @@ const PlayStats: Component<PlayStatsProps> = (props) => {
 				/>
 				<StatCard
 					label="EV lost"
-					value={formatCurrency(-props.stats.evLost)}
+					value={formatEvCurrency(-props.stats.evLost)}
 					sign={props.stats.evLost > 0 ? -1 : 0}
 				/>
 				<StatCard
-					label="AV / EV"
-					value={ratio() === null ? NO_FIGURE : ratio()!.toFixed(2)}
+					label="EV deviation"
+					value={deviation() === null ? NO_FIGURE : deviation()!.toFixed(2)}
+					unit={deviation() === null ? undefined : 'σ'}
+					sign={deviation() ?? undefined}
 				/>
 			</div>
 			<div class="play-stats__reset">
