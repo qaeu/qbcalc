@@ -1,0 +1,174 @@
+// Hand-authored 12-step scales for the casino-materials look, in the shape
+// Radix uses so `_colourset()` maps them without knowing the difference.
+//
+// The app's ground is baize, so every scale here is a *dark* scale: step 1 is
+// the deepest surface and step 12 the lightest ink. That is the inverse of a
+// Radix light scale, which is why the Radix light imports are gone -- the slot
+// names (`bg` = 1, `fg` = 12) keep their meaning, the ramp behind them flips.
+//
+// Two themes, both dark grounds: the default is a lit table under a pit light,
+// `.dark-theme` the same table further from it. Ink is cream in both, so only
+// the surface steps (1-10) move.
+
+:root {
+	/* Baize: the table itself, ramping to the cream the layout is printed in. */
+	--baize-1: #0f3d2d;
+	--baize-2: #134a37;
+	--baize-3: #175540;
+	--baize-4: #1b6049;
+	--baize-5: #206b51;
+	--baize-6: #29785c;
+	--baize-7: #358669;
+	--baize-8: #479878;
+	--baize-9: #5faa8c;
+	--baize-10: #79bca1;
+	--baize-11: #b7ad8b;
+	--baize-12: #ecdfb4;
+
+	// Cream at low alpha: a lift off the felt rather than a hole in it, which
+	// is what a light overlay on a dark ground has to be.
+	--baize-a1: rgb(236 223 180 / 0.04);
+	--baize-a2: rgb(236 223 180 / 0.08);
+	--baize-a3: rgb(236 223 180 / 0.15);
+
+	/* Gold: the cut card, and the accent everything active is marked with. */
+	--gold-1: #2a1f0c;
+	--gold-2: #332608;
+	--gold-3: #43310c;
+	--gold-4: #523c0e;
+	--gold-5: #614711;
+	--gold-6: #745616;
+	--gold-7: #8d6a1d;
+	--gold-8: #ad8426;
+	--gold-9: #d9a441;
+	--gold-10: #e6b358;
+	--gold-11: #e9bd6e;
+	--gold-12: #f8e6bb;
+
+	--gold-a1: rgb(233 189 110 / 0.06);
+	--gold-a2: rgb(233 189 110 / 0.13);
+	--gold-a3: rgb(233 189 110 / 0.22);
+
+	/* Sand: the printed ink, and the fill a Hit cell carries. */
+	--sand-1: #241f16;
+	--sand-2: #2c261a;
+	--sand-3: #3a3223;
+	--sand-4: #473d2b;
+	--sand-5: #554a34;
+	--sand-6: #67593f;
+	--sand-7: #7e6d4e;
+	--sand-8: #9c8862;
+	--sand-9: #b3a475;
+	--sand-10: #c5b78c;
+	--sand-11: #dccea4;
+	--sand-12: #f4ebcd;
+
+	--sand-a1: rgb(244 235 205 / 0.06);
+	--sand-a2: rgb(244 235 205 / 0.16);
+	--sand-a3: rgb(244 235 205 / 0.26);
+
+	/* Mint: money in the player's favour. Lighter and cleaner than the baize
+	   under it, so a win reads as a figure rather than as more table. */
+	--mint-1: #08281d;
+	--mint-2: #0a3325;
+	--mint-3: #0d422f;
+	--mint-4: #0f5039;
+	--mint-5: #125e43;
+	--mint-6: #167051;
+	--mint-7: #1b8862;
+	--mint-8: #23a778;
+	--mint-9: #3fc08d;
+	--mint-10: #5ccfa0;
+	--mint-11: #86dcb2;
+	--mint-12: #cdf3de;
+
+	--mint-a1: rgb(134 220 178 / 0.06);
+	--mint-a2: rgb(134 220 178 / 0.14);
+	--mint-a3: rgb(134 220 178 / 0.24);
+
+	/* Ruby: money the other way, and the Stand fill. */
+	--ruby-1: #2b0f13;
+	--ruby-2: #37141a;
+	--ruby-3: #481920;
+	--ruby-4: #571d26;
+	--ruby-5: #67232d;
+	--ruby-6: #7c2b37;
+	--ruby-7: #983644;
+	--ruby-8: #ba4455;
+	--ruby-9: #d4566a;
+	--ruby-10: #e06b7d;
+	--ruby-11: #ec8b9a;
+	--ruby-12: #fbd7dd;
+
+	--ruby-a1: rgb(236 139 154 / 0.07);
+	--ruby-a2: rgb(236 139 154 / 0.16);
+	--ruby-a3: rgb(236 139 154 / 0.26);
+
+	/* Sky: the Double fill. The one cool hue on the table, so a double never
+	   reads as a warmer or cooler version of anything else. */
+	--sky-1: #0b1f2e;
+	--sky-2: #0e2839;
+	--sky-3: #123449;
+	--sky-4: #153e58;
+	--sky-5: #194966;
+	--sky-6: #1f587a;
+	--sky-7: #276b95;
+	--sky-8: #3282b5;
+	--sky-9: #4d9fd4;
+	--sky-10: #68b0de;
+	--sky-11: #8ec6e8;
+	--sky-12: #d3ebf8;
+
+	--sky-a1: rgb(142 198 232 / 0.07);
+	--sky-a2: rgb(142 198 232 / 0.16);
+	--sky-a3: rgb(142 198 232 / 0.26);
+
+	/* Rail: the padded mahogany the table is bounded by. Surfaces only -- it
+	   carries no text of its own beyond the cream the layout is printed in. */
+	--rail-1: #1c100b;
+	--rail-2: #24140e;
+	--rail-3: #2e1a12;
+	--rail-4: #3a2118;
+	--rail-5: #46281c;
+	--rail-6: #4d2d20;
+
+	// An opaque patch of table, a shade deeper than the felt around it. Opaque
+	// rather than black-at-an-alpha so panels can be tiled against a hairline
+	// drawn behind them, and so they never stack their own translucency.
+	--panel: #0d3326;
+
+	/* Card stock, and the ink printed on it. Not a scale: a card is a card. */
+	--stock: #f7f4ec;
+	--stock-lit: #fffdf7;
+	--stock-shade: #ddd8c8;
+	--stock-ink: #191410;
+	--stock-ink-red: #ad2230;
+
+	--white-a12: #fff;
+	--black-a12: #000;
+}
+
+// Further from the pit light: the felt deepens, the ink stays put.
+.dark-theme {
+	--baize-1: #082a20;
+	--baize-2: #0b3527;
+	--baize-3: #0e3f2f;
+	--baize-4: #114937;
+	--baize-5: #14533e;
+	--baize-6: #1a6049;
+	--baize-7: #236e55;
+	--baize-8: #327f64;
+	--baize-9: #489478;
+	--baize-10: #62a890;
+	--baize-11: #a89e7e;
+	--baize-12: #e8d9a8;
+
+	--panel: #072319;
+
+	--rail-1: #150c08;
+	--rail-2: #1c100b;
+	--rail-3: #24140e;
+	--rail-4: #2e1a12;
+	--rail-5: #3a2118;
+	--rail-6: #46281c;
+}

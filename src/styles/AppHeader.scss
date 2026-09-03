@@ -1,24 +1,23 @@
 @use 'base' as *;
 
 @layer screen {
-	// Full viewport width, independent of `.app`'s own centred container --
-	// the bar itself bleeds edge to edge, with only its contents lined up to
-	// the same width as the page below it.
+	// The padded rail bounding the table: the one surface in the app that is
+	// not felt, so the felt below it reads as a table rather than as a page
+	// colour. Full viewport width, independent of `.app`'s own centred
+	// container -- only its contents line up with the page below it.
 	.app-header {
+		@include rail;
+		position: relative;
+		// Above the felt's own stacking, so the rail's shadow falls on the table.
+		z-index: 3;
 		width: 100%;
-		height: 60px;
-		border-bottom: 1px solid get($neutrals, 'sep');
-
-		@include compact {
-			height: auto;
-		}
+		box-shadow: 0 6px 22px rgb(0 0 0 / 0.45);
 
 		&__inner {
 			display: flex;
 			flex-direction: row;
 			align-items: stretch;
 			justify-content: space-between;
-			height: 100%;
 			max-width: 1400px;
 			margin: 0 auto;
 			padding: 0 20px;
@@ -26,7 +25,6 @@
 			@include compact {
 				flex-direction: column;
 				align-items: stretch;
-				height: auto;
 			}
 
 			@include phone {
@@ -45,11 +43,14 @@
 			min-width: 0;
 		}
 
+		// Stamped into the rail: cream lettering with a hard shadow under it,
+		// the way a table's own name is printed on the apron.
 		&__title {
 			display: flex;
 			align-items: center;
 			min-width: 0;
-			margin: 0;
+			padding: 15px 0 14px;
+			text-shadow: 0 1px 0 rgb(0 0 0 / 0.6);
 
 			@include compact {
 				padding: 14px 0;
@@ -67,8 +68,14 @@
 			flex: none;
 			align-items: center;
 			justify-content: center;
-			padding: 10px;
+			padding: 9px;
+			border-color: rgb(236 223 180 / 0.22);
+			background-color: rgb(0 0 0 / 0.2);
 			color: get($neutrals, 'fg-light');
+
+			&:hover:not(:disabled) {
+				color: get($neutrals, 'fg');
+			}
 
 			svg {
 				width: 20px;
@@ -76,10 +83,9 @@
 			}
 		}
 
-		// No pill background of its own -- unlike the sidebar's tab strip, the
-		// tabs sit directly on the bar and are told apart by their own fill
-		// alone, so they read as part of the banner rather than a control
-		// nested inside it.
+		// The tabs sit directly on the rail and are told apart by the gold
+		// marker under the live one -- the cut card's own colour, used here for
+		// the same job it does in a shoe: marking where things stand.
 		&__tab-list {
 			display: flex;
 			align-self: stretch;
@@ -90,28 +96,28 @@
 		}
 
 		&__tab {
+			@include print(13px, 0.16em);
 			display: flex;
 			align-items: center;
-			padding: 0 20px;
+			padding: 0 18px;
 			border: none;
+			border-bottom: 2px solid transparent;
+			border-radius: 0;
 			background-color: transparent;
-			color: get($neutrals, 'fg-light');
-			font-size: 14px;
+			font-weight: 600;
 			cursor: pointer;
 			transition:
-				background-color 0.2s ease,
-				color 0.2s ease;
+				color 0.2s ease,
+				border-color 0.2s ease;
 
-			&:hover {
-				color: $foreground;
+			&:hover:not(:disabled) {
+				background-color: transparent;
+				color: get($neutrals, 'fg');
 			}
 
-			// The active tab reads as slightly recessed into the bar rather
-			// than raised above it, the reverse of the sidebar's pill-on-light
-			// treatment.
 			&[data-selected] {
-				background-color: get($neutrals, 'fade');
-				color: $foreground;
+				color: get($neutrals, 'fg');
+				border-bottom-color: get($primaries, 'base');
 			}
 
 			// Three even tap targets across the bar, rather than three labels

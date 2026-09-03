@@ -6,47 +6,68 @@ $skeleton-phase-count: 12;
 $skeleton-pulse-duration: 1.4s;
 
 @layer screen {
+	// One band of figures printed on the table, not a tray of cards. The
+	// dividing hairlines are the grid's own 1px gaps showing the container
+	// through, which is what keeps them correct however many figures there are
+	// and wherever the row happens to wrap -- a per-cell border cannot know
+	// which cell starts a line.
 	.ev-summary {
-		// A fixed column count rather than a wrapping flex row: the card set is
-		// five or six depending on the count, and a wrapping row would stretch
-		// whatever landed on the short last line to fill it.
 		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 20px;
+		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+		gap: 1px;
 		width: 100%;
 		max-width: 1000px;
 		margin-left: auto;
 		margin-right: auto;
+		background-color: $rule-strong;
+		border: 1px solid $rule-strong;
+		border-radius: 3px;
+		overflow: hidden;
 
-		@media (max-width: $breakpoint-tablet) {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
+		@include phone {
+			grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
 		}
 
+		// Opaque on purpose: the hairlines are the container showing through the
+		// gaps, so a translucent figure would tint itself with them.
 		&__card {
-			@include card;
 			display: flex;
 			flex-direction: column;
-			align-items: center;
-			gap: 4px;
-			margin-bottom: 0;
+			gap: 5px;
+			padding: 15px 18px 16px;
+			background-color: $panel;
+
+			@include phone {
+				padding: 12px 13px 13px;
+			}
 		}
 
 		&__label {
-			font-size: 13px;
-			color: get($neutrals, 'fg-light');
+			@include print(10px, 0.16em);
+			color: oklch(from get($neutrals, 'fg') l c h / 0.5);
 		}
 
 		&__value {
+			// Condensed and tracked tight: the figure is the largest thing in the
+			// band, so it is set as a printed number rather than as body text
+			// that happens to be big.
+			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
 			// Tabular figures so the number doesn't jitter its own width as the
 			// count is swept through.
 			font-variant-numeric: tabular-nums;
-			font-size: 26px;
-			font-weight: 600;
-			line-height: 1.2;
+			font-size: 28px;
+			font-weight: 700;
+			letter-spacing: -0.01em;
+			line-height: 1.05;
+			color: get($neutrals, 'fg');
 			transition: color 300ms ease;
 
+			@include phone {
+				font-size: 23px;
+			}
+
 			&.is-positive {
-				color: get($primaries, 'fg-light');
+				color: get($successes, 'fg-light');
 			}
 
 			&.is-negative {
@@ -55,36 +76,41 @@ $skeleton-pulse-duration: 1.4s;
 		}
 
 		&__unit {
-			margin-left: 1px;
-			font-size: 15px;
-			font-weight: 400;
+			margin-left: 3px;
+			font-size: 13px;
+			font-weight: 500;
+			letter-spacing: 0.04em;
+			color: oklch(from get($neutrals, 'fg') l c h / 0.5);
 		}
 
 		// The box itself matches &__value's line box (same font-size and
-		// line-height), so the card doesn't change height between the loading
+		// line-height), so the band doesn't change height between the loading
 		// state and the result. The bar drawn inside it, via ::after, is smaller
 		// than that box on purpose.
 		&__skeleton {
 			display: flex;
 			align-items: center;
-			justify-content: center;
-			font-size: 26px;
-			line-height: 1.2;
-			height: 1.2em;
+			font-size: 28px;
+			line-height: 1.05;
+			height: 1.05em;
+
+			@include phone {
+				font-size: 23px;
+			}
 
 			&::after {
 				content: '';
-				width: 76px;
-				height: 20px;
-				border-radius: 4px;
-				background-color: get($neutrals, 'sep');
+				width: 72px;
+				height: 18px;
+				border-radius: 2px;
+				background-color: get($neutrals, 'sep-light');
 				opacity: 0.35;
 				animation: ev-summary-skeleton-pulse $skeleton-pulse-duration
 					cubic-bezier(0.2, 1, 0, 0.8) infinite;
 			}
 		}
 
-		// Negative delays start every card mid-cycle, so the row is already
+		// Negative delays start every figure mid-cycle, so the band is already
 		// twinkling on the first frame rather than fading up together.
 		@for $phase from 0 through $skeleton-phase-count - 1 {
 			&__loading-phase-#{$phase}::after {
@@ -100,6 +126,12 @@ $skeleton-pulse-duration: 1.4s;
 			}
 			50% {
 				opacity: 0.8;
+			}
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			&__skeleton::after {
+				animation: none;
 			}
 		}
 	}

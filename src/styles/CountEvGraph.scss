@@ -40,7 +40,7 @@ $skeleton-pulse-duration: 1.4s;
 
 		// The axis the line is read against, and the edge the two fills meet on.
 		&__zero {
-			stroke: get($neutrals, 'sep');
+			stroke: $rule-strong;
 			stroke-width: 1;
 		}
 
@@ -59,55 +59,60 @@ $skeleton-pulse-duration: 1.4s;
 			stroke-linecap: round;
 		}
 
+		// The rounds a counter makes money on are filled in the cut card's gold,
+		// the rest of the shoe in ruby -- losing rounds, in the colour the rest
+		// of the app spends on money going the wrong way.
 		&__area {
-			fill: get($neutrals, 'sep-dark');
-			opacity: 0.45;
+			fill: get($errors, 'base');
+			opacity: 0.3;
 
 			&.is-advantage {
 				fill: get($primaries, 'base');
+				opacity: 0.42;
 			}
 		}
 
 		&__point {
-			fill: get($neutrals, 'sep-dark');
-			stroke: get($neutrals, 'bg');
+			fill: get($errors, 'fg-light');
+			stroke: $panel;
 			stroke-width: 1.5;
 			transition:
 				fill 150ms ease,
 				r 100ms ease;
 
 			&.is-advantage {
-				fill: get($primaries, 'base');
+				fill: get($primaries, 'base-dark');
 			}
 
 			&.is-hovered {
-				fill: get($neutrals, 'fg-light');
+				fill: get($neutrals, 'fg');
 			}
 
 			&.is-advantage.is-hovered {
-				fill: get($primaries, 'base-dark');
+				fill: get($primaries, 'fg');
 			}
 		}
 
 		// Axis text wears text colours rather than the line's, so it stays legible
 		// whatever the fill does.
 		&__tick {
-			fill: get($neutrals, 'fg-light');
+			fill: oklch(from get($neutrals, 'fg') l c h / 0.5);
+			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
 			font-size: 13px;
 			font-variant-numeric: tabular-nums;
 		}
 
 		&__peak {
-			fill: get($neutrals, 'fg');
-			font-size: 14px;
+			fill: get($primaries, 'fg-light');
+			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
+			font-size: 15px;
 			font-weight: 600;
 			font-variant-numeric: tabular-nums;
 		}
 
 		&__reading {
-			margin: 8px 0 0;
-			font-size: 13px;
-			color: get($neutrals, 'fg-light');
+			@include print(12px, 0.01em, $caps: false);
+			margin: 10px 0 0;
 			// Held to one line's height so the card doesn't resize as the pointer
 			// moves between readings of different lengths.
 			min-height: 1.4em;
@@ -130,7 +135,7 @@ $skeleton-pulse-duration: 1.4s;
 				width: 50%;
 				height: 40px;
 				border-radius: 6px;
-				background-color: get($neutrals, 'sep');
+				background-color: get($neutrals, 'sep-light');
 				opacity: 0.35;
 				animation: count-ev-skeleton-pulse $skeleton-pulse-duration
 					cubic-bezier(0.2, 1, 0, 0.8) infinite;

@@ -8,17 +8,17 @@ $action-chip-opacity: 0.95;
 @layer screen {
 	.ev-cell-dialog {
 		@include card;
-		box-sizing: border-box;
+		@include shadow;
 		width: 100%;
 		max-width: 480px;
 		margin-bottom: 0;
-		border: 1px solid get($neutrals, 'sep-light');
+		border: 1px solid $rule-strong;
 
 		&__backdrop {
 			position: fixed;
 			inset: 0;
 			z-index: $dialog-z-index;
-			background-color: oklch(from $black l c h / 0.05);
+			background-color: oklch(from $black l c h / 0.55);
 			backdrop-filter: blur(2px);
 		}
 
@@ -42,17 +42,16 @@ $action-chip-opacity: 0.95;
 		}
 
 		&__title {
+			@include print(16px, 0.18em);
 			margin: 0;
-			font-weight: 400;
-			font-size: 20px;
-			letter-spacing: 1px;
-			color: get($primaries, 'fg-light');
+			font-weight: 600;
+			color: get($neutrals, 'fg');
 		}
 
 		&__subtitle {
-			margin: 4px 0 0;
-			font-size: 12px;
-			color: get($neutrals, 'fg-light');
+			@include print(12px, 0.01em, $caps: false);
+			margin: 5px 0 0;
+			color: oklch(from get($neutrals, 'fg') l c h / 0.5);
 		}
 
 		// Icon only, so the shared button chrome would read as a stray box next
@@ -83,13 +82,14 @@ $action-chip-opacity: 0.95;
 			td {
 				padding: 8px 6px;
 				text-align: right;
-				border-bottom: 1px solid get($neutrals, 'sep-light');
+				border-bottom: 1px solid $rule;
 				white-space: nowrap;
 			}
 
 			th[scope='col'] {
-				font-weight: 400;
-				color: get($neutrals, 'fg-light');
+				@include print(10px, 0.12em);
+				font-weight: 600;
+				color: oklch(from get($neutrals, 'fg') l c h / 0.5);
 			}
 
 			th[scope='row'],
@@ -152,11 +152,11 @@ $action-chip-opacity: 0.95;
 			// column is already coloured by sign, and overriding that on one row
 			// would make the most important number the odd one out.
 			tr.is-optimal {
-				background-color: get($neutrals, 'fade-light');
+				background-color: get($primaries, 'fade-light');
 			}
 
 			.is-positive {
-				color: get($primaries, 'fg-light');
+				color: get($successes, 'fg-light');
 			}
 
 			.is-negative {
@@ -182,7 +182,7 @@ $action-chip-opacity: 0.95;
 			}
 
 			&.is-hit {
-				@include chip-colour($primaries);
+				@include chip-colour($sands);
 			}
 
 			&.is-stand {
@@ -203,10 +203,10 @@ $action-chip-opacity: 0.95;
 		}
 
 		&__note {
+			@include print(11px, 0.01em, $caps: false);
 			margin: 14px 0 0;
-			font-size: 11px;
 			line-height: 1.5;
-			color: get($neutrals, 'fg-light');
+			color: oklch(from get($neutrals, 'fg') l c h / 0.45);
 		}
 	}
 }

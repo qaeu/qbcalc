@@ -32,7 +32,8 @@ src/
 ├── setupTests.ts                # Test configuration
 ├── types.d.ts                   # Global type definition file
 ├── styles/
-│   ├── _theme.scss              # Colour sets, shadows, reusable mixins
+│   ├── _palette.scss            # The 12-step baize/gold/sand/mint/ruby/sky scales
+│   ├── _theme.scss              # Colour sets, materials, shadows, reusable mixins
 │   ├── _base.scss               # Cascade layers, element defaults
 │   └── *.scss                   # Component specific stylings
 ├── components/
@@ -122,10 +123,27 @@ Formatting is enforced by Prettier (`.prettierrc`): tabs, single quotes, 90 colu
 ### SASS/SCSS Styling
 
 - **Module system**: Use `@use` for importing theme variables and mixins.
+- **Palette file**: `src/styles/_palette.scss` holds hand-authored 12-step scales as CSS
+  custom properties. They are _dark_ scales — step 1 is the deepest surface and step 12 the
+  lightest ink — because the app's ground is baize rather than paper. The scales are
+  `baize` (the table), `gold` (the cut card, and the accent), `sand` (printed ink, and the
+  Hit fill), `mint`, `ruby` and `sky`, plus the `rail`, `panel` and `stock` materials.
 - **Theme file**: `src/styles/_theme.scss` contains:
-  - **Colour variables**: Radix colour scales mapped through `_colourset()` into semantic slots (`fg`, `base`, `sep`, `bg`, `fade`, …), grouped as `$primaries`, `$neutrals`, `$successes`, `$warnings`, `$errors`.
-  - **Reusable mixins**: `container`, `card`, `info-box`, `button`, `code-block`, `shadow`/`shadow-short`/`shadow-inset`.
-- **Dark mode**: Colours are CSS custom properties; toggling `.dark-theme` on `<body>` reskins the app.
+  - **Colour variables**: the scales above mapped through `_colourset()` into semantic slots
+    (`fg`, `base`, `sep`, `bg`, `fade`, …), grouped as `$primaries`, `$neutrals`, `$sands`,
+    `$successes`, `$warnings`, `$errors`, `$infos`.
+  - **Material mixins**: `baize`, `rail`, `print`, `card-stock` — the physical surfaces the
+    design is built from. Reach for these before inventing a background.
+  - **Reusable mixins**: `container`, `card`, `info-box`, `button`, `form-control`,
+    `code-block`, `shadow`/`shadow-short`/`shadow-inset`.
+- **Casing**: `print()` sets the table-layout voice and defaults to uppercase. Pass
+  `$caps: false` for anything that is a sentence rather than a label — capitals are how a
+  felt is lettered, not how prose is read.
+- **Action colours**: Hit is `$sands`, Stand `$errors`, Double `$infos`, Split `$warnings`,
+  Surrender `$neutrals`. `EvTable`, `EvCellDialog` and `PlayTable` must agree — they were
+  crossed over once, and a Stand on the felt reading as a Hit in the grid is a real bug.
+- **Dark mode**: Colours are CSS custom properties; toggling `.dark-theme` on `<body>`
+  deepens the felt (the same table further from the pit light). Nothing sets it yet.
 - **Component stylesheets**: Each component has a corresponding `.scss` file using mixins from `_theme.scss`.
 - **Class naming**: Use BEM-like convention for nested components.
 - **Selector clarity**: Avoid heavily nested selectors; prefer adding classes or ids if necessary.

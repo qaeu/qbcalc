@@ -18,7 +18,7 @@ import {
 import { ACTION_CLASS } from '#utils/actionStyle';
 import { addValue, type Rank } from '#utils/ev/cards';
 import { CARDS_PER_DECK } from '#utils/ev/composition';
-import type { PlayerAction } from '#utils/ev/rules';
+import type { BlackjackPayout, PlayerAction, RuleSet } from '#utils/ev/rules';
 import {
 	formatActionLabel,
 	formatCellEvPercent,
@@ -58,6 +58,24 @@ const ACTION_KEYS: readonly PlayerAction[] = ['H', 'S', 'D', 'P', 'R'];
  * felt.
  */
 const SUITS = ['♠', '♥', '♦', '♣'] as const;
+
+/**
+ * The layout lettering, in the words a real table carries it in. Printed onto
+ * the felt because that is where a player reads these rules -- they are the
+ * terms of the hand in front of them, not a setting.
+ */
+const PAYOUT_PRINT: Record<BlackjackPayout, string> = {
+	'3:2': 'Blackjack pays 3 to 2',
+	'6:5': 'Blackjack pays 6 to 5',
+	'1:1': 'Blackjack pays even money',
+};
+
+/** The dealer's standing instruction, as the felt states it. */
+function dealerPrint(ruleSet: RuleSet): string {
+	return ruleSet.dealerHitsSoft17 ?
+			'Dealer must draw to 16 and hit soft 17'
+		:	'Dealer must draw to 16 and stand on all 17s';
+}
 
 const RESULT_LABELS: Record<HandResult, string> = {
 	blackjack: 'Blackjack',
@@ -390,15 +408,27 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 						TC {formatCount(Number(props.state.shoe.trueCount().toFixed(1)))}
 					</span>
 				</Show>
-			</div>
-
-			<div class="play-table__money">
-				<span>
+				{/* The money reads as part of the same instrument strip as the shoe:
+				    both are the standing state of the table, not of the hand. */}
+				<span class="play-table__money">
 					Stack <strong>{money(props.stack)}</strong>
 				</span>
 			</div>
 
 			<div class="play-table__felt">
+				{/* Decorative in the sense that it is never the thing being
+				    operated, but not decoration: it is the live rule set, stated
+				    where the hand is being played rather than in the sidebar. */}
+				<div class="play-table__layout-print">
+					<span class="play-table__pays">
+						{PAYOUT_PRINT[props.state.ruleSet.blackjackPayout]}
+					</span>
+					<span class="play-table__house-rule">
+						{dealerPrint(props.state.ruleSet)}
+						<Show when={props.state.ruleSet.insurance}>{' · Insurance pays 2 to 1'}</Show>
+					</span>
+				</div>
+
 				<div class="play-table__seat">
 					<span class="play-table__seat-label">Dealer</span>
 					<div class="play-table__cards">
@@ -443,7 +473,15 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 						{(hand, handIndex) => (
 							<div
 								class={`play-table__seat ${
-									handIndex() === props.state.activeHandIndex ? 'is-active' : ''
+									// Only worth marking when there is more than one hand to
+									// tell apart -- on a single hand the ring says nothing and
+									// reads as a stray box around the only seat in play.
+									(
+										props.state.hands.length > 1
+										&& handIndex() === props.state.activeHandIndex
+									) ?
+										'is-active'
+									:	''
 								}`}
 							>
 								<span class="play-table__seat-label">
@@ -556,7 +594,9 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 									disabled={props.bet + chip > props.stack}
 									onClick={() => props.onChip(chip)}
 								>
-									{chip}
+									{/* Wrapped so it can be lifted above the chip's inlay ring,
+									    which is drawn as an ::after over the button's own content. */}
+									<span class="play-table__chip-value">{chip}</span>
 								</button>
 							</div>
 						)}

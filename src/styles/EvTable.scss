@@ -48,7 +48,9 @@ $action-cell-opacity: 1.5;
 			margin-right: auto;
 
 			h3 {
-				margin: 4px 0 8px;
+				margin: 0 0 14px;
+				padding-bottom: 10px;
+				border-bottom: 1px solid $rule;
 			}
 		}
 
@@ -87,8 +89,7 @@ $action-cell-opacity: 1.5;
 			// the background colour takes the last surviving value, which is how a
 			// deviated cell holds its fill inside the ring while the rule runs on
 			// through it.
-			background-image:
-				linear-gradient(get($neutrals, 'sep-light'), get($neutrals, 'sep-light')), none;
+			background-image: linear-gradient($rule-strong, $rule-strong), none;
 			background-repeat: no-repeat;
 			background-position: bottom;
 			background-size: 100% $cell-separator-width;
@@ -101,8 +102,9 @@ $action-cell-opacity: 1.5;
 
 		th[scope='col'],
 		th[scope='row'] {
-			color: get($neutrals, 'fg-light');
-			font-weight: 400;
+			@include print(11px, 0.1em);
+			color: oklch(from get($neutrals, 'fg') l c h / 0.5);
+			font-weight: 600;
 		}
 
 		// On every cell, not just the coloured ones, so a cell eases between its
@@ -110,6 +112,7 @@ $action-cell-opacity: 1.5;
 		// of cutting between them. Also covers the hover highlight.
 		td {
 			background-color: transparent;
+			box-shadow: inset -1px 0 0 $rule;
 			cursor: pointer;
 			transition:
 				background-color $cell-fade-duration ease,
@@ -139,7 +142,7 @@ $action-cell-opacity: 1.5;
 		}
 
 		td.is-hit {
-			@include action-colour($primaries, $action-cell-opacity);
+			@include action-colour($sands, $action-cell-opacity);
 		}
 
 		td.is-stand {
@@ -236,7 +239,7 @@ $action-cell-opacity: 1.5;
 		}
 
 		td.was-hit {
-			@include deviation-ring($primaries);
+			@include deviation-ring($sands);
 		}
 
 		td.was-stand {
@@ -288,13 +291,14 @@ $action-cell-opacity: 1.5;
 		}
 
 		&__mode-name {
-			color: $foreground;
-			font-weight: 500;
+			@include print(11px, 0.16em);
+			color: get($neutrals, 'fg');
+			font-weight: 600;
 		}
 
 		&__mode-hint {
-			color: get($neutrals, 'fg-light');
-			font-size: 12px;
+			@include print(12px, 0.01em, $caps: false);
+			color: oklch(from get($neutrals, 'fg') l c h / 0.45);
 		}
 
 		// Separates the mode from the count, the two halves of the line each
@@ -303,7 +307,7 @@ $action-cell-opacity: 1.5;
 			align-self: center;
 			width: 1px;
 			height: 12px;
-			background-color: get($neutrals, 'sep');
+			background-color: $rule-strong;
 		}
 
 		&__cell-skeleton {
@@ -311,7 +315,7 @@ $action-cell-opacity: 1.5;
 			width: 14px;
 			height: 14px;
 			border-radius: 3px;
-			background-color: get($neutrals, 'sep');
+			background-color: get($neutrals, 'sep-light');
 			opacity: 0.35;
 			animation: ev-table-skeleton-pulse $skeleton-pulse-duration
 				cubic-bezier(0.2, 1, 0, 0.8) infinite;
@@ -332,17 +336,17 @@ $action-cell-opacity: 1.5;
 			z-index: 20;
 			max-width: 220px;
 			padding: 10px 12px;
-			background-color: oklch(from get($neutrals, 'bg') l c h / 0.85);
+			background-color: oklch(from $panel l c h / 0.92);
 			backdrop-filter: blur(4px);
 			// Only the edge the arrow attaches to -- The popover opens above
 			// or below the cell depending on available space, so which edge
 			// that is flips with `data-side` (set by the positioning library)
-			border-top: 1px solid var(--white-a11);
+			border-top: 1px solid $rule-strong;
 			border-radius: 6px;
 
 			&[data-side='top'] {
 				border-top: 0;
-				border-bottom: 1px solid var(--white-a11);
+				border-bottom: 1px solid $rule-strong;
 			}
 			font-size: 12px;
 			color: $foreground;
@@ -370,7 +374,7 @@ $action-cell-opacity: 1.5;
 			text-align: center;
 
 			&.is-hit {
-				@include action-colour($primaries, $popover-action-opacity);
+				@include action-colour($sands, $popover-action-opacity);
 			}
 
 			&.is-stand {
@@ -405,7 +409,7 @@ $action-cell-opacity: 1.5;
 			}
 
 			.is-positive {
-				color: get($primaries, 'fg-light');
+				color: get($successes, 'fg-light');
 			}
 
 			.is-negative {
@@ -415,7 +419,7 @@ $action-cell-opacity: 1.5;
 
 		&__popover-arrow {
 			--arrow-size: 10px;
-			--arrow-background: #{$white};
+			--arrow-background: #{$panel};
 			// Zag sets --arrow-offset inline (arrow tucked half into the content box
 			// by default), so this needs !important to win and pull the tip 1px
 			// clear of the content's border.
@@ -434,8 +438,8 @@ $action-cell-opacity: 1.5;
 		// blending into it.
 		&__popover-arrow-tip {
 			clip-path: polygon(0 0, 100% 0, 0 100%);
-			border-top: 1px solid $white;
-			border-left: 1px solid $white;
+			border-top: 1px solid $rule-strong;
+			border-left: 1px solid $rule-strong;
 		}
 	}
 }

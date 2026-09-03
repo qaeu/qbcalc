@@ -1,40 +1,17 @@
 @forward 'sass:map';
 @use 'sass:map' as *;
 
-@use '@radix-ui/colors/grass';
-@use '@radix-ui/colors/grass-alpha';
-@use '@radix-ui/colors/sage';
-@use '@radix-ui/colors/sage-alpha';
-@use '@radix-ui/colors/teal';
-@use '@radix-ui/colors/teal-alpha';
-@use '@radix-ui/colors/amber';
-@use '@radix-ui/colors/amber-alpha';
-@use '@radix-ui/colors/ruby';
-@use '@radix-ui/colors/ruby-alpha';
-@use '@radix-ui/colors/blue';
-@use '@radix-ui/colors/blue-alpha';
-
-@use '@radix-ui/colors/grass-dark';
-@use '@radix-ui/colors/grass-dark-alpha';
-@use '@radix-ui/colors/sage-dark';
-@use '@radix-ui/colors/sage-dark-alpha';
-@use '@radix-ui/colors/teal-dark';
-@use '@radix-ui/colors/teal-dark-alpha';
-@use '@radix-ui/colors/amber-dark';
-@use '@radix-ui/colors/amber-dark-alpha';
-@use '@radix-ui/colors/ruby-dark';
-@use '@radix-ui/colors/ruby-dark-alpha';
-@use '@radix-ui/colors/blue-dark';
-@use '@radix-ui/colors/blue-dark-alpha';
-
-@use '@radix-ui/colors/white-alpha';
-@use '@radix-ui/colors/black-alpha';
+@use 'palette';
 
 /* - THEME COLOURS - */
 
-// Maps a Radix 12-step scale onto semantic slot names. Every value is a CSS
-// custom property, so switching `.dark-theme` on <body> reskins the whole app
-// without recompiling.
+// Maps a 12-step scale onto semantic slot names. Every value is a CSS custom
+// property, so switching `.dark-theme` on <body> reskins the whole app without
+// recompiling.
+//
+// The scales in `_palette.scss` are dark scales: step 1 is the deepest surface,
+// step 12 the lightest ink. The slot names below keep their meaning either way
+// -- `bg` is still what a surface is painted, `fg` still what text is set in.
 @function _colourset($colour-name) {
 	@return (
 		'fg': var(--#{$colour-name}-12),
@@ -54,12 +31,12 @@
 	);
 }
 
-// Primary brand colour - blackjack table felt
-$primaries: _colourset('grass');
+// The accent, and the one bright object on a real table: the cut card.
+$primaries: _colourset('gold');
 $primary: get($primaries, 'base');
 
-// Neutrals - primary text and key UI elements
-$neutrals: _colourset('sage');
+// Neutrals - the baize, and the cream the layout is printed in
+$neutrals: _colourset('baize');
 $foreground: get($neutrals, 'fg');
 $background: get($neutrals, 'bg');
 
@@ -67,53 +44,107 @@ $background: get($neutrals, 'bg');
 $greys: $neutrals;
 
 // Semantic colours
-$successes: _colourset('teal');
-$warnings: _colourset('amber');
+$successes: _colourset('mint');
+$warnings: _colourset('gold');
 $errors: _colourset('ruby');
-$infos: _colourset('blue');
+$infos: _colourset('sky');
+
+// The printed ink, and the fill a Hit cell carries. Held apart from the
+// neutrals so a Hit and a Surrender are not the same colour: both are quiet
+// next to Stand and Double, but they are different actions.
+$sands: _colourset('sand');
 
 $white: var(--white-a12);
 $black: var(--black-a12);
 
+/* - MATERIALS - */
+
+$stock: var(--stock);
+$stock-lit: var(--stock-lit);
+$stock-shade: var(--stock-shade);
+$stock-ink: var(--stock-ink);
+$stock-ink-red: var(--stock-ink-red);
+
+$panel: var(--panel);
+$rail: var(--rail-4);
+$rail-lit: var(--rail-6);
+$rail-deep: var(--rail-2);
+
+// Hairlines printed on the felt. The rules that structure the data views are
+// ink, not borders in a lighter grey -- there is no lighter grey here.
+$rule: var(--baize-a2);
+$rule-strong: var(--baize-a3);
+
+// The baize itself: a woven nap over a lit centre falling away to the rail.
+// The two repeating gradients are the weave; the radial is the pit light.
+@mixin baize {
+	background-color: get($neutrals, 'bg');
+	background-image:
+		repeating-linear-gradient(45deg, rgb(255 255 255 / 0.014) 0 1px, transparent 1px 3px),
+		repeating-linear-gradient(-45deg, rgb(0 0 0 / 0.035) 0 1px, transparent 1px 3px),
+		radial-gradient(
+			120% 80% at 50% 0%,
+			get($neutrals, 'bg-dark') 0%,
+			get($neutrals, 'bg') 55%,
+			oklch(from get($neutrals, 'bg') calc(l * 0.72) c h) 100%
+		);
+}
+
+// The padded rail bounding the table, carrying the header and the footer.
+@mixin rail {
+	background: linear-gradient(180deg, $rail-lit 0%, $rail 62%, $rail-deep 100%);
+	border-bottom: 1px solid var(--rail-1);
+}
+
+// Lettering stencilled onto the felt: the layout print, and every label that
+// takes its voice from it.
+// `$caps` off for anything that is a sentence rather than a label. A table's
+// lettering is set in capitals, but a line of prose set that way is just hard
+// to read -- the condensed face and the tracking carry the voice on their own.
+@mixin print($size: 12px, $tracking: 0.18em, $caps: true) {
+	font-family: 'Archivo Narrow', 'Archivo', system-ui, sans-serif;
+	font-size: $size;
+	font-weight: 500;
+	letter-spacing: $tracking;
+	@if $caps {
+		text-transform: uppercase;
+	}
+	color: get($neutrals, 'fg-light');
+}
+
+// Card stock: warm, bevelled, and dropped onto the felt rather than drawn on it.
+@mixin card-stock {
+	background: linear-gradient(160deg, $stock-lit 0%, $stock 46%, $stock-shade 100%);
+	color: $stock-ink;
+	box-shadow:
+		inset 0 1px 0 rgb(255 255 255 / 0.6),
+		0 8px 16px rgb(0 0 0 / 0.42),
+		0 2px 4px rgb(0 0 0 / 0.3);
+}
+
 /* - SHADOWS - */
 
+// Black on a dark ground, and heavier than a shadow on white needs to be:
+// on baize an object is told from its surface by the light it blocks.
 $shadow-base: $black;
-$shadow-light: var(--sage-10);
+$shadow-light: $black;
 
 @mixin shadow-short($colour: $shadow-base) {
 	box-shadow:
-		0px 0px 1px oklch(from $colour l c h / 0.05),
-		1px 2px 3px oklch(from $colour l c h / 0.05);
-
-	@at-root .dark-theme & {
-		box-shadow:
-			0px 0px 1px oklch(from $colour l c h / 0.2),
-			1px 2px 3px oklch(from $colour l c h / 0.2);
-	}
+		0 1px 2px oklch(from $colour l c h / 0.25),
+		0 2px 6px oklch(from $colour l c h / 0.2);
 }
 
 @mixin shadow($colour: $shadow-base) {
 	box-shadow:
-		1px 2px 3px oklch(from $colour l c h / 0.05),
-		2px 4px 6px oklch(from $colour l c h / 0.05);
-
-	@at-root .dark-theme & {
-		box-shadow:
-			1px 2px 3px oklch(from $colour l c h / 0.2),
-			2px 4px 6px oklch(from $colour l c h / 0.2);
-	}
+		0 2px 4px oklch(from $colour l c h / 0.28),
+		0 8px 20px oklch(from $colour l c h / 0.3);
 }
 
 @mixin shadow-inset($colour: $shadow-base) {
 	box-shadow:
-		inset 1px 2px 3px oklch(from $colour l c h / 0.05),
-		inset 2px 4px 6px oklch(from $colour l c h / 0.05);
-
-	@at-root .dark-theme & {
-		box-shadow:
-			inset 1px 2px 3px oklch(from $colour l c h / 0.3),
-			inset 2px 4px 6px oklch(from $colour l c h / 0.3);
-	}
+		inset 0 1px 3px oklch(from $colour l c h / 0.35),
+		inset 0 4px 12px oklch(from $colour l c h / 0.25);
 }
 
 /* - BREAKPOINTS - */
@@ -157,13 +188,15 @@ $breakpoint-short: 600px;
 	}
 }
 
-// Card/box styling with shadow and rounded corners
-@mixin card($bg-colour: $background) {
-	@include shadow-short;
+// A panel on the felt. Not a card lifted off a light page -- there is no light
+// page here -- but a slightly deeper patch of table, bounded by a printed
+// hairline. Nothing in the data views floats.
+@mixin card($bg-colour: null) {
 	padding: 20px;
 	margin-bottom: 30px;
-	background-color: $bg-colour;
-	border-radius: 8px;
+	background-color: if($bg-colour, $bg-colour, $panel);
+	border: 1px solid $rule;
+	border-radius: 3px;
 	contain: layout;
 }
 
@@ -171,9 +204,9 @@ $breakpoint-short: 600px;
 @mixin info-box($bg-colour, $border-colour) {
 	padding: 15px;
 	background-color: $bg-colour;
-	border-left: 4px solid $border-colour;
+	border-left: 3px solid $border-colour;
 	margin-bottom: 20px;
-	border-radius: 4px;
+	border-radius: 2px;
 
 	p {
 		margin: 0;
@@ -181,21 +214,26 @@ $breakpoint-short: 600px;
 	}
 }
 
+// A control on the felt: recessed, printed, and marked in gold when it is the
+// one in play.
 @mixin button($colourset: $primaries) {
-	@include shadow-short($shadow-light);
-	padding: 8px 12px;
-	border: 1px solid get($greys, 'sep');
-	border-radius: 4px;
-	color: get($greys, 'fg-light');
-	background-color: transparent;
+	@include print(13px, 0.14em);
+	padding: 9px 14px;
+	border: 1px solid $rule-strong;
+	border-radius: 3px;
+	color: get($neutrals, 'fg');
+	background-color: rgb(0 0 0 / 0.22);
 	cursor: pointer;
-	font-size: 13px;
-	letter-spacing: 1px;
-	transition: all 0.2s ease;
+	font-weight: 600;
+	transition:
+		background-color 0.2s ease,
+		border-color 0.2s ease,
+		color 0.2s ease;
 
 	&:hover:not(:disabled, .active) {
 		border-color: get($colourset, 'sep-dark');
-		color: get($colourset, 'base-dark');
+		background-color: rgb(0 0 0 / 0.34);
+		color: get($colourset, 'fg');
 	}
 
 	&.highlight:hover:not(:disabled, .active) {
@@ -204,38 +242,35 @@ $breakpoint-short: 600px;
 
 	&.active {
 		background-color: get($colourset, 'base');
-		border-color: transparent;
-		color: $white;
+		border-color: get($colourset, 'base-dark');
+		color: var(--rail-1);
 	}
 
 	&:disabled {
-		box-shadow: none;
-		background: none;
-		border-color: get($greys, 'fade-less');
-		color: get($greys, 'sep-dark');
+		background-color: rgb(0 0 0 / 0.1);
+		border-color: $rule;
+		color: get($neutrals, 'sep-dark');
 		cursor: default;
 	}
 }
 
-// Shared look for text/number inputs and select triggers
+// Shared look for text/number inputs and select triggers. Cut into the felt
+// rather than laid on it, so a field reads as somewhere to write.
 @mixin form-control {
 	box-sizing: border-box;
 	width: 100%;
-	padding: 6px 8px;
-	border: 1px solid get($neutrals, 'sep');
-	border-radius: 4px;
-	background-color: get($neutrals, 'bg');
+	padding: 7px 9px;
+	border: 1px solid $rule-strong;
+	border-radius: 2px;
+	background-color: rgb(0 0 0 / 0.3);
 	color: $foreground;
 }
 
 // Heading for a section within a settings panel or card
 @mixin panel-title {
+	@include print(12px, 0.2em);
 	margin: 0;
-	font-weight: 400;
-	font-size: 13px;
-	letter-spacing: 1px;
-	text-transform: uppercase;
-	color: get($neutrals, 'fg-light');
+	font-weight: 600;
 }
 
 // A setting's label text plus its optional trailing help icon
@@ -258,13 +293,13 @@ $breakpoint-short: 600px;
 }
 
 // Pre/code block styling
-@mixin code-block($bg: $background) {
+@mixin code-block($bg: rgb(0 0 0 / 0.3)) {
 	background-color: $bg;
 	padding: 15px;
-	border-radius: 4px;
+	border-radius: 2px;
 	white-space: pre-wrap;
 	word-wrap: break-word;
-	border: 1px solid get($neutrals, 'sep');
+	border: 1px solid $rule-strong;
 	font-family: 'Fira Mono', monospace;
 	font-size: 12px;
 	line-height: 1.5;
