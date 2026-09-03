@@ -5,7 +5,10 @@
 
 @layer base {
 	body {
-		width: 100vw;
+		// `100%`, not `100vw`: with the scrollbar gutter reserved on <html>
+		// below, the viewport unit is wider than the content box and is a
+		// standing horizontal-overflow trap that `overflow-x` only masks.
+		width: 100%;
 		overflow-x: hidden;
 		min-height: 100vh;
 		margin: 0;
@@ -29,14 +32,17 @@
 
 	h1 {
 		font-weight: 300;
-		font-size: 32px;
+		// Clamped rather than stepped at a breakpoint: the title is the widest
+		// thing in the header bar, and on a narrow phone it has to give way
+		// smoothly instead of wrapping onto a second line.
+		font-size: clamp(22px, 6vw, 32px);
 		color: get($primaries, 'fg-light');
 		margin: 20px 0;
 	}
 
 	h2 {
 		font-weight: 400;
-		font-size: 24px;
+		font-size: clamp(20px, 5vw, 24px);
 		letter-spacing: 1px;
 		color: get($primaries, 'fg-light');
 		margin: 16px 0;

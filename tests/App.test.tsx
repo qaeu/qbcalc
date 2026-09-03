@@ -28,12 +28,37 @@ function goToPlay(): void {
 	fireEvent.click(within(header).getByRole('tab', { name: /Play/ }));
 }
 
+/**
+ * Answers media queries against a made-up viewport, understanding the two
+ * features the app asks about. jsdom's own `matchMedia` answers `false` to
+ * everything, so every other test in this file exercises the desktop tree.
+ */
+function stubViewport(width: number, height: number): void {
+	window.matchMedia = ((query: string) => {
+		const matches = query.split(',').some((clause) => {
+			const maxWidth = /\(max-width:\s*(\d+)px\)/.exec(clause);
+			if (maxWidth) return width <= Number(maxWidth[1]);
+			const maxHeight = /\(max-height:\s*(\d+)px\)/.exec(clause);
+			if (maxHeight) return height <= Number(maxHeight[1]);
+			return false;
+		});
+		return {
+			matches,
+			media: query,
+			addEventListener: () => {},
+			removeEventListener: () => {},
+		} as unknown as MediaQueryList;
+	}) as typeof window.matchMedia;
+}
+
 describe('App', () => {
 	// The hash is real browser state, shared across tests in this file rather
 	// than reset between renders, so a tab switch in one test would otherwise
 	// leak into the next test's starting view.
+	const originalMatchMedia = window.matchMedia;
 	beforeEach(() => {
 		window.location.hash = '';
+		window.matchMedia = originalMatchMedia;
 	});
 
 	// EvTable's initial render computes three exact-enumeration tables
@@ -243,6 +268,48 @@ describe('App', () => {
 			await waitFor(() => expect(skeletons()).toBe(0));
 			await waitFor(() => expect(summaryText()).toBe(fast));
 		}, 30000);
+	});
+
+	describe('on a compact viewport', () => {
+		it('moves the settings out of the layout and behind the header button', async () => {
+			stubViewport(390, 844);
+			render(() => <App />);
+
+			// Neither in the page nor mounted anywhere else: the drawer holds it,
+			// and the drawer does not mount until it is first opened.
+			expect(document.querySelector('.app__layout .settings-sidebar')).toBeNull();
+			expect(document.querySelector('.settings-sidebar')).toBeNull();
+
+			fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+
+			await waitFor(() =>
+				expect(
+					document.querySelector('.settings-drawer .settings-sidebar')
+				).not.toBeNull()
+			);
+			// Still out of the flow of the page itself.
+			expect(document.querySelector('.app__layout .settings-sidebar')).toBeNull();
+		}, 20000);
+
+		it('opens the settings on a landscape phone, which is short rather than narrow', () => {
+			// 844x390 clears the 800px width breakpoint entirely, so this is the
+			// max-height half of the query doing the work on its own. The button
+			// has no second, CSS-side gate precisely so that it cannot go missing
+			// here while the sidebar is pulled out of the layout regardless.
+			stubViewport(844, 390);
+			render(() => <App />);
+
+			expect(document.querySelector('.app__layout .settings-sidebar')).toBeNull();
+			expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
+		}, 20000);
+
+		it('keeps the sidebar in the layout on a desktop viewport', () => {
+			stubViewport(1440, 900);
+			render(() => <App />);
+
+			expect(document.querySelector('.app__layout .settings-sidebar')).not.toBeNull();
+			expect(screen.queryByRole('button', { name: 'Settings' })).toBeNull();
+		}, 20000);
 	});
 
 	describe('the Play view', () => {

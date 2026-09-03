@@ -1,0 +1,113 @@
+@use 'base' as *;
+
+// The same layer the cell drill-down sits at: the drawer is the only dialog
+// the compact layout opens, so the two never overlap, but they should not be
+// able to slide under each other's backdrop either.
+$drawer-z-index: 40;
+
+@layer screen {
+	.settings-drawer {
+		box-sizing: border-box;
+		display: flex;
+		// The panel is kept mounted across a close (`unmountOnExit={false}`, so
+		// the form inside holds its state), and Ark marks it closed with the
+		// `hidden` attribute alone -- which the `display: flex` above would
+		// otherwise override, leaving a visible panel that ignores every click
+		// because Zag has taken the pointer events off its positioner. Same trap
+		// as the sidebar's own tab panels.
+		&[hidden] {
+			display: none;
+		}
+
+		flex-direction: column;
+		gap: 12px;
+		// Held to the viewport rather than the content: scrolling *inside* the
+		// panel is what makes it usable in landscape, where the settings card is
+		// several times the height of the screen.
+		height: 100dvh;
+		width: min(320px, 88vw);
+		padding: 16px 12px;
+		padding-bottom: max(16px, env(safe-area-inset-bottom));
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		// The anchor for the popup layer below.
+		position: relative;
+		border-right: 1px solid get($neutrals, 'sep');
+		background-color: $background;
+		// Taken back from the positioner above, which disowns them for the whole
+		// viewport it covers.
+		pointer-events: auto;
+
+		&__backdrop {
+			position: fixed;
+			inset: 0;
+			z-index: $drawer-z-index;
+			background-color: oklch(from $black l c h / 0.05);
+			backdrop-filter: blur(2px);
+		}
+
+		// Pinned to the inline-start edge, full height, rather than centred like
+		// the cell dialog -- it is a panel the page slides out from, not a card
+		// laid over it.
+		&__positioner {
+			position: fixed;
+			inset: 0;
+			z-index: $drawer-z-index;
+			display: flex;
+			justify-content: flex-start;
+			// Unlike the backdrop and the panel, the positioner is never marked
+			// `hidden` -- once the drawer has been opened it stays in the page as
+			// a viewport-sized layer for good. It must therefore never be the
+			// thing a click lands on; only the panel inside it takes pointers.
+			// Dismissing by tapping outside still works, since that is handled by
+			// a document-level listener rather than by hit-testing this element.
+			pointer-events: none;
+		}
+
+		// Hosts the menus portalled out of the form -- inside the panel, so that
+		// the dialog's dismissable layer counts a click on one as a click within
+		// itself rather than a reason to close. Taken out of flow so that it
+		// claims neither a row of the panel's column nor one of its gaps.
+		&__layer {
+			position: absolute;
+			top: 0;
+			left: 0;
+		}
+
+		&__header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+		}
+
+		&__title {
+			@include panel-title;
+		}
+
+		// Icon only, so the shared button chrome would read as a stray box.
+		&__close {
+			display: inline-flex;
+			padding: 8px;
+			border: 0;
+			box-shadow: none;
+			color: get($neutrals, 'fg-light');
+
+			&:hover {
+				color: $foreground;
+			}
+
+			svg {
+				width: 18px;
+				height: 18px;
+			}
+		}
+
+		// The sidebar inside the drawer is already as wide as the panel allows,
+		// and has nothing below it to stick to.
+		.settings-sidebar {
+			flex: 0 0 auto;
+			position: static;
+		}
+	}
+}

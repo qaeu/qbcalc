@@ -14,6 +14,13 @@
 			@media (max-width: $breakpoint-tablet) {
 				grid-template-columns: repeat(2, minmax(0, 1fr));
 			}
+
+			// Two cards to a phone's width leaves the longer figures wrapping
+			// inside their own card, so the grid gives up and stacks.
+			@include phone {
+				grid-template-columns: minmax(0, 1fr);
+				gap: 12px;
+			}
 		}
 
 		&__card {
@@ -37,6 +44,10 @@
 			font-weight: 600;
 			line-height: 1.2;
 
+			@include phone {
+				font-size: 22px;
+			}
+
 			&.is-positive {
 				color: get($primaries, 'fg-light');
 			}
@@ -59,6 +70,11 @@
 
 		&__reset-button {
 			@include button($errors);
+
+			@include phone {
+				flex: 1;
+				padding: 12px;
+			}
 
 			&.is-confirming {
 				border-color: get($errors, 'sep-dark');

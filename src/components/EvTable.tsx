@@ -24,6 +24,7 @@ import {
 } from '#utils/cellDisplay';
 import { createGlobalKeydown, isKeyConsumingTarget } from '#utils/keyboard';
 import { loadingPhase } from '#utils/loadingPhase';
+import { createMediaQuery } from '#utils/media';
 import { loadCellDisplayMode, saveCellDisplayMode } from '#utils/storage';
 import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 
@@ -61,6 +62,14 @@ interface EvCellProps {
 	 * of the upcard, so only the ace column reports it.
 	 */
 	insuranceEvPercent?: number;
+	/**
+	 * Whether a hover card is something this pointer can ask for at all. A tap
+	 * fires a synthetic `pointerover` on its way to the click, so on touch the
+	 * card would open underneath the very dialog the same tap is opening.
+	 * Read once for the whole table rather than per cell -- there are three
+	 * hundred of them, and one `matchMedia` subscription answers for all.
+	 */
+	canHover: boolean;
 }
 
 /**
@@ -156,7 +165,7 @@ const EvCell: Component<EvCellProps> = (props) => {
 			// Controlled purely so the dialog can take the card's place rather
 			// than open on top of it: the card describes the very cell the dialog
 			// is already describing in full.
-			open={hoverOpen() && !hoverSuppressed()}
+			open={hoverOpen() && !hoverSuppressed() && props.canHover}
 			onOpenChange={(details) => setHoverOpen(details.open)}
 		>
 			<HoverCard.Trigger
@@ -244,6 +253,14 @@ interface EvGridProps {
 	trueCount: number;
 	mode: CellDisplayMode;
 	heat: HeatDomains;
+	/**
+	 * Whether a hover card is something this pointer can ask for at all. A tap
+	 * fires a synthetic `pointerover` on its way to the click, so on touch the
+	 * card would open underneath the very dialog the same tap is opening.
+	 * Read once for the whole table rather than per cell -- there are three
+	 * hundred of them, and one `matchMedia` subscription answers for all.
+	 */
+	canHover: boolean;
 	insuranceEvPercent?: number;
 	rowLabel?: (total: number) => string;
 	/**
@@ -287,6 +304,7 @@ const EvGrid: Component<EvGridProps> = (props) => (
 											}
 											upcard={upcard}
 											insuranceEvPercent={props.insuranceEvPercent}
+											canHover={props.canHover}
 										/>
 									)}
 								</For>
@@ -309,6 +327,14 @@ interface SplitEvGridProps {
 	trueCount: number;
 	mode: CellDisplayMode;
 	heat: HeatDomains;
+	/**
+	 * Whether a hover card is something this pointer can ask for at all. A tap
+	 * fires a synthetic `pointerover` on its way to the click, so on touch the
+	 * card would open underneath the very dialog the same tap is opening.
+	 * Read once for the whole table rather than per cell -- there are three
+	 * hundred of them, and one `matchMedia` subscription answers for all.
+	 */
+	canHover: boolean;
 	insuranceEvPercent?: number;
 }
 
@@ -340,6 +366,7 @@ const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
 											hand={formatPairLabel(pairRank)}
 											upcard={upcard}
 											insuranceEvPercent={props.insuranceEvPercent}
+											canHover={props.canHover}
 										/>
 									)}
 								</For>
@@ -403,6 +430,13 @@ const EvTable: Component<EvTableProps> = (props) => {
 		return insurance?.offered ? insurance.countEvPercent : undefined;
 	});
 
+	// Asked as `(hover: none)` and negated rather than as `(hover: hover)`, so
+	// that anything unable to answer -- jsdom, or a browser without the media
+	// feature -- keeps the pointer behaviour rather than losing the cards. One
+	// subscription for the whole table: `EvCell` needs the answer but there are
+	// three hundred of them, and the query is the same for every one.
+	const noHover = createMediaQuery('(hover: none)');
+
 	const [mode, setMode] = createSignal<CellDisplayMode>(
 		loadCellDisplayMode() ?? 'action'
 	);
@@ -463,6 +497,7 @@ const EvTable: Component<EvTableProps> = (props) => {
 					mode={mode()}
 					heat={heat()}
 					insuranceEvPercent={insuranceEvPercent()}
+					canHover={!noHover()}
 				/>
 				<EvGrid
 					title="Soft totals"
@@ -478,6 +513,7 @@ const EvTable: Component<EvTableProps> = (props) => {
 					mode={mode()}
 					heat={heat()}
 					insuranceEvPercent={insuranceEvPercent()}
+					canHover={!noHover()}
 				/>
 				<SplitEvGrid
 					title="Pairs"
@@ -490,6 +526,7 @@ const EvTable: Component<EvTableProps> = (props) => {
 					mode={mode()}
 					heat={heat()}
 					insuranceEvPercent={insuranceEvPercent()}
+					canHover={!noHover()}
 				/>
 			</Show>
 		</section>

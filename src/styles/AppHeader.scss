@@ -9,7 +9,7 @@
 		height: 60px;
 		border-bottom: 1px solid get($neutrals, 'sep');
 
-		@media (max-width: $breakpoint-tablet) {
+		@include compact {
 			height: auto;
 		}
 
@@ -23,20 +23,56 @@
 			margin: 0 auto;
 			padding: 0 20px;
 
-			@media (max-width: $breakpoint-tablet) {
+			@include compact {
 				flex-direction: column;
 				align-items: stretch;
 				height: auto;
 			}
+
+			@include phone {
+				padding: 0 12px;
+			}
+		}
+
+		// The title and, where there is one, the button that opens the settings
+		// drawer beside it -- one row, so the drawer stays reachable without
+		// costing the tab strip any of its width.
+		&__title-row {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			min-width: 0;
 		}
 
 		&__title {
 			display: flex;
 			align-items: center;
+			min-width: 0;
 			margin: 0;
 
-			@media (max-width: $breakpoint-tablet) {
+			@include compact {
 				padding: 14px 0;
+			}
+		}
+
+		// Deliberately not gated on the `compact` mixin as well. Whether the
+		// sidebar is in the page or in the drawer is decided in JS, and `App`
+		// only hands this button a callback in the second case -- so it is in the
+		// markup exactly when it is wanted. A second gate here could only ever
+		// disagree with the first, and the way it fails is the bad one: the
+		// sidebar out of the layout and no button to open it with.
+		&__settings {
+			display: inline-flex;
+			flex: none;
+			align-items: center;
+			justify-content: center;
+			padding: 10px;
+			color: get($neutrals, 'fg-light');
+
+			svg {
+				width: 20px;
+				height: 20px;
 			}
 		}
 
@@ -48,7 +84,7 @@
 			display: flex;
 			align-self: stretch;
 
-			@media (max-width: $breakpoint-tablet) {
+			@include compact {
 				align-self: auto;
 			}
 		}
@@ -76,6 +112,14 @@
 			&[data-selected] {
 				background-color: get($neutrals, 'fade');
 				color: $foreground;
+			}
+
+			// Three even tap targets across the bar, rather than three labels
+			// bunched at one end of it.
+			@include compact {
+				flex: 1;
+				justify-content: center;
+				padding: 12px 8px;
 			}
 		}
 	}

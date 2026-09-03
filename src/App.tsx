@@ -12,6 +12,7 @@ import { labelForSystem } from '#utils/countingSystems';
 import { baseComposition } from '#utils/ev/composition';
 import { simulateRoundFrequency, type RoundFrequency } from '#utils/countRounds';
 import { createHashRoute } from '#utils/hashRoute';
+import { COMPACT_LAYOUT_QUERY, createMediaQuery } from '#utils/media';
 import {
 	calculatorSettingsEqual,
 	DEFAULT_BANKROLL_CONFIG,
@@ -47,6 +48,7 @@ import BankrollOutput from '#c/BankrollOutput';
 import type { CountEvProfile } from '#c/CountEvGraph';
 import EvTable from '#c/EvTable';
 import PlayView from '#c/PlayView';
+import SettingsDrawer from '#c/SettingsDrawer';
 import SettingsSidebar from '#c/SettingsSidebar';
 
 import '#styles/App';
@@ -493,28 +495,59 @@ const App: Component = () => {
 		runCalculation({ ...latestRequestConfig, trueCount: trueCount() }, 'tables');
 	});
 
+	// Whether the settings belong in a drawer rather than a column beside the
+	// content -- on a phone in either orientation, where there is neither the
+	// width for a sidebar nor the height to scroll past one.
+	const compact = createMediaQuery(COMPACT_LAYOUT_QUERY);
+	const [settingsOpen, setSettingsOpen] = createSignal(false);
+	// A viewport that grows past the breakpoint puts the sidebar back in the
+	// page, so the drawer's open flag has to be dropped with it -- otherwise
+	// coming back down to a phone width reopens it unasked.
+	createEffect(() => {
+		if (!compact()) setSettingsOpen(false);
+	});
+
+	/**
+	 * One sidebar, mounted in one of two places. Switching between them remounts
+	 * it, which re-seeds the form -- hence the live settings rather than the
+	 * load-time config, so the fields come back showing what is actually being
+	 * calculated. See `SettingsSidebarProps.config`.
+	 */
+	const sidebar = () => (
+		<SettingsSidebar
+			config={{ ...liveSettings(), trueCount: trueCount() }}
+			calcTimeMs={calcTimeMs()}
+			onSettingsChange={requestCalculation}
+			// Play always grades at 'fast': the felt asks for a new count every
+			// few cards, and a seconds-long run has nothing to offer it.
+			onFullCalculation={tab() === 'play' ? undefined : runFullCalculation}
+			isFullResult={resultPrecision() === 'full'}
+			isBusy={
+				isComputing() || isSummaryComputing() || latestRequestPrecision() === 'full'
+			}
+			bankroll={bankroll()}
+			bankrollAnalysis={bankrollAnalysis()}
+			onBankrollChange={updateBankroll}
+			play={play()}
+			onPlayChange={updatePlay}
+		/>
+	);
+
 	return (
 		<>
-			<AppHeader tab={tab()} onTabChange={setTab} />
+			<AppHeader
+				tab={tab()}
+				onTabChange={setTab}
+				onOpenSettings={compact() ? () => setSettingsOpen(true) : undefined}
+			/>
+			<Show when={compact()}>
+				<SettingsDrawer open={settingsOpen()} onOpenChange={setSettingsOpen}>
+					{sidebar()}
+				</SettingsDrawer>
+			</Show>
 			<main class="app">
 				<div class="app__layout">
-					<SettingsSidebar
-						initialConfig={initialConfig}
-						calcTimeMs={calcTimeMs()}
-						onSettingsChange={requestCalculation}
-						// Play always grades at 'fast': the felt asks for a new count every
-						// few cards, and a seconds-long run has nothing to offer it.
-						onFullCalculation={tab() === 'play' ? undefined : runFullCalculation}
-						isFullResult={resultPrecision() === 'full'}
-						isBusy={
-							isComputing() || isSummaryComputing() || latestRequestPrecision() === 'full'
-						}
-						bankroll={bankroll()}
-						bankrollAnalysis={bankrollAnalysis()}
-						onBankrollChange={updateBankroll}
-						play={play()}
-						onPlayChange={updatePlay}
-					/>
+					<Show when={!compact()}>{sidebar()}</Show>
 					<Show when={tab() === 'tables'}>
 						<EvTable
 							result={result}

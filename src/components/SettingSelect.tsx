@@ -12,6 +12,8 @@ import { Portal } from 'solid-js/web';
 
 import { ChevronDown } from 'lucide-solid';
 
+import { usePortalMount } from '#c/portalMount';
+
 import '#styles/SettingSelect';
 
 export interface SettingOption<T extends string> {
@@ -28,6 +30,11 @@ interface SettingSelectProps<T extends string> {
 }
 
 function SettingSelect<T extends string>(props: SettingSelectProps<T>): JSX.Element {
+	// The body, except inside the settings drawer, where a menu portalled to the
+	// body would open underneath the drawer and close it on the way -- see
+	// `#c/portalMount`.
+	const mount = usePortalMount();
+
 	const collection = createMemo(() =>
 		createListCollection({
 			items: [...props.options],
@@ -50,7 +57,7 @@ function SettingSelect<T extends string>(props: SettingSelectProps<T>): JSX.Elem
 					</Select.Indicator>
 				</Select.Trigger>
 			</Select.Control>
-			<Portal>
+			<Portal mount={mount()}>
 				<Select.Positioner>
 					<Select.Content class="setting-select__content">
 						<For each={collection().items}>

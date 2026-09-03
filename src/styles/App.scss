@@ -11,8 +11,13 @@
 		gap: 30px;
 		align-items: flex-start;
 
-		@media (max-width: $breakpoint-tablet) {
+		@include compact {
 			flex-direction: column;
+			// Stretch, not the `flex-start` above. Turning the column on swaps the
+			// cross axis to the horizontal, so `flex-start` stops meaning "sit at
+			// the top" and starts meaning "be only as wide as your content" --
+			// which leaves the felt and the bankroll cards short of the screen.
+			align-items: stretch;
 		}
 	}
 }

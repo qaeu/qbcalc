@@ -23,10 +23,21 @@
 			align-self: flex-start;
 			border-radius: 6px;
 			background-color: get($neutrals, 'fade');
+
+			// Full width, so Table/Stats are tap targets rather than two small
+			// labels tucked into the corner.
+			@include compact {
+				align-self: stretch;
+			}
 		}
 
 		&__tab {
 			padding: 6px 16px;
+
+			@include compact {
+				flex: 1;
+				padding: 10px 12px;
+			}
 			border: none;
 			border-radius: 4px;
 			background: none;

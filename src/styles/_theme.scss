@@ -119,6 +119,30 @@ $shadow-light: var(--sage-10);
 /* - BREAKPOINTS - */
 
 $breakpoint-tablet: 800px;
+$breakpoint-mobile: 560px;
+$breakpoint-short: 600px;
+
+// Narrow *or* short: a phone in landscape clears $breakpoint-tablet on width
+// while having less height than a settings card needs. Kept in sync by hand
+// with COMPACT_LAYOUT_QUERY in `utils/media.ts` -- change one, change the other.
+@mixin compact {
+	@media (max-width: $breakpoint-tablet), (max-height: $breakpoint-short) {
+		@content;
+	}
+}
+
+@mixin phone {
+	@media (max-width: $breakpoint-mobile) {
+		@content;
+	}
+}
+
+// Devices with no hover: hotkey hints and hover cards are inert there.
+@mixin touch {
+	@media (hover: none) {
+		@content;
+	}
+}
 
 /* - LAYOUT MIXINS - */
 
@@ -127,6 +151,10 @@ $breakpoint-tablet: 800px;
 	padding: 20px;
 	max-width: 1400px;
 	margin: 0 auto;
+
+	@include phone {
+		padding: 12px;
+	}
 }
 
 // Card/box styling with shadow and rounded corners

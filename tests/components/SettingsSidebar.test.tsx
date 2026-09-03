@@ -35,7 +35,7 @@ describe('SettingsSidebar', () => {
 		const onSettingsChange = vi.fn();
 		render(() => (
 			<SettingsSidebar
-				initialConfig={DEFAULT_CONFIG}
+				config={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSettingsChange={onSettingsChange}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
@@ -61,11 +61,11 @@ describe('SettingsSidebar', () => {
 		expect(onSettingsChange).toHaveBeenCalledTimes(1);
 	});
 
-	it('restores previously submitted values from the given initialConfig', () => {
+	it('restores previously submitted values from the given config', () => {
 		cleanup();
 		render(() => (
 			<SettingsSidebar
-				initialConfig={{
+				config={{
 					...DEFAULT_CONFIG,
 					decks: 6,
 					dealerHitsSoft17: false,
@@ -88,7 +88,7 @@ describe('SettingsSidebar', () => {
 		const onSettingsChange = vi.fn();
 		render(() => (
 			<SettingsSidebar
-				initialConfig={DEFAULT_CONFIG}
+				config={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSettingsChange={onSettingsChange}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
@@ -131,7 +131,7 @@ describe('SettingsSidebar', () => {
 		cleanup();
 		render(() => (
 			<SettingsSidebar
-				initialConfig={DEFAULT_CONFIG}
+				config={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSettingsChange={vi.fn()}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
@@ -161,7 +161,7 @@ describe('SettingsSidebar', () => {
 		const onSettingsChange = vi.fn();
 		render(() => (
 			<SettingsSidebar
-				initialConfig={{ ...DEFAULT_CONFIG, dealerPeek: true, surrender: 'late' }}
+				config={{ ...DEFAULT_CONFIG, dealerPeek: true, surrender: 'late' }}
 				calcTimeMs={null}
 				onSettingsChange={onSettingsChange}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
@@ -189,7 +189,7 @@ describe('SettingsSidebar', () => {
 			cleanup();
 			render(() => (
 				<SettingsSidebar
-					initialConfig={DEFAULT_CONFIG}
+					config={DEFAULT_CONFIG}
 					calcTimeMs={null}
 					onSettingsChange={onSettingsChange}
 					bankroll={DEFAULT_BANKROLL_CONFIG}
@@ -257,7 +257,7 @@ describe('SettingsSidebar', () => {
 		const onSettingsChange = vi.fn();
 		render(() => (
 			<SettingsSidebar
-				initialConfig={DEFAULT_CONFIG}
+				config={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSettingsChange={onSettingsChange}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
@@ -285,7 +285,7 @@ describe('SettingsSidebar', () => {
 		const onSettingsChange = vi.fn();
 		render(() => (
 			<SettingsSidebar
-				initialConfig={DEFAULT_CONFIG}
+				config={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSettingsChange={onSettingsChange}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
@@ -310,7 +310,7 @@ describe('SettingsSidebar', () => {
 		cleanup();
 		render(() => (
 			<SettingsSidebar
-				initialConfig={{
+				config={{
 					...DEFAULT_CONFIG,
 					penetrationPercent: 50,
 					splitLimit: 3,
@@ -342,7 +342,7 @@ describe('SettingsSidebar', () => {
 	it('shows only the selected tab‘s settings', async () => {
 		render(() => (
 			<SettingsSidebar
-				initialConfig={DEFAULT_CONFIG}
+				config={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSettingsChange={vi.fn()}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
@@ -372,7 +372,7 @@ describe('SettingsSidebar', () => {
 	it('shows the tag values of the initial counting system', () => {
 		render(() => (
 			<SettingsSidebar
-				initialConfig={DEFAULT_CONFIG}
+				config={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSettingsChange={vi.fn()}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
@@ -398,7 +398,7 @@ describe('SettingsSidebar', () => {
 		const onSettingsChange = vi.fn();
 		render(() => (
 			<SettingsSidebar
-				initialConfig={DEFAULT_CONFIG}
+				config={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSettingsChange={onSettingsChange}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
@@ -427,7 +427,7 @@ describe('SettingsSidebar', () => {
 		cleanup();
 		render(() => (
 			<SettingsSidebar
-				initialConfig={{
+				config={{
 					...DEFAULT_CONFIG,
 					system: 'custom',
 					tags: { ...ACE_FIVE_TAGS, T: -1 },
@@ -463,7 +463,7 @@ describe('SettingsSidebar', () => {
 		cleanup();
 		render(() => (
 			<SettingsSidebar
-				initialConfig={DEFAULT_CONFIG}
+				config={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSettingsChange={vi.fn()}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
@@ -498,7 +498,7 @@ describe('SettingsSidebar', () => {
 		cleanup();
 		render(() => (
 			<SettingsSidebar
-				initialConfig={DEFAULT_CONFIG}
+				config={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSettingsChange={vi.fn()}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
@@ -539,7 +539,7 @@ describe('SettingsSidebar', () => {
 		const onSettingsChange = vi.fn();
 		render(() => (
 			<SettingsSidebar
-				initialConfig={DEFAULT_CONFIG}
+				config={DEFAULT_CONFIG}
 				calcTimeMs={null}
 				onSettingsChange={onSettingsChange}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
@@ -563,7 +563,7 @@ describe('SettingsSidebar', () => {
 	it('shows the calculation duration when calcTimeMs is provided', () => {
 		render(() => (
 			<SettingsSidebar
-				initialConfig={DEFAULT_CONFIG}
+				config={DEFAULT_CONFIG}
 				calcTimeMs={1234}
 				onSettingsChange={vi.fn()}
 				bankroll={DEFAULT_BANKROLL_CONFIG}
@@ -584,7 +584,7 @@ describe('SettingsSidebar', () => {
 		) => {
 			render(() => (
 				<SettingsSidebar
-					initialConfig={DEFAULT_CONFIG}
+					config={DEFAULT_CONFIG}
 					calcTimeMs={null}
 					onSettingsChange={onSettingsChange}
 					bankroll={DEFAULT_BANKROLL_CONFIG}
@@ -660,7 +660,7 @@ describe('SettingsSidebar', () => {
 			cleanup();
 			render(() => (
 				<SettingsSidebar
-					initialConfig={DEFAULT_CONFIG}
+					config={DEFAULT_CONFIG}
 					calcTimeMs={1234}
 					onSettingsChange={vi.fn()}
 					bankroll={DEFAULT_BANKROLL_CONFIG}

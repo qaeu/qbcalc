@@ -18,9 +18,19 @@ $chip-colours: (
 		flex-direction: column;
 		gap: 16px;
 		margin-bottom: 0;
+		// Card geometry as variables rather than fixed lengths, so the seat's
+		// reserved height below follows whatever size the viewport calls for.
+		--play-card-width: 68px;
+		--play-card-height: 96px;
+
+		@include phone {
+			--play-card-width: 46px;
+			--play-card-height: 64px;
+		}
 
 		&__hud {
 			display: flex;
+			flex-wrap: wrap;
 			align-items: center;
 			gap: 12px;
 			font-size: 13px;
@@ -73,7 +83,7 @@ $chip-colours: (
 			display: flex;
 			flex-direction: column;
 			gap: 14px;
-			padding: 18px;
+			padding: 12px;
 			border-radius: 8px;
 			background-color: get($successes, 'fade');
 		}
@@ -91,6 +101,14 @@ $chip-colours: (
 				border-color: get($primaries, 'sep');
 				background-color: get($primaries, 'fade');
 			}
+
+			// Stacked, so the cards get the felt's whole width instead of sharing
+			// it with a label column -- which is what makes a four-card hand fit.
+			@include compact {
+				flex-direction: column;
+				align-items: flex-start;
+				gap: 4px;
+			}
 		}
 
 		&__seat-label {
@@ -98,6 +116,10 @@ $chip-colours: (
 			flex: none;
 			font-size: 13px;
 			color: get($neutrals, 'fg-light');
+
+			@include compact {
+				width: auto;
+			}
 		}
 
 		&__hand-index {
@@ -106,11 +128,15 @@ $chip-colours: (
 
 		&__cards {
 			display: flex;
+			// Wrapping rather than squashing: a five-hand split has more cards
+			// than a narrow felt can hold in one line, and the seat is free to
+			// grow now that nothing below it is pinned.
+			flex-wrap: wrap;
 			gap: 6px;
 			// Reserved at the height of a card so a seat holds its place before its
 			// first card lands, instead of the felt growing under everything below
 			// it as the reveal queue lands each card.
-			min-height: 96px;
+			min-height: var(--play-card-height);
 		}
 
 		&__card {
@@ -119,8 +145,8 @@ $chip-colours: (
 			flex-direction: column;
 			align-items: center;
 			justify-content: center;
-			width: 68px;
-			height: 96px;
+			width: var(--play-card-width);
+			height: var(--play-card-height);
 			border-radius: 8px;
 			background-color: $white;
 			color: #1a1a1a;
@@ -141,12 +167,22 @@ $chip-colours: (
 					get($primaries, 'base-dark') 4px 8px
 				);
 			}
+
+			@include phone {
+				border-radius: 6px;
+				font-size: 20px;
+			}
 		}
 
 		&__card-suit {
 			margin-top: 4px;
 			font-size: 24px;
 			font-weight: 400;
+
+			@include phone {
+				margin-top: 2px;
+				font-size: 16px;
+			}
 		}
 
 		&__total {
@@ -227,6 +263,15 @@ $chip-colours: (
 			flex-direction: column;
 			align-items: center;
 			gap: 4px;
+
+			// Only the slots holding a full-width control take half the row; a
+			// chip's slot is the size of the chip in it, whatever the viewport.
+			@include compact {
+				&:has(> .play-table__control) {
+					flex: 1 1 calc(50% - 4px);
+					min-width: 0;
+				}
+			}
 		}
 
 		&__chip {
@@ -272,6 +317,15 @@ $chip-colours: (
 		&__control {
 			@include button;
 			min-width: 140px;
+
+			// Two to a row rather than one per line: 140px is more than half a
+			// phone's width, so a fixed minimum would stack every button. The
+			// slot around it is the flex item, so the width is claimed there and
+			// the button just fills it.
+			@include compact {
+				width: 100%;
+				min-width: 0;
+			}
 		}
 
 		&__action {
@@ -281,6 +335,11 @@ $chip-colours: (
 			justify-content: center;
 			gap: 6px;
 			min-width: 140px;
+
+			@include compact {
+				flex: 1 1 calc(50% - 4px);
+				min-width: 0;
+			}
 
 			// The action colours the grids already use, so a Stand on the felt and
 			// a Stand in a cell are the same colour.
@@ -299,7 +358,20 @@ $chip-colours: (
 			}
 		}
 
-		// The digit that fires the button beside it.
+		// A 44px tap target is the floor on touch, which the shared button
+		// chrome's 8px padding does not reach. Applied to the felt's own
+		// controls rather than to `button` at large, so nothing else in the app
+		// changes size.
+		&__action,
+		&__control {
+			@include touch {
+				padding: 12px;
+			}
+		}
+
+		// The digit that fires the button beside it. Hidden where there are no
+		// keys to press -- the handlers stay wired, so a phone with a keyboard
+		// attached still works, it just gets no hints.
 		&__key {
 			display: inline-flex;
 			align-items: center;
@@ -312,6 +384,10 @@ $chip-colours: (
 			font-size: 11px;
 			font-weight: 600;
 			letter-spacing: 0;
+
+			@include touch {
+				display: none;
+			}
 		}
 
 		&__net {

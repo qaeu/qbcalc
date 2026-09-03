@@ -1,5 +1,12 @@
 import { Tabs } from '@ark-ui/solid/tabs';
-import { createEffect, createSignal, onCleanup, Show, type Component } from 'solid-js';
+import {
+	createEffect,
+	createSignal,
+	onCleanup,
+	Show,
+	untrack,
+	type Component,
+} from 'solid-js';
 import { createStore } from 'solid-js/store';
 
 import { LayoutGrid, SlidersHorizontal, Spade, Wallet } from 'lucide-solid';
@@ -27,7 +34,15 @@ import SettingsRulesTab from '#c/SettingsRulesTab';
 import '#styles/SettingsSidebar';
 
 interface SettingsSidebarProps {
-	initialConfig: CalculatorConfig;
+	/**
+	 * What the form is seeded from. Read once, at mount, and never tracked
+	 * afterwards -- the form owns its fields from then on. A remount therefore
+	 * re-seeds from whatever is live at that moment, which is what the compact
+	 * layout relies on: moving the sidebar between the page and the drawer
+	 * remounts it, and it has to come back showing the settings in force rather
+	 * than the ones the app loaded with.
+	 */
+	config: CalculatorConfig;
 	calcTimeMs: number | null;
 	/**
 	 * Called once the settings have stopped moving for `INPUT_SETTLE_MS`.
@@ -64,22 +79,28 @@ interface SettingsSidebarProps {
 }
 
 const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
+	// Untracked on purpose: the seed is read once and the form owns its fields
+	// from then on, so nothing here may subscribe to the accessor the app hands
+	// in -- which is a live one, and which is mounted inside a `Show` whose
+	// children are themselves a tracked scope.
+	const seed = untrack(() => ({
+		...settingsFromConfig(props.config),
+		tags: { ...props.config.tags },
+	}));
+
 	// One store rather than a signal per field: the form mirrors every setting,
 	// and reporting a change is then just handing the mirror back. Tag vectors
 	// are copied in rather than stored by reference -- the presets are shared
 	// module constants, and a store takes ownership of the object it is handed.
 	const [config, setConfig] = createStore<CalculatorSettings>({
-		...settingsFromConfig(props.initialConfig),
-		tags: { ...props.initialConfig.tags },
+		...seed,
+		tags: { ...seed.tags },
 	});
 
 	// The settings the shown results were calculated from. The app kicks off a
-	// calculation with initialConfig on mount, so the form starts out matching
-	// what is on screen and there is nothing to recalculate yet.
-	let lastReported: CalculatorSettings = {
-		...settingsFromConfig(props.initialConfig),
-		tags: { ...props.initialConfig.tags },
-	};
+	// calculation with these same settings on mount, so the form starts out
+	// matching what is on screen and there is nothing to recalculate yet.
+	let lastReported: CalculatorSettings = { ...seed, tags: { ...seed.tags } };
 
 	let settleTimer: number | undefined;
 	onCleanup(() => clearTimeout(settleTimer));
@@ -108,7 +129,7 @@ const SettingsSidebar: Component<SettingsSidebarProps> = (props) => {
 	// `null` until Custom has been left at least once -- selecting Custom with
 	// nothing remembered keeps whatever is in the grid as the starting point.
 	const [customTags, setCustomTags] = createSignal<TagValues | null>(
-		props.initialConfig.system === 'custom' ? { ...props.initialConfig.tags } : null
+		seed.system === 'custom' ? { ...seed.tags } : null
 	);
 
 	const handleSystemChange = (system: CountingSystemId) => {
