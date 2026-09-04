@@ -194,7 +194,7 @@ $breakpoint-short: 600px;
 @mixin card($bg-colour: null) {
 	padding: 20px;
 	margin-bottom: 30px;
-	background-color: if($bg-colour, $bg-colour, $panel);
+	background-color: $bg-colour or $panel;
 	border: 1px solid $rule;
 	border-radius: 3px;
 	contain: layout;

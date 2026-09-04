@@ -1,3 +1,4 @@
+@use 'sass:map';
 @use 'base' as *;
 
 // The chip colours a casino rail actually runs, keyed by denomination so the
@@ -436,7 +437,7 @@ $chip-colours: (
 				color: $stock-ink;
 				background-image: repeating-conic-gradient(
 					#9a9487 0deg 13deg,
-					map-get($chip-colours, 1) 13deg 45deg
+					map.get($chip-colours, 1) 13deg 45deg
 				);
 			}
 
