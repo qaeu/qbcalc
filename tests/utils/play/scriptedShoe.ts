@@ -43,5 +43,15 @@ export function scriptedShoe(script: readonly Rank[]): DealtShoe {
 		trueCount: () => 0,
 		needsShuffle: () => false,
 		shuffle: () => {},
+		// A scripted shoe is its own script: the snapshot says exactly what it
+		// holds, so a restored one deals the same cards in the same order.
+		snapshot: () => ({
+			cards: [...cards],
+			dealt,
+			count,
+			hidden: [...hidden],
+			cutCard: cards.length,
+			rng: 0,
+		}),
 	};
 }

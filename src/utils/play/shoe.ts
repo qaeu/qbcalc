@@ -8,7 +8,28 @@
 import { RANKS, type Rank } from '../ev/cards';
 import { baseComposition, CARDS_PER_DECK, type TagValues } from '../ev/composition';
 import type { RuleSet } from '../ev/rules';
-import { mulberry32 } from './rng';
+import { mulberry32, type SeededRandom } from './rng';
+
+/**
+ * A shoe frozen mid-deal: the shuffled order together with everything that has
+ * happened to it since. Enough to put the same shoe back down on the felt --
+ * the cards already dealt are kept too, since it is the cursor and not the array
+ * that separates them from the ones still to come.
+ */
+export interface ShoeSnapshot {
+	/** The shuffled order, whole. */
+	cards: Rank[];
+	/** How far into `cards` the cursor has reached. */
+	dealt: number;
+	/** Running count of the cards dealt *and seen*. */
+	count: number;
+	/** Cards drawn hidden and not yet counted -- a hole card in play. */
+	hidden: Rank[];
+	/** Where the cut card was placed for this shuffle. */
+	cutCard: number;
+	/** The shuffle stream's state, so the next shuffle deals what it would have. */
+	rng: number;
+}
 
 /** The dealt shoe, as the round state machine and the HUD read it. */
 export interface DealtShoe {
@@ -33,6 +54,8 @@ export interface DealtShoe {
 	needsShuffle(): boolean;
 	/** Puts every card back and resets the count. */
 	shuffle(): void;
+	/** The shoe as it stands, for `restoreShoe` to deal on from. */
+	snapshot(): ShoeSnapshot;
 }
 
 /** One `Rank` per card in the shoe, in composition order before the shuffle. */
@@ -58,19 +81,21 @@ function shuffleCards(cards: Rank[], random: () => number): void {
 }
 
 /**
- * A shoe under `ruleSet`, counted with `tags` and shuffled from `seed`. One
- * random stream serves the shoe's whole life, so a session replays exactly from
- * its seed however many times it reshuffles.
+ * The one shoe both entry points build: `start` says where it is being picked up
+ * from -- the head of a fresh one, or wherever a stored session left it -- and
+ * `random` is the stream its shuffles come out of.
  */
-export function createShoe(ruleSet: RuleSet, tags: TagValues, seed: number): DealtShoe {
-	const cards = shoeCards(ruleSet);
-	const random = mulberry32(seed);
+function dealtShoe(
+	tags: TagValues,
+	start: Omit<ShoeSnapshot, 'rng'>,
+	random: SeededRandom
+): DealtShoe {
 	// Held inside the shoe rather than read off the rule set each time: the cut
 	// card belongs to the shoe as it was shuffled.
-	const cutCard = Math.floor((cards.length * ruleSet.penetrationPercent) / 100);
-	let dealt = 0;
-	let count = 0;
-	let hidden: Rank[] = [];
+	const { cards, cutCard } = start;
+	let dealt = start.dealt;
+	let count = start.count;
+	let hidden: Rank[] = [...start.hidden];
 
 	const take = (): Rank => {
 		if (dealt >= cards.length) throw new Error('The shoe has no cards left to deal.');
@@ -85,7 +110,6 @@ export function createShoe(ruleSet: RuleSet, tags: TagValues, seed: number): Dea
 		count = 0;
 		hidden = [];
 	};
-	shuffle();
 
 	return {
 		draw() {
@@ -114,7 +138,48 @@ export function createShoe(ruleSet: RuleSet, tags: TagValues, seed: number): Dea
 		},
 		needsShuffle: () => dealt >= cutCard,
 		shuffle,
+		snapshot: () => ({
+			// Copied out, since the live shoe deals on from the same arrays.
+			cards: [...cards],
+			dealt,
+			count,
+			hidden: [...hidden],
+			cutCard,
+			rng: random.state(),
+		}),
 	};
+}
+
+/**
+ * A shoe under `ruleSet`, counted with `tags` and shuffled from `seed`. One
+ * random stream serves the shoe's whole life, so a session replays exactly from
+ * its seed however many times it reshuffles.
+ */
+export function createShoe(ruleSet: RuleSet, tags: TagValues, seed: number): DealtShoe {
+	const cards = shoeCards(ruleSet);
+	const shoe = dealtShoe(
+		tags,
+		{
+			cards,
+			dealt: 0,
+			count: 0,
+			hidden: [],
+			cutCard: Math.floor((cards.length * ruleSet.penetrationPercent) / 100),
+		},
+		mulberry32(seed)
+	);
+	shoe.shuffle();
+	return shoe;
+}
+
+/**
+ * The shoe a `snapshot` was taken of, dealing on from exactly where it stopped.
+ * The rule set is not needed: the order, the cut card and the cursor are all in
+ * the snapshot, and only `tags` -- how the player counts what they see -- has to
+ * come from outside it.
+ */
+export function restoreShoe(tags: TagValues, snapshot: ShoeSnapshot): DealtShoe {
+	return dealtShoe(tags, snapshot, mulberry32(snapshot.rng));
 }
 
 /**

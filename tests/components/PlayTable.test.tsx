@@ -57,6 +57,7 @@ function renderTable(overrides: Partial<Parameters<typeof PlayTable>[0]> = {}): 
 			onClear={() => {}}
 			onRepeat={() => {}}
 			onDeal={() => {}}
+			onNewShoe={() => {}}
 			onNextHand={() => {}}
 			{...overrides}
 		/>
@@ -124,6 +125,7 @@ describe('PlayTable', () => {
 					onClear={() => {}}
 					onRepeat={() => {}}
 					onDeal={() => {}}
+					onNewShoe={() => {}}
 					onNextHand={() => setState((current) => preRound(current))}
 				/>
 			));
@@ -409,6 +411,7 @@ describe('PlayTable', () => {
 					onClear={() => {}}
 					onRepeat={() => {}}
 					onDeal={() => {}}
+					onNewShoe={() => {}}
 					onNextHand={() => {}}
 				/>
 			));

@@ -1,7 +1,8 @@
 # The play model
 
 How the Play view deals a game, grades what the player does with it, and keeps score. The
-modules are `src/utils/play/` — `rng.ts`, `shoe.ts`, `game.ts`, `coach.ts`, `stats.ts` — plus
+modules are `src/utils/play/` — `rng.ts`, `shoe.ts`, `game.ts`, `coach.ts`, `stats.ts`,
+`session.ts` — plus
 the `'play'` scope in `src/utils/evWorkerProtocol.ts` that prices what the coach grades
 against. The EV engine those prices come from is documented in [ev-model.md](./ev-model.md);
 the bet-sizing layer in [bankroll-model.md](./bankroll-model.md) and the shoe simulation behind
@@ -180,7 +181,27 @@ Bets drive the money and nothing else — they are **never graded** against the 
 Coaching is strictly about playing decisions, so a session bet flat scores exactly as one bet
 to a spread.
 
-Only the stats are persisted (`qbcalc:play-stats`, alongside `qbcalc:play-config`). The shoe and
-the hand in progress are not: a reload deals a fresh shoe, which is also what a settings change
-does, since the rules the shoe was built under would otherwise no longer be the rules being
-graded.
+Three records are persisted: the lifetime stats (`qbcalc:play-stats`), the Play settings
+(`qbcalc:play-config`), and the session on the felt (`qbcalc:play-session`). The first two are
+flat; the third is the shoe and the round in progress, so `session.ts` is what flattens and
+validates it, next to the types it is a picture of, with `storage.ts` keeping only the version
+envelope and the localStorage calls.
+
+- **The shoe is stored whole**, as a `ShoeSnapshot`: the shuffled order including the cards
+  already dealt, the cursor, the running count, any hole card drawn hidden and still uncounted,
+  the cut card, and the shuffle stream's own 32 bits. The last of those is why `mulberry32`
+  exposes `state()` — a restored shoe has to deal the shuffles the uninterrupted session would
+  have, not rerun the first one.
+- **The rule set and the tag vector are not stored** but re-injected from the sidebar, because
+  the record only comes back at all when its `shoeKey` — the rule-set key, the penetration and
+  the tags — matches the live one. A session dealt under other rules is dropped rather than
+  restored, exactly as a live shoe is redealt when that key changes: the rules the shoe was
+  built under would otherwise no longer be the rules being graded.
+- **The last verdict is not stored.** The coaching banner belongs to the decision just made, not
+  to the state of the table, so a reload comes back silent. The grading behind it has already
+  reached the stats.
+
+`New shoe` on the betting rail (the `N` key) is the one manual shuffle-up: it abandons the shoe
+mid-deal and deals the next one from `seed + shoeIndex`, the same path a `shoeKey` change takes.
+The stored `seed` and `shoeIndex` come back with the session, so a restored one goes on to its
+next shoe rather than back to its first.

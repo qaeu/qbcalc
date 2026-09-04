@@ -57,6 +57,7 @@ src/
     │   ├── shoe.ts              # A shoe dealt card by card, counted as it is seen
     │   ├── game.ts              # The round state machine, every table rule in it
     │   ├── coach.ts             # Grading a decision against the engine's prices
+    │   ├── session.ts           # The shoe and round on the felt, stored and read back
     │   └── stats.ts             # The lifetime training record
     ├── bankroll.ts              # Count frequency, bet spread, risk of ruin
     ├── countRounds.ts           # Simulated shoes: rounds played at each count

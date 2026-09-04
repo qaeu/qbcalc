@@ -16,6 +16,7 @@ import {
 import { RAMP_TRUE_COUNTS } from './bankroll';
 import { HI_LO_TAGS, isCountingSystemId, type CountingSystemId } from './countingSystems';
 import { isCellDisplayMode, type CellDisplayMode } from './cellDisplay';
+import { isStoredPlaySession, type StoredPlaySession } from './play/session';
 import { EMPTY_PLAY_STATS, type PlayStats } from './play/stats';
 
 /**
@@ -143,14 +144,17 @@ const BANKROLL_KEY = 'qbcalc:bankroll';
 const BANKROLL_VERSION = 1;
 
 /**
- * The Play view's two records, kept apart from each other and from everything
+ * The Play view's three records, kept apart from each other and from everything
  * above: the config is a setting the user chooses, the stats are a lifetime
- * training record. Neither is segmented by rule set -- the point is a single
+ * training record, and the session is the shoe and hand currently on the felt.
+ * Neither of the first two is segmented by rule set -- the point is a single
  * figure for how the player is playing, across every game they practise on. The
- * shoe and the hand in progress are deliberately not stored; a reload deals fresh.
+ * session is, by its own `shoeKey`: a shoe outlives a reload but not a change to
+ * the game it was dealt for.
  */
 const PLAY_CONFIG_KEY = 'qbcalc:play-config';
 const PLAY_STATS_KEY = 'qbcalc:play-stats';
+const PLAY_SESSION_KEY = 'qbcalc:play-session';
 
 const PLAY_CONFIG_VERSION = 1;
 /**
@@ -161,6 +165,7 @@ const PLAY_CONFIG_VERSION = 1;
  * being the wrong shape.
  */
 const PLAY_STATS_VERSION = 2;
+const PLAY_SESSION_VERSION = 1;
 
 interface StoredConfig extends CalculatorConfig {
 	version: number;
@@ -257,6 +262,18 @@ function isStoredPlayStats(value: unknown): value is StoredPlayStats {
 	return (
 		stats.version === PLAY_STATS_VERSION
 		&& Object.keys(EMPTY_PLAY_STATS).every((field) => Number.isFinite(stats[field]))
+	);
+}
+
+interface StoredPlaySessionRecord extends StoredPlaySession {
+	version: number;
+}
+
+function isVersionedPlaySession(value: unknown): value is StoredPlaySessionRecord {
+	if (typeof value !== 'object' || value === null) return false;
+	return (
+		(value as Record<string, unknown>).version === PLAY_SESSION_VERSION
+		&& isStoredPlaySession(value)
 	);
 }
 
@@ -609,6 +626,33 @@ export function savePlayStats(stats: PlayStats): void {
 	try {
 		const stored: StoredPlayStats = { version: PLAY_STATS_VERSION, ...stats };
 		localStorage.setItem(PLAY_STATS_KEY, JSON.stringify(stored));
+	} catch {
+		// As above.
+	}
+}
+
+/**
+ * The session on the felt. The record is deep -- a whole shoe's card order, plus
+ * the round in progress -- so unlike the rest of this module it is validated by
+ * `play/session.ts`, next to the types it is a picture of.
+ */
+export function loadPlaySession(): StoredPlaySession | null {
+	try {
+		const raw = localStorage.getItem(PLAY_SESSION_KEY);
+		if (!raw) return null;
+		const parsed: unknown = JSON.parse(raw);
+		return isVersionedPlaySession(parsed) ? parsed : null;
+	} catch {
+		return null;
+	}
+}
+
+export function savePlaySession(session: StoredPlaySession): void {
+	try {
+		localStorage.setItem(
+			PLAY_SESSION_KEY,
+			JSON.stringify({ version: PLAY_SESSION_VERSION, ...session })
+		);
 	} catch {
 		// As above.
 	}

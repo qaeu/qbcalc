@@ -239,6 +239,8 @@ interface PlayTableProps {
 	onClear: () => void;
 	onRepeat: () => void;
 	onDeal: () => void;
+	/** Shuffles up: abandons the shoe on the felt and deals the next one. */
+	onNewShoe: () => void;
 	/** Clears the settled round off the felt and returns to bet sizing. */
 	onNextHand: () => void;
 }
@@ -376,6 +378,11 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 		if (event.key === 'r' || event.key === 'R') {
 			event.preventDefault();
 			props.onRepeat();
+			return;
+		}
+		if (event.key === 'n' || event.key === 'N') {
+			event.preventDefault();
+			props.onNewShoe();
 			return;
 		}
 		if (event.key === ' ') {
@@ -608,6 +615,19 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 					</For>
 				</div>
 				<div class="play-table__rail-controls">
+					{/* A shuffle-up is the shoe's business rather than the bet's, but
+					    between rounds is the only moment it can be asked for, so it
+					    sits with the other things the player does while betting. */}
+					<div class="play-table__slot">
+						<span class="play-table__key">N</span>
+						<button
+							type="button"
+							class="play-table__control"
+							onClick={() => props.onNewShoe()}
+						>
+							New shoe
+						</button>
+					</div>
 					<div class="play-table__slot">
 						<span class="play-table__key">R</span>
 						<button

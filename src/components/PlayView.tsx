@@ -29,6 +29,7 @@ import {
 	startRound,
 	type GameState,
 } from '#utils/play/game';
+import { sessionFromStored, toStoredSession } from '#utils/play/session';
 import { createShoe } from '#utils/play/shoe';
 import {
 	EMPTY_PLAY_STATS,
@@ -37,8 +38,10 @@ import {
 	type PlayStats as PlayStatsRecord,
 } from '#utils/play/stats';
 import {
+	loadPlaySession,
 	loadPlayStats,
 	resetPlayStats,
+	savePlaySession,
 	savePlayStats,
 	type PlayConfig,
 } from '#utils/storage';
@@ -68,12 +71,36 @@ interface PlayViewProps {
 }
 
 const PlayView: Component<PlayViewProps> = (props) => {
+	/**
+	 * What a shoe is: change any of it and the one on the felt is describing a
+	 * game the sidebar has stopped asking about, so it is dealt again. The
+	 * penetration joins the rule-set key, which the grids have no use for but a
+	 * dealt shoe does -- it is where the cut card goes.
+	 */
+	const shoeKey = createMemo(
+		() =>
+			`${ruleSetKey(props.ruleSet)}|${props.ruleSet.penetrationPercent}|${RANKS.map(
+				(rank) => props.tags[rank]
+			).join(',')}`
+	);
+
+	/**
+	 * The session the last load left behind, where there is one under this shoe's
+	 * own key. A stored session under any other key is dropped rather than
+	 * restored, for the same reason a live shoe is redealt when the key changes.
+	 */
+	const restored = untrack(() => {
+		const stored = loadPlaySession();
+		if (stored === null || stored.shoeKey !== shoeKey()) return null;
+		return sessionFromStored(stored, props.ruleSet, props.tags);
+	});
+
 	// Bumped per shuffle-from-scratch so consecutive shoes differ while a seeded
 	// session still replays exactly.
-	let shoeIndex = 0;
+	let shoeIndex = restored?.shoeIndex ?? 0;
 	// Read once and deliberately: a session's seed is what it started with, and a
 	// later change to any of these is not something to re-derive it from.
-	const baseSeed = untrack(() => props.seed) ?? Date.now();
+	const baseSeed = restored?.seed ?? untrack(() => props.seed) ?? Date.now();
 	const openingBet = untrack(() => props.unit);
 
 	const freshGame = (): GameState =>
@@ -82,9 +109,9 @@ const PlayView: Component<PlayViewProps> = (props) => {
 			createShoe(props.ruleSet, props.tags, baseSeed + shoeIndex)
 		);
 
-	const [game, setGame] = createSignal<GameState>(freshGame());
-	const [bet, setBet] = createSignal(openingBet);
-	const [lastBet, setLastBet] = createSignal(openingBet);
+	const [game, setGame] = createSignal<GameState>(restored?.game ?? freshGame());
+	const [bet, setBet] = createSignal(restored?.bet ?? openingBet);
+	const [lastBet, setLastBet] = createSignal(restored?.lastBet ?? openingBet);
 	const [grading, setGrading] = createSignal<Grading | null>(null);
 	const [stats, setStats] = createSignal<PlayStatsRecord>(
 		loadPlayStats() ?? EMPTY_PLAY_STATS
@@ -111,33 +138,38 @@ const PlayView: Component<PlayViewProps> = (props) => {
 	};
 
 	/**
-	 * What a shoe is: change any of it and the one on the felt is describing a
-	 * game the sidebar has stopped asking about, so it is dealt again. The
-	 * penetration joins the rule-set key, which the grids have no use for but a
-	 * dealt shoe does -- it is where the cut card goes.
+	 * Shuffles up: the shoe on the felt is abandoned mid-deal and the next one is
+	 * dealt from scratch. What the player asks for with `New shoe`, and what a
+	 * change to the game itself forces.
 	 */
-	const shoeKey = createMemo(
-		() =>
-			`${ruleSetKey(props.ruleSet)}|${props.ruleSet.penetrationPercent}|${RANKS.map(
-				(rank) => props.tags[rank]
-			).join(',')}`
-	);
+	const newShoe = () => {
+		shoeIndex += 1;
+		setGrading(null);
+		setGame(freshGame());
+	};
 
-	createEffect(
-		on(
-			shoeKey,
-			() => {
-				shoeIndex += 1;
-				setGrading(null);
-				setGame(freshGame());
-			},
-			{ defer: true }
-		)
-	);
+	createEffect(on(shoeKey, newShoe, { defer: true }));
 
 	// The coach grades against the count's own shoe, so the app is told which one
 	// to price as soon as the felt moves to it.
 	createEffect(() => props.onCountChange(Math.round(game().shoe.trueCount())));
+
+	/**
+	 * The felt as it stands, written on every transition, so a reload picks the
+	 * shoe and the hand back up instead of shuffling a new one. Created after the
+	 * redeal effect above, and so runs after it: a shoe the key change has just
+	 * abandoned is never what gets stored under the new key. The last verdict is
+	 * deliberately left out -- the banner belongs to the decision that was just
+	 * made, not to the state of the table.
+	 */
+	createEffect(() => {
+		savePlaySession(
+			toStoredSession(
+				{ game: game(), bet: bet(), lastBet: lastBet(), seed: baseSeed, shoeIndex },
+				shoeKey()
+			)
+		);
+	});
 
 	/**
 	 * Takes the round wherever the transition left it. The state machine hands
@@ -203,6 +235,7 @@ const PlayView: Component<PlayViewProps> = (props) => {
 						onClear={() => setBet(props.unit)}
 						onRepeat={() => setBet(Math.min(lastBet(), stack()))}
 						onDeal={deal}
+						onNewShoe={newShoe}
 						onNextHand={() => setGame(preRound(game()))}
 					/>
 				</Tabs.Content>
