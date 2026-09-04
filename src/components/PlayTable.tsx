@@ -209,7 +209,12 @@ const Card: Component<CardProps> = (props) => {
 	const red = createMemo(() => suit() === '♥' || suit() === '♦');
 	return (
 		<span class={`play-table__card ${red() ? 'is-red' : ''}`}>
-			<span class="play-table__card-rank">{rankLabel(props.rank)}</span>
+			<span class="play-table__card-rank">
+				{rankLabel(props.rank)}
+				<span class="play-table__card-pip" aria-hidden="true">
+					{suit()}
+				</span>
+			</span>
 			<span class="play-table__card-suit" aria-hidden="true">
 				{suit()}
 			</span>

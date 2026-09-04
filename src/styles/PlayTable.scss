@@ -186,15 +186,13 @@ $chip-colours: (
 
 		&__card {
 			@include card-stock;
-			display: inline-flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
+			display: grid;
+			grid-template-rows: auto 1fr;
 			width: var(--play-card-width);
 			height: var(--play-card-height);
+			padding: 6px 7px;
 			border-radius: 6px;
 			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
-			font-size: 30px;
 			font-weight: 700;
 			line-height: 1;
 			// Each card is inserted as the reveal queue reaches it, so the deal
@@ -225,7 +223,7 @@ $chip-colours: (
 
 			@include phone {
 				border-radius: 4px;
-				font-size: 20px;
+				padding: 4px 5px;
 			}
 		}
 
@@ -246,15 +244,38 @@ $chip-colours: (
 			}
 		}
 
+		// Rank at the top-left corner, the way a real card is indexed --
+		// paired with a small pip so the corner reads on its own.
+		&__card-rank {
+			font-size: 20px;
+			line-height: 1;
+			letter-spacing: -0.02em;
+
+			@include phone {
+				font-size: 13px;
+			}
+		}
+
+		&__card-pip {
+			margin-left: 1px;
+			font-size: 16px;
+			font-weight: 400;
+
+			@include phone {
+				font-size: 11px;
+			}
+		}
+
+		// The big suit, centred in the card the way the pattern sits on a
+		// real pip card rather than crowding the corner index.
 		&__card-suit {
-			margin-top: 3px;
-			font-size: 24px;
+			place-self: center;
+			font-size: 32px;
 			font-weight: 400;
 			opacity: 0.9;
 
 			@include phone {
-				margin-top: 1px;
-				font-size: 16px;
+				font-size: 20px;
 			}
 		}
 
