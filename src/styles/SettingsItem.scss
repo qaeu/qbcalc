@@ -25,9 +25,5 @@
 		&__label {
 			@include label-row;
 		}
-
-		&__hint-icon {
-			@include hint-icon;
-		}
 	}
 }

@@ -1,0 +1,61 @@
+@use 'base' as *;
+
+@layer screen {
+	.hint-popover {
+		&__trigger {
+			@include hint-icon;
+			// The base layer dresses every bare <button> as a button; this one
+			// is an icon printed beside a label, so it is undressed again.
+			padding: 0;
+			border: 0;
+			border-radius: 2px;
+			background: none;
+			line-height: 0;
+			transition: color 0.2s ease;
+
+			&:hover,
+			&[data-state='open'] {
+				color: get($neutrals, 'fg');
+			}
+		}
+
+		// Same card as the EV table's cell popover: a translucent panel over the
+		// felt, with the hairline only on the edge the arrow attaches to --
+		// which flips with `data-side` as the hint opens above or below.
+		&__content {
+			@include shadow($shadow-light);
+			z-index: 20;
+			max-width: 240px;
+			padding: 8px 10px;
+			border-bottom: 1px solid $rule-strong;
+			border-radius: 6px;
+			background-color: oklch(from $panel l c h / 0.92);
+			backdrop-filter: blur(4px);
+			font-size: 12px;
+			line-height: 1.45;
+			color: $foreground;
+
+			&[data-side='bottom'] {
+				border-bottom: 0;
+				border-top: 1px solid $rule-strong;
+			}
+		}
+
+		&__arrow {
+			--arrow-size: 9px;
+			--arrow-background: #{$panel};
+			// Zag sets --arrow-offset inline, tucking the tip half inside the
+			// content box; !important pulls it clear of the border instead.
+			--arrow-offset: calc(var(--arrow-size-half) * -1) !important;
+		}
+
+		// A square rotated 45deg, of which only the top-left half pokes out
+		// past the content box -- see the EV table's arrow tip, which is the
+		// same shape for the same reasons.
+		&__arrow-tip {
+			clip-path: polygon(0 0, 100% 0, 0 100%);
+			border-top: 1px solid $rule-strong;
+			border-left: 1px solid $rule-strong;
+		}
+	}
+}

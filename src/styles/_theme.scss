@@ -280,7 +280,8 @@ $breakpoint-short: 600px;
 	gap: 4px;
 }
 
-// The help icon itself, shown with a native tooltip via its `title` attribute
+// The help icon itself, which opens its hint on hover, click or Enter --
+// see `#c/HintPopover`
 @mixin hint-icon {
 	display: inline-flex;
 	color: get($neutrals, 'fg-light');

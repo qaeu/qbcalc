@@ -1,11 +1,11 @@
 /**
  * A labelled wrapper for a single setting: a label (with an optional help
- * icon and tooltip) paired with the control for that setting.
+ * icon and its hint) paired with the control for that setting.
  */
 
 import { Show, type Component, type JSX } from 'solid-js';
 
-import { Info } from 'lucide-solid';
+import HintPopover from '#c/HintPopover';
 
 import '#styles/SettingsItem';
 
@@ -23,9 +23,7 @@ const SettingsItem: Component<SettingsItemProps> = (props) => (
 		<span class="settings-item__label">
 			{props.label}
 			<Show when={props.helptext}>
-				<span class="settings-item__hint-icon" aria-hidden="true" title={props.helptext}>
-					<Info />
-				</span>
+				{(helptext) => <HintPopover text={helptext()} label={props.label} />}
 			</Show>
 		</span>
 		{props.children}
