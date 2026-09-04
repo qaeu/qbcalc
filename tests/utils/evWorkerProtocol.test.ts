@@ -83,7 +83,10 @@ describe('the edge slope', () => {
 	});
 });
 
-describe('precision', () => {
+// Alternating the precision evicts the worker's one baseline every call, so
+// each `summaryAt` below is a whole run of the engine rather than a cache hit --
+// a few seconds a test, past the default per-test timeout.
+describe('precision', { timeout: 30_000 }, () => {
 	const summaryAt = (precision: EvWorkerRequest['precision']) =>
 		figuresFrom({
 			requestId: 1,

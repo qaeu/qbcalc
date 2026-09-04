@@ -99,7 +99,7 @@ describe('PlayTable', () => {
 
 			renderTable({ state: settled, bet: 0 });
 
-			const outcome = document.querySelector('.play-table__outcome');
+			const outcome = document.querySelector('.play-table__info');
 			expect(outcome?.textContent).toContain('Lose');
 			expect(outcome?.textContent).toContain('£25');
 			// No longer sat inline on the hand itself.
