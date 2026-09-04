@@ -630,9 +630,6 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 						</button>
 					</div>
 				</div>
-				<Show when={props.bet < props.unit}>
-					<p class="play-table__hint">Table minimum is {money(props.unit)}.</p>
-				</Show>
 			</Show>
 
 			<Show when={phase() === 'insurance'}>

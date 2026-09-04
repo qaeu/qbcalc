@@ -200,7 +200,7 @@ const PlayView: Component<PlayViewProps> = (props) => {
 						onAction={handleAction}
 						onInsurance={(take) => advanceTo(resolveInsurance(game(), take))}
 						onChip={(amount) => setBet(Math.min(bet() + amount, stack()))}
-						onClear={() => setBet(0)}
+						onClear={() => setBet(props.unit)}
 						onRepeat={() => setBet(Math.min(lastBet(), stack()))}
 						onDeal={deal}
 						onNextHand={() => setGame(preRound(game()))}
