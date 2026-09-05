@@ -307,6 +307,17 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 		}
 	});
 
+	/**
+	 * Whether the felt has caught up with the state machine. A round settles in
+	 * one transition, so its outcome is known well before the cards that decided
+	 * it have landed -- everything the round's end says is held back until they
+	 * have, rather than announcing "win +$5" over a half-dealt hand.
+	 */
+	const fullyDealt = createMemo(() =>
+		countsReached(revealed(), targetCounts(props.state))
+	);
+	const settled = () => phase() === 'settled' && fullyDealt();
+
 	const dealerLabel = createMemo(() => dealerTotalLabel(props.state, revealed().dealer));
 
 	// Rounded up: a shoe with a card left in it is still a shoe you are playing
@@ -354,7 +365,9 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 			props.onInsurance(digit === 1);
 			return;
 		}
-		if (phase() === 'settled') {
+		// Deliberately the gated `settled`: while the round's last cards are still
+		// landing there is nothing on the felt for these keys to answer to yet.
+		if (settled()) {
 			if (event.key === ' ') {
 				event.preventDefault();
 				props.onNextHand();
@@ -521,7 +534,7 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 
 			<div class="play-table__info">
 				<Show
-					when={phase() === 'settled'}
+					when={settled()}
 					fallback={
 						// Between the bet being placed and the round settling there is
 						// nothing to report yet, but the amount riding on the hand is
@@ -558,7 +571,7 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 				</Show>
 			</div>
 
-			<Show when={phase() === 'settled'}>
+			<Show when={settled()}>
 				<div class="play-table__pause">
 					<div class="play-table__slot">
 						<span class="play-table__key">Space</span>

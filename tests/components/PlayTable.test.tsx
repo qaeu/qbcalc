@@ -42,7 +42,10 @@ function renderTable(overrides: Partial<Parameters<typeof PlayTable>[0]> = {}): 
 	onAction: ReturnType<typeof vi.fn>;
 } {
 	const onAction = vi.fn();
-	const config: PlayConfig = { ...DEFAULT_PLAY_CONFIG };
+	// Instant unless a case says otherwise: everything outside the animation's
+	// own tests is about the felt once the cards are down, and the reveal queue
+	// holds the round's end back until they are.
+	const config: PlayConfig = { ...DEFAULT_PLAY_CONFIG, animationSpeed: 'instant' };
 	render(() => (
 		<PlayTable
 			state={dealtState(HARD_16)}
@@ -112,7 +115,10 @@ describe('PlayTable', () => {
 		it('clears the felt and offers the chip rail once Next hand is chosen', () => {
 			const settled = settleRound(applyAction(dealtState(HARD_16, {}, 20), 'S'));
 			const [state, setState] = createSignal<GameState>(settled);
-			const config: PlayConfig = { ...DEFAULT_PLAY_CONFIG };
+			const config: PlayConfig = {
+				...DEFAULT_PLAY_CONFIG,
+				animationSpeed: 'instant',
+			};
 			render(() => (
 				<PlayTable
 					state={state()}
@@ -415,6 +421,41 @@ describe('PlayTable', () => {
 
 			vi.advanceTimersByTime(800);
 			expect(dealerTotal()).toBe('19');
+		});
+
+		it('holds the round back until the cards that decided it have landed', () => {
+			// The same 9, 5, 5 draw-out: the state is settled from the first
+			// frame, but nothing about the result may be said until the third
+			// dealer card is on the felt.
+			const settled = settleRound(applyAction(dealtState(HARD_16, {}, 20), 'S'));
+			const onNextHand = vi.fn();
+			renderTable({
+				state: settled,
+				bet: 25,
+				onNextHand,
+				config: { ...DEFAULT_PLAY_CONFIG, animationSpeed: '1x' },
+			});
+
+			const info = () => document.querySelector('.play-table__info')?.textContent;
+
+			expect(info()).toContain('Bet');
+			expect(screen.queryByText('Lose')).toBeNull();
+			expect(screen.queryByRole('button', { name: 'Next hand' })).toBeNull();
+
+			// Space is the settled phase's key, and it is just as early as the banner.
+			fireEvent.keyDown(document.body, { key: ' ' });
+			expect(onNextHand).not.toHaveBeenCalled();
+
+			vi.advanceTimersByTime(800 * 4); // both player cards, two of the dealer's
+			expect(screen.queryByText('Lose')).toBeNull();
+
+			vi.advanceTimersByTime(800); // the dealer's last card
+			expect(screen.getByText('Lose')).toBeDefined();
+			expect(info()).toContain('£25');
+			expect(screen.getByRole('button', { name: 'Next hand' })).toBeDefined();
+
+			fireEvent.keyDown(document.body, { key: ' ' });
+			expect(onNextHand).toHaveBeenCalledOnce();
 		});
 
 		it('does not skip the delay when a redeal follows a settled round', () => {
