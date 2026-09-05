@@ -13,8 +13,12 @@ npm test
 # Run tests in watch mode
 npx vitest
 
+# Run one project on its own
+npm run test:unit
+npm run test:integration
+
 # Run a single test file
-npm test -- App.test.tsx
+npm test -- EvTable.test.tsx
 
 # Run tests with UI
 npm run test:ui
@@ -25,7 +29,8 @@ npm run test:coverage
 
 ## Test Structure
 
-Tests live in `tests/`, mirroring the `src/` tree:
+Tests live in `tests/`, mirroring the `src/` tree, with the end-to-end tests in
+`tests/integration/` instead:
 
 ```
 src/
@@ -33,10 +38,28 @@ src/
 └── utils/
     └── ev.ts
 tests/
-├── App.test.tsx
+├── components/
+│   └── EvTable.test.tsx
+├── integration/
+│   ├── appHarness.ts
+│   └── app.play.test.tsx
 └── utils/
     └── ev.test.ts
 ```
+
+Two projects, split by what a test drives rather than by what it asserts:
+
+- **unit** — everything outside `tests/integration/`: a utility, or a component
+  rendered on its own with props it is handed.
+- **integration** — `tests/integration/`, which renders the whole `<App />` over
+  the real worker and the real EV engine, and drives it through the header, the
+  sidebar and the viewport the way a user would. Each case costs seconds, so
+  every one carries an explicit timeout (`MOUNT_TIMEOUT_MS` and friends from
+  `appHarness.ts`, which also holds the view switches, the viewport stub and the
+  worker spy the files share). One file per feature: mount and recalculation,
+  the count keys, the full-calculation button, the compact viewport, Play.
+
+`npm test` runs both.
 
 ## Configuration
 
