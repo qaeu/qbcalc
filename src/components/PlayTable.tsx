@@ -28,6 +28,7 @@ import {
 import { createGlobalKeydown, isKeyConsumingTarget } from '#utils/keyboard';
 import {
 	legalActions,
+	offeredActions,
 	type GameState,
 	type HandResult,
 	type PlayHand,
@@ -43,13 +44,6 @@ import '#styles/PlayTable';
  * unit decides which of them a bet may stop at, not which exist.
  */
 export const CHIP_DENOMINATIONS: readonly number[] = [1, 5, 25, 100, 500, 1000];
-
-/**
- * The key each action answers to, fixed so that muscle memory survives a hand
- * that cannot split or double. The phases are disjoint, so the same digits mean
- * chips while betting and yes/no on the insurance offer without ever colliding.
- */
-const ACTION_KEYS: readonly PlayerAction[] = ['H', 'S', 'D', 'P', 'R'];
 
 /**
  * Purely cosmetic: the engine is rank-only, so a card's suit carries no
@@ -248,6 +242,12 @@ interface PlayTableProps {
 const PlayTable: Component<PlayTableProps> = (props) => {
 	const phase = () => props.state.phase;
 	const legal = createMemo(() => legalActions(props.state));
+	/**
+	 * The bar itself, and with it the digits the actions answer to. It is the
+	 * table's, not the hand's, so muscle memory still survives a hand that cannot
+	 * split or double -- only a change to the rules in the sidebar moves a key.
+	 */
+	const offered = createMemo(() => offeredActions(props.state.ruleSet));
 	const canDeal = () => props.bet >= props.unit && props.bet <= props.stack;
 
 	/**
@@ -340,7 +340,7 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 		if (phase() === 'act') {
 			const digit = Number(event.key);
 			if (!Number.isInteger(digit) || digit < 1) return;
-			const action = ACTION_KEYS[digit - 1];
+			const action = offered()[digit - 1];
 			if (action !== undefined && legal().includes(action)) {
 				event.preventDefault();
 				props.onAction(action);
@@ -673,13 +673,13 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 
 			<Show when={phase() === 'act'}>
 				<div class="play-table__actions">
-					<For each={ACTION_KEYS}>
+					<For each={offered()}>
 						{(action, index) => (
 							<button
 								type="button"
-								// Disabled in place rather than dropped: the key an action
-								// answers to is the same one every hand, and a bar that
-								// reflowed would undo that.
+								// Disabled in place rather than dropped: an action this table
+								// offers keeps its slot and its key on the hands that cannot
+								// take it, and a bar that reflowed would undo that.
 								disabled={!legal().includes(action)}
 								class={`play-table__action ${ACTION_CLASS[action]}`}
 								onClick={() => props.onAction(action)}

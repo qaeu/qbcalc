@@ -320,6 +320,21 @@ export function resolveInsurance(state: GameState, take: boolean): GameState {
 	return openRound(next);
 }
 
+/**
+ * The actions this table ever offers, in H,S,D,P,R order -- what belongs on the
+ * action bar at all, as opposed to what the hand in front of the player may do
+ * with it. A rule that switches an action off for the whole game (no splitting,
+ * no surrender) leaves nothing for the button to ever mean; one that only
+ * narrows when it applies (`es10` surrender, doubling after a split) still
+ * belongs there, greyed out on the hands it doesn't cover.
+ */
+export function offeredActions(ruleSet: RuleSet): PlayerAction[] {
+	const actions: PlayerAction[] = ['H', 'S', 'D'];
+	if (ruleSet.splitLimit >= 2) actions.push('P');
+	if (ruleSet.surrender !== 'none') actions.push('R');
+	return actions;
+}
+
 /** The actions legal for the active hand right now, in H,S,D,P,R order. */
 export function legalActions(state: GameState): PlayerAction[] {
 	if (state.phase !== 'act') return [];

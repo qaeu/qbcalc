@@ -195,19 +195,41 @@ describe('PlayTable', () => {
 		});
 
 		it('renders an illegal action disabled rather than dropping it', () => {
-			const { onAction } = renderTable();
+			const { onAction } = renderTable({
+				state: dealtState(HARD_16, { surrender: 'late' }),
+			});
 
-			// Hard 16 is no pair and the default table has no surrender, so both
-			// buttons are on the bar and neither does anything.
+			// Hard 16 is no pair, and surrender is off the table past the first two
+			// cards -- both are offered here, and neither does anything on this hand.
 			expect(
 				screen.getByRole<HTMLButtonElement>('button', { name: /Split/ }).disabled
-			).toBe(true);
-			expect(
-				screen.getByRole<HTMLButtonElement>('button', { name: /Surrender/ }).disabled
 			).toBe(true);
 
 			fireEvent.keyDown(document.body, { key: '4' });
 			expect(onAction).not.toHaveBeenCalled();
+		});
+
+		it('leaves an action the rules never offer off the bar entirely', () => {
+			// The default table has no surrender at all, so the button would never
+			// mean anything -- unlike a split the next hand may well be able to take.
+			renderTable();
+
+			expect(screen.queryByRole('button', { name: /Surrender/ })).toBeNull();
+			expect(screen.getByRole('button', { name: /Split/ })).toBeDefined();
+		});
+
+		it('drops split off the bar at a table that does not allow it', () => {
+			const { onAction } = renderTable({
+				state: dealtState(HARD_16, { splitLimit: 1, surrender: 'late' }),
+			});
+
+			expect(screen.queryByRole('button', { name: /Split/ })).toBeNull();
+			// Surrender takes the vacated slot, and its key with it.
+			expect(screen.getByRole('button', { name: /Surrender/ }).textContent).toContain(
+				'4'
+			);
+			fireEvent.keyDown(document.body, { key: '4' });
+			expect(onAction).toHaveBeenCalledWith('R');
 		});
 	});
 
