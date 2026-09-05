@@ -5,8 +5,10 @@ import HintPopover from '#c/HintPopover';
 import SettingsItem from '#c/SettingsItem';
 
 const HINT = 'Number of decks in the shoe';
+const OTHER_HINT = 'How deep the shoe is dealt before a shuffle';
 
 const trigger = () => screen.getByRole('button', { name: 'About Decks' });
+const otherTrigger = () => screen.getByRole('button', { name: 'About Penetration' });
 
 /** `pointerType` is what tells a mouse's hover from a tap's phantom one. */
 const mouse = { pointerType: 'mouse' };
@@ -20,6 +22,8 @@ describe('HintPopover', () => {
 
 		expect(screen.queryByText(HINT)).toBeNull();
 		fireEvent.pointerEnter(trigger(), mouse);
+		// A hover waits out the delay first; only a click opens the hint at once.
+		expect(screen.queryByText(HINT)).toBeNull();
 		await hintShown();
 
 		fireEvent.pointerLeave(trigger(), mouse);
@@ -35,7 +39,24 @@ describe('HintPopover', () => {
 		expect(screen.queryByText(HINT)).toBeNull();
 
 		fireEvent.click(trigger());
+		// No delay on a click: the hint is up by the time the state settles.
 		await hintShown();
+	});
+
+	it('closes the hint already showing when another one opens', async () => {
+		render(() => (
+			<>
+				<HintPopover text={HINT} label="Decks" />
+				<HintPopover text={OTHER_HINT} label="Penetration" />
+			</>
+		));
+
+		fireEvent.click(trigger());
+		await hintShown();
+
+		fireEvent.click(otherTrigger());
+		await waitFor(() => expect(screen.getByText(OTHER_HINT)).toBeDefined());
+		await hintGone();
 	});
 
 	it('keeps a clicked hint up when the pointer leaves, until it is clicked again', async () => {

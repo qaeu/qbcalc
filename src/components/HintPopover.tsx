@@ -9,10 +9,14 @@
  * Hover and click share one open state, with a `pinned` flag deciding whether
  * leaving the trigger closes it: a hint opened by pointing at it follows the
  * pointer away, one opened deliberately stays until it is dismissed.
+ *
+ * A hover waits out a short delay first, so that crossing a column of settings
+ * does not trail popovers behind the pointer; a click or a keypress opens the
+ * hint at once. Only one hint shows at a time -- see `activeHint` below.
  */
 
 import { Popover } from '@ark-ui/solid/popover';
-import { createSignal, type Component, type JSX } from 'solid-js';
+import { createSignal, onCleanup, type Component, type JSX } from 'solid-js';
 import { Portal } from 'solid-js/web';
 
 import { Info } from 'lucide-solid';
@@ -27,6 +31,20 @@ function spanProps(triggerProps: JSX.HTMLAttributes<HTMLElement>) {
 	delete rest.type;
 	return rest as JSX.HTMLAttributes<HTMLSpanElement>;
 }
+
+/**
+ * How long the pointer has to rest on a trigger before its hint appears.
+ * Sweeping across a column of settings should not set off a row of popovers;
+ * a click or a keypress still opens one at once.
+ */
+const HOVER_DELAY_MS = 400;
+
+/**
+ * The hint that is open or about to open, closed by whichever one opens next.
+ * A single shared slot rather than a signal: nothing renders from it, and the
+ * hints only ever hand it between themselves.
+ */
+let activeHint: (() => void) | null = null;
 
 interface HintPopoverProps {
 	/** The explanation itself. Plain text -- a sentence or two, no markup. */
@@ -46,9 +64,29 @@ const HintPopover: Component<HintPopoverProps> = (props) => {
 	// the hint again. Only an unpinned hint closes when the pointer leaves.
 	const [pinned, setPinned] = createSignal(false);
 
+	// Set while the pointer rests on the trigger, waiting out HOVER_DELAY_MS.
+	let hoverTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const cancelHover = () => {
+		clearTimeout(hoverTimer);
+		hoverTimer = undefined;
+	};
+
 	const close = () => {
+		cancelHover();
+		if (activeHint === close) activeHint = null;
 		setPinned(false);
 		setOpen(false);
+	};
+
+	// Taking the floor: only one hint shows at a time, so whichever was open --
+	// or was counting down to open -- gives way to this one.
+	const show = (asPinned: boolean) => {
+		if (activeHint && activeHint !== close) activeHint();
+		activeHint = close;
+		cancelHover();
+		setPinned(asPinned);
+		setOpen(true);
 	};
 
 	// A hover-opened hint is already showing what the click would ask for, so
@@ -56,11 +94,12 @@ const HintPopover: Component<HintPopoverProps> = (props) => {
 	// on the hover that never left.
 	const toggle = () => {
 		if (open() && pinned()) close();
-		else {
-			setPinned(true);
-			setOpen(true);
-		}
+		else show(true);
 	};
+
+	// A hint torn down mid-hover -- a tab switched away from, say -- must not
+	// leave its timer or its claim on the shared slot behind.
+	onCleanup(close);
 
 	return (
 		<Popover.Root
@@ -117,11 +156,16 @@ const HintPopover: Component<HintPopoverProps> = (props) => {
 							// Touch and pen raise this too, just before the tap
 							// the click handler above is already answering.
 							if (event.pointerType !== 'mouse') return;
-							setOpen(true);
+							// Returning to a hint already up -- a pinned one
+							// especially -- has nothing to wait for.
+							if (open()) return;
+							cancelHover();
+							hoverTimer = setTimeout(() => show(false), HOVER_DELAY_MS);
 						}}
 						onPointerLeave={(event: PointerEvent) => {
 							if (event.pointerType !== 'mouse') return;
-							if (!pinned()) setOpen(false);
+							cancelHover();
+							if (!pinned()) close();
 						}}
 					>
 						<Info />
