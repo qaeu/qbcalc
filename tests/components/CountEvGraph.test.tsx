@@ -142,10 +142,15 @@ describe('CountEvGraph', () => {
 	describe('the ramp against a system on its own count axis', () => {
 		const ACE_FIVE = tagsForSystem('ace-five')!;
 		const RULES = { ...DEFAULT_RULE_SET, decks: 6, penetrationPercent: 75 };
+		// A shoe simulation is the better part of a second, and only the ramp
+		// differs between the renders below -- the frequencies they are drawn over
+		// are one seeded run, shared. Six of them ran past the per-test timeout
+		// once coverage instrumentation was slowing each one down.
+		const ACE_FIVE_ROUNDS = simulateRoundFrequency(RULES, ACE_FIVE);
 
 		const aceFiveProfile = (ramp: readonly number[]): CountEvProfile => ({
 			...PROFILE,
-			rounds: simulateRoundFrequency(RULES, ACE_FIVE),
+			rounds: ACE_FIVE_ROUNDS,
 			ramp,
 			countScale: hiLoCountScale(baseComposition(RULES), ACE_FIVE),
 			systemLabel: 'Ace-Five',
