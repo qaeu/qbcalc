@@ -73,6 +73,8 @@ function grading(overrides: Partial<Grading> = {}): Grading {
 		countAction: 'S',
 		evLostPercent: -2.1,
 		chosenEvPercent: -20,
+		// Never read by the banner -- the variance it feeds belongs to the stats.
+		chosenSecondMoment: 1,
 		basicError: true,
 		deviationError: false,
 		trueCount: 2,

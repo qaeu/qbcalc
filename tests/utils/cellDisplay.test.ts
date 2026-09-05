@@ -8,6 +8,7 @@ import {
 	isCellDisplayMode,
 	nextCellDisplayMode,
 	occurrenceHeatClass,
+	type CellDisplayMode,
 } from '#utils/cellDisplay';
 import type { EvCellData } from '#utils/ev/tables';
 
@@ -31,8 +32,8 @@ function cell(fields: Partial<EvCellData>): EvCellData {
 describe('cellDisplay', () => {
 	describe('nextCellDisplayMode', () => {
 		it('steps through every mode and wraps back to the first', () => {
-			let mode = CELL_DISPLAY_MODES[0];
-			const seen = [mode];
+			let mode: CellDisplayMode = CELL_DISPLAY_MODES[0];
+			const seen: CellDisplayMode[] = [mode];
 			for (let i = 0; i < CELL_DISPLAY_MODES.length - 1; i += 1) {
 				mode = nextCellDisplayMode(mode);
 				seen.push(mode);
