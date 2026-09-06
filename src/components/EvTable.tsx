@@ -384,6 +384,12 @@ interface EvTableProps {
 	isComputing: Accessor<boolean>;
 	error: Accessor<string | null>;
 	trueCount: Accessor<number>;
+	/**
+	 * Moves the count by a step, the same way the arrow keys do -- the buttons
+	 * beside the reading are the pointer's way to the keys' behaviour, debounce
+	 * and all, rather than a second path into the calculation.
+	 */
+	onStepCount: (step: number) => void;
 }
 
 const EvTable: Component<EvTableProps> = (props) => {
@@ -476,12 +482,39 @@ const EvTable: Component<EvTableProps> = (props) => {
 
 			<Show when={!props.error()}>
 				<p class="ev-table__mode" aria-live="polite">
-					<span class="ev-table__mode-name">{CELL_DISPLAY_MODE_LABELS[mode()]}</span>
+					{/*
+					 * The same cycle the space bar drives, given a target: the label was
+					 * already the one word for what the cells are showing, so it becomes
+					 * the control rather than growing a second one beside it.
+					 */}
+					<button
+						type="button"
+						class="ev-table__mode-name ev-table__mode-button"
+						onClick={() => setMode(nextCellDisplayMode)}
+					>
+						{CELL_DISPLAY_MODE_LABELS[mode()]}
+					</button>
 					<span class="ev-table__mode-hint">space to cycle</span>
 					<span class="ev-table__mode-divider" aria-hidden="true" />
+					<button
+						type="button"
+						class="ev-table__count-step"
+						aria-label="Lower the true count"
+						onClick={() => props.onStepCount(-1)}
+					>
+						−
+					</button>
 					<span class="ev-table__mode-name">
 						True count {formatCount(props.trueCount())}
 					</span>
+					<button
+						type="button"
+						class="ev-table__count-step"
+						aria-label="Raise the true count"
+						onClick={() => props.onStepCount(1)}
+					>
+						+
+					</button>
 					<span class="ev-table__mode-hint">↑/↓ to adjust</span>
 				</p>
 				<EvGrid

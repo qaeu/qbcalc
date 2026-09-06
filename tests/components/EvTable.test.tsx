@@ -66,6 +66,7 @@ describe('EvTable', () => {
 				isComputing={() => false}
 				error={() => null}
 				trueCount={() => 1}
+				onStepCount={() => {}}
 			/>
 		));
 
@@ -90,6 +91,7 @@ describe('EvTable', () => {
 				isComputing={() => false}
 				error={() => null}
 				trueCount={() => 1}
+				onStepCount={() => {}}
 			/>
 		));
 
@@ -100,6 +102,26 @@ describe('EvTable', () => {
 		);
 	});
 
+	it('steps the count from the buttons beside the reading', () => {
+		const steps: number[] = [];
+		render(() => (
+			<EvTable
+				result={() => SAMPLE_RESULT}
+				isComputing={() => false}
+				error={() => null}
+				trueCount={() => 1}
+				onStepCount={(step) => steps.push(step)}
+			/>
+		));
+
+		fireEvent.click(screen.getByRole('button', { name: 'Raise the true count' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Lower the true count' }));
+
+		// One step per press, the same size the arrow keys take -- the buttons
+		// are a second way to the same handler, not a second behaviour.
+		expect(steps).toEqual([1, -1]);
+	});
+
 	it('reports insurance EV in the ace column popovers, and nowhere else', async () => {
 		render(() => (
 			<EvTable
@@ -107,6 +129,7 @@ describe('EvTable', () => {
 				isComputing={() => false}
 				error={() => null}
 				trueCount={() => 1}
+				onStepCount={() => {}}
 			/>
 		));
 
@@ -141,6 +164,7 @@ describe('EvTable', () => {
 				isComputing={() => false}
 				error={() => null}
 				trueCount={() => 1}
+				onStepCount={() => {}}
 			/>
 		));
 
@@ -164,6 +188,7 @@ describe('EvTable', () => {
 				isComputing={() => false}
 				error={() => 'Count too extreme for this shoe'}
 				trueCount={() => 0}
+				onStepCount={() => {}}
 			/>
 		));
 
@@ -178,6 +203,7 @@ describe('EvTable', () => {
 				isComputing={() => true}
 				error={() => null}
 				trueCount={() => 0}
+				onStepCount={() => {}}
 			/>
 		));
 
@@ -203,6 +229,7 @@ describe('EvTable', () => {
 				isComputing={isComputing}
 				error={() => null}
 				trueCount={() => 1}
+				onStepCount={() => {}}
 			/>
 		));
 
@@ -237,6 +264,7 @@ describe('EvTable', () => {
 				isComputing={() => false}
 				error={() => null}
 				trueCount={() => 2.5}
+				onStepCount={() => {}}
 			/>
 		));
 
@@ -280,6 +308,7 @@ describe('EvTable', () => {
 				isComputing={() => false}
 				error={() => null}
 				trueCount={() => 1}
+				onStepCount={() => {}}
 			/>
 		));
 
@@ -312,6 +341,7 @@ describe('EvTable', () => {
 				isComputing={() => false}
 				error={() => null}
 				trueCount={() => 0}
+				onStepCount={() => {}}
 			/>
 		));
 
@@ -337,6 +367,7 @@ describe('EvTable', () => {
 				isComputing={() => false}
 				error={() => null}
 				trueCount={() => 1}
+				onStepCount={() => {}}
 			/>
 		));
 
@@ -389,6 +420,7 @@ describe('EvTable', () => {
 				isComputing={() => false}
 				error={() => null}
 				trueCount={() => 1}
+				onStepCount={() => {}}
 			/>
 		));
 
@@ -425,6 +457,7 @@ describe('EvTable', () => {
 				isComputing={() => false}
 				error={() => null}
 				trueCount={() => 1}
+				onStepCount={() => {}}
 			/>
 		));
 
@@ -444,6 +477,7 @@ describe('EvTable', () => {
 				isComputing={() => false}
 				error={() => null}
 				trueCount={() => 1}
+				onStepCount={() => {}}
 			/>
 		));
 
@@ -469,6 +503,7 @@ describe('EvTable', () => {
 					isComputing={() => false}
 					error={() => null}
 					trueCount={() => 2.5}
+					onStepCount={() => {}}
 				/>
 			));
 
@@ -499,6 +534,22 @@ describe('EvTable', () => {
 			cycle();
 			expect(firstDataCell().textContent).toMatch(/^[HSDPR]$/);
 			expect(mode()).toBe('Optimal action');
+		});
+
+		it('cycles from the mode label itself, which is a button', () => {
+			const firstDataCell = renderTable();
+			const modeButton = () =>
+				document.querySelector<HTMLButtonElement>('.ev-table__mode-button')!;
+
+			expect(modeButton().textContent).toBe('Optimal action');
+
+			fireEvent.click(modeButton());
+			expect(modeButton().textContent).toBe('EV %');
+			expect(firstDataCell().textContent).toMatch(/^[+-]\d+\.\d$/);
+
+			fireEvent.click(modeButton());
+			fireEvent.click(modeButton());
+			expect(modeButton().textContent).toBe('Optimal action');
 		});
 
 		it('colours the cells by action, then by heat ramp', () => {
@@ -597,6 +648,7 @@ describe('EvTable', () => {
 				isComputing={() => false}
 				error={() => null}
 				trueCount={() => 1}
+				onStepCount={() => {}}
 			/>
 		));
 

@@ -296,6 +296,30 @@ $action-cell-opacity: 1.5;
 			font-weight: 600;
 		}
 
+		// The two controls on the line are laid over the caption's own lettering
+		// rather than dressed as buttons: at 11px, a full button box either
+		// swallows the line's rhythm or pushes the grids down a row. Everything
+		// but the padding, the hairline and the hover fill comes from the base
+		// button, so they still read as pressable and still take the gold focus
+		// ring.
+		&__mode-button,
+		&__count-step {
+			padding: 3px 8px;
+			border-color: transparent;
+			background-color: transparent;
+		}
+
+		&__mode-button {
+			@include print(11px, 0.16em);
+		}
+
+		&__count-step {
+			@include print(13px, 0);
+			align-self: center;
+			min-width: 22px;
+			line-height: 1;
+		}
+
 		&__mode-hint {
 			@include print(12px, 0.01em, $caps: false);
 			color: oklch(from get($neutrals, 'fg') l c h / 0.45);

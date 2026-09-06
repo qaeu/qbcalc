@@ -554,6 +554,7 @@ const App: Component = () => {
 							isComputing={isComputing}
 							error={error}
 							trueCount={trueCount}
+							onStepCount={stepCount}
 						/>
 					</Show>
 					<Show when={tab() === 'bankroll'}>
