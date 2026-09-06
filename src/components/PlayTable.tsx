@@ -107,16 +107,27 @@ const CARD_DEAL_DELAY_MS: Record<AnimationSpeed, number> = {
 	instant: 0,
 };
 
-/** How many of each seat's cards are currently shown, for the reveal queue below. */
+/** How much of the table is currently shown, for the reveal queue below. */
 interface RevealCounts {
 	dealer: number;
 	hands: number[];
+	/**
+	 * Whether the hole card has been turned over on the felt. Its own step in
+	 * the queue rather than something read off the state: turning it over is a
+	 * move the dealer makes, and it has to land on a beat of its own.
+	 */
+	hole: boolean;
 }
+
+const NOTHING_REVEALED: RevealCounts = { dealer: 0, hands: [], hole: false };
 
 function targetCounts(state: GameState): RevealCounts {
 	return {
 		dealer: state.dealer.cards.length,
 		hands: state.hands.map((hand) => hand.cards.length),
+		// A round with no hole card dealt yet has nothing to turn over, so the
+		// queue must not sit waiting on a step that will never come.
+		hole: !state.dealer.holeHidden && state.dealer.cards.length > 1,
 	};
 }
 
@@ -126,7 +137,11 @@ function handsReached(revealed: RevealCounts, target: RevealCounts): boolean {
 }
 
 function countsReached(revealed: RevealCounts, target: RevealCounts): boolean {
-	return revealed.dealer >= target.dealer && handsReached(revealed, target);
+	return (
+		revealed.dealer >= target.dealer
+		&& handsReached(revealed, target)
+		&& (revealed.hole || !target.hole)
+	);
 }
 
 /** One card onto hand `index`, or `null` if that hand already has it. */
@@ -140,7 +155,7 @@ function dealToHand(
 	if (have >= upTo || have >= target.hands[index]) return null;
 	const hands = [...revealed.hands];
 	hands[index] = have + 1;
-	return { dealer: revealed.dealer, hands };
+	return { ...revealed, hands };
 }
 
 /**
@@ -148,9 +163,11 @@ function dealToHand(
  * them. The opening deal goes round the seats a card at a time -- player,
  * upcard, player, hole -- so while any seat is still short of its first two
  * cards the reveal follows that rotation. After it, the order is the order of
- * play: every player hand left to right, and only then the dealer. That last
- * part is what keeps a bust on the felt before the dealer answers it, since a
- * busted round settles the dealer's whole draw-out in the same transition.
+ * play: every player hand left to right, then the hole card turning over, and
+ * only then whatever the dealer draws on it. That tail is what keeps a bust on
+ * the felt before the dealer answers it -- a busted round settles the hole card
+ * and the whole draw-out in the same transition the bust happens in, so without
+ * an order they would all land on the beat the bust does.
  */
 function revealOneMore(revealed: RevealCounts, target: RevealCounts): RevealCounts {
 	for (let round = 1; round <= 2; round += 1) {
@@ -165,6 +182,9 @@ function revealOneMore(revealed: RevealCounts, target: RevealCounts): RevealCoun
 	for (let index = 0; index < target.hands.length; index += 1) {
 		const dealt = dealToHand(revealed, target, index, Infinity);
 		if (dealt !== null) return dealt;
+	}
+	if (target.hole && !revealed.hole) {
+		return { ...revealed, hole: true };
 	}
 	if (revealed.dealer < target.dealer) {
 		return { ...revealed, dealer: revealed.dealer + 1 };
@@ -285,7 +305,7 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 	 * lower target and a split's two-card hands already carry one revealed card
 	 * each.
 	 */
-	const [revealed, setRevealed] = createSignal<RevealCounts>({ dealer: 0, hands: [] });
+	const [revealed, setRevealed] = createSignal<RevealCounts>(NOTHING_REVEALED);
 	let dealTimer: ReturnType<typeof setTimeout> | undefined;
 	// `Redeal same bet` deals straight from `settled` into the next round
 	// without passing through `bet` in between, so a same-shaped hand (the
@@ -315,12 +335,15 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 		}
 
 		setRevealed((current) => {
-			const baseline = freshlyDealt ? { dealer: 0, hands: [] as number[] } : current;
+			const baseline = freshlyDealt ? NOTHING_REVEALED : current;
 			return {
 				dealer: Math.min(baseline.dealer, target.dealer),
 				hands: target.hands.map((count, index) =>
 					Math.min(baseline.hands[index] ?? 0, count)
 				),
+				// A hole card cannot stay turned over into a round that has not
+				// dealt one yet, so the next deal puts it back face down.
+				hole: baseline.hole && target.hole,
 			};
 		});
 
@@ -347,16 +370,13 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 	const settled = () => phase() === 'settled' && fullyDealt();
 
 	/**
-	 * Whether the felt still shows the hole card face down. The state machine
-	 * turns it over in the same transition that plays the dealer out, which on a
-	 * bust is the transition the player's last card is still queued behind -- so
-	 * the flip waits for the player's hands, the same way the dealer's draw does.
+	 * Whether the felt still shows the hole card face down -- the queue's own
+	 * answer, not the state machine's. The machine turns it over in the same
+	 * transition that plays the dealer out, which on a bust is the transition the
+	 * player's last card is still queued behind, so the felt turns it on the beat
+	 * the queue reaches rather than the one the state changed on.
 	 */
-	const holeHidden = createMemo(
-		() =>
-			props.state.dealer.holeHidden
-			|| !handsReached(revealed(), targetCounts(props.state))
-	);
+	const holeHidden = createMemo(() => !revealed().hole);
 
 	const dealerLabel = createMemo(() =>
 		dealerTotalLabel(props.state, revealed().dealer, holeHidden())

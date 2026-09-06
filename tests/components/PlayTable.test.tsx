@@ -413,17 +413,20 @@ describe('PlayTable', () => {
 			const dealerTotal = () =>
 				document.querySelector('.play-table__seat .play-table__total')?.textContent;
 
-			// The player's own two cards go down first, the up card between them,
-			// and only once the hand is complete does the hole card turn over.
+			// The player's own two cards go down first, the up card between them.
 			vi.advanceTimersByTime(800);
 			expect(dealerTotal()).toBe('');
 
 			vi.advanceTimersByTime(800);
 			expect(dealerTotal()).toBe('showing 9');
 
-			vi.advanceTimersByTime(800);
-			expect(dealerTotal()).toBe('9');
+			// The player's second and the hole card, still face down: the upcard is
+			// all the dealer is showing until the player's hand is finished with.
+			vi.advanceTimersByTime(800 * 2);
+			expect(dealerTotal()).toBe('showing 9');
 
+			// The hole card turns on a beat of its own, and the draw-out follows it
+			// one card at a time rather than jumping to 19.
 			vi.advanceTimersByTime(800);
 			expect(dealerTotal()).toBe('14');
 
@@ -434,8 +437,8 @@ describe('PlayTable', () => {
 		it('lands the card that busts the player before the dealer answers it', () => {
 			// T, 6 against a nine, hit into a ten: the hand busts, and the very
 			// same transition turns the hole card over and settles the round. The
-			// bust is the player's own card, so it goes down first -- the dealer's
-			// hand stays as the player last saw it until then.
+			// bust is the player's own card, so it goes down on a beat of its own,
+			// with the dealer's hand still reading as the player last saw it.
 			const busted = settleRound(
 				applyAction(dealtState(['T', '9', '6', '5', 'T'], {}, 20), 'H')
 			);
@@ -454,7 +457,12 @@ describe('PlayTable', () => {
 			vi.advanceTimersByTime(800 * 4);
 			expect(totals()).toEqual(['showing 9', 'hard 16']);
 
-			// The bust, and only with it the hole card the dealer answers on.
+			// The bust lands alone: the dealer is still showing nine.
+			vi.advanceTimersByTime(800);
+			expect(totals()).toEqual(['showing 9', 'hard 26']);
+			expect(screen.queryByText('Bust')).toBeNull();
+
+			// Only then does the dealer turn over the card that answers it.
 			vi.advanceTimersByTime(800);
 			expect(totals()).toEqual(['14', 'hard 26']);
 			expect(screen.getByText('Bust')).toBeDefined();
@@ -483,7 +491,8 @@ describe('PlayTable', () => {
 			fireEvent.keyDown(document.body, { key: ' ' });
 			expect(onNextHand).not.toHaveBeenCalled();
 
-			vi.advanceTimersByTime(800 * 4); // both player cards, two of the dealer's
+			// Both player cards, the dealer's two, and the hole card turning over.
+			vi.advanceTimersByTime(800 * 5);
 			expect(screen.queryByText('Lose')).toBeNull();
 
 			vi.advanceTimersByTime(800); // the dealer's last card

@@ -52,12 +52,13 @@ just found — therefore comes back from `startRound` already in `dealer` rather
 A single transition can deal several cards at once — a split, or the dealer's whole draw-out —
 so `PlayTable` holds a reveal queue and lets one card land at a time. It deals in the table's
 own order: round the seats while any of them is short of its first two cards, then every player
-hand left to right and only then the dealer. That last part is what a busted hit depends on.
-The state machine settles the round in the transition the bust happens in, so the hole card and
-the dealer's draw are already in the state the felt is animating toward; dealing the player's
-hands out first — and holding the hole card face down until they are complete, whatever
-`DealerHand.holeHidden` says — keeps the dealer from answering a bust the player has not been
-shown yet. The round's result and its buttons wait on the same queue.
+hand left to right, then the hole card turning over, and only then whatever the dealer draws on
+it. That tail is what a busted hit depends on. The state machine settles the round in the same
+transition the bust happens in, so the turned hole card and the dealer's draw are already in the
+state the felt is animating toward, and without an order they all land on the beat the bust
+does. Turning the hole card is a step of the queue in its own right rather than something read
+off `DealerHand.holeHidden` — it is a move the dealer makes, and it needs a beat to make it on.
+The round's result and its buttons wait on the same queue.
 
 Cards come out in a table's order — player, upcard, player, hole card — and every rule in
 `RuleSet` reaches the machine: H17/S17, `dealerPeek`, `splitLimit`, `doubleAfterSplit`,
