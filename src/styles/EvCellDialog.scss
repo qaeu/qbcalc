@@ -6,6 +6,55 @@ $dialog-z-index: 40;
 $action-chip-opacity: 0.95;
 
 @layer screen {
+	// Out here rather than beside the rules that use them: Sass leaves a nested
+	// @keyframes nested in the compiled CSS, where it is not a valid at-rule and
+	// is dropped -- see the same note in PlayTable.scss.
+	@keyframes ev-cell-dialog-fade-in {
+		from {
+			opacity: 0;
+		}
+
+		to {
+			opacity: 1;
+		}
+	}
+
+	@keyframes ev-cell-dialog-fade-out {
+		from {
+			opacity: 1;
+		}
+
+		to {
+			opacity: 0;
+		}
+	}
+
+	// The panel arrives from just above where it lands, so the motion reads as
+	// the drill-down dropping out of the cell that was clicked.
+	@keyframes ev-cell-dialog-scale-in {
+		from {
+			opacity: 0;
+			transform: scale(0.96) translateY(-8px);
+		}
+
+		to {
+			opacity: 1;
+			transform: scale(1) translateY(0);
+		}
+	}
+
+	@keyframes ev-cell-dialog-scale-out {
+		from {
+			opacity: 1;
+			transform: scale(1) translateY(0);
+		}
+
+		to {
+			opacity: 0;
+			transform: scale(0.96) translateY(-8px);
+		}
+	}
+
 	.ev-cell-dialog {
 		@include card;
 		@include shadow;
@@ -14,12 +63,30 @@ $action-chip-opacity: 0.95;
 		margin-bottom: 0;
 		border: 1px solid $rule-strong;
 
+		// Ark holds the dialog mounted while `data-state="closed"` plays out, so
+		// the close animation is what delays the unmount.
+		&[data-state='open'] {
+			animation: ev-cell-dialog-scale-in 0.25s ease-out;
+		}
+
+		&[data-state='closed'] {
+			animation: ev-cell-dialog-scale-out 0.2s ease-in;
+		}
+
 		&__backdrop {
 			position: fixed;
 			inset: 0;
 			z-index: $dialog-z-index;
 			background-color: oklch(from $black l c h / 0.55);
 			backdrop-filter: blur(2px);
+
+			&[data-state='open'] {
+				animation: ev-cell-dialog-fade-in 0.25s ease-out;
+			}
+
+			&[data-state='closed'] {
+				animation: ev-cell-dialog-fade-out 0.2s ease-in;
+			}
 		}
 
 		&__positioner {
