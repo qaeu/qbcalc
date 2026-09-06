@@ -9,6 +9,14 @@ $cell-hover-duration: 0.1s;
 $deviation-ring-width: 6px;
 $cell-padding-y: 12px;
 $cell-padding-x: 10px;
+// Fixed, rather than left to each state's own font metrics, because a cell's
+// contents change under it: the numeric modes drop to 11px, and the loading
+// skeleton is a 14px block, taller than the line either size makes. Under
+// `normal` that resized the rows on every recalculation -- each grid growing
+// 3px a row as the skeletons came in and shrinking back as the numbers landed,
+// which is the flash a count step used to set off. One pixel over the skeleton,
+// so it still clears the clipped content box at every size.
+$cell-line-height: 15px;
 $cell-separator-width: 1px;
 // A deviated cell pays for its ring (and for the row rule its bottom border
 // swallows) out of its own padding, so its box stays the size its undeviated
@@ -75,6 +83,7 @@ $action-cell-opacity: 1.5;
 		td {
 			width: calc(100% / 11);
 			padding: $cell-padding-y $cell-padding-x;
+			line-height: $cell-line-height;
 			text-align: center;
 			// Every edge stays transparent, the row's rule being painted as a
 			// background layer instead: a cell gaining a deviation ring transitions
@@ -336,6 +345,10 @@ $action-cell-opacity: 1.5;
 
 		&__cell-skeleton {
 			display: inline-block;
+			// Centred on the line rather than sat on its baseline, which would
+			// hang the block's full height below the text's own and push the line
+			// box past the height fixed above.
+			vertical-align: middle;
 			width: 14px;
 			height: 14px;
 			border-radius: 3px;
