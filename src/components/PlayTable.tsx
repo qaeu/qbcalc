@@ -119,31 +119,54 @@ function targetCounts(state: GameState): RevealCounts {
 	};
 }
 
+/** Whether every player hand has all of its cards on the felt. */
+function handsReached(revealed: RevealCounts, target: RevealCounts): boolean {
+	return target.hands.every((count, index) => (revealed.hands[index] ?? 0) >= count);
+}
+
 function countsReached(revealed: RevealCounts, target: RevealCounts): boolean {
-	return (
-		revealed.dealer >= target.dealer
-		&& target.hands.every((count, index) => (revealed.hands[index] ?? 0) >= count)
-	);
+	return revealed.dealer >= target.dealer && handsReached(revealed, target);
+}
+
+/** One card onto hand `index`, or `null` if that hand already has it. */
+function dealToHand(
+	revealed: RevealCounts,
+	target: RevealCounts,
+	index: number,
+	upTo: number
+): RevealCounts | null {
+	const have = revealed.hands[index] ?? 0;
+	if (have >= upTo || have >= target.hands[index]) return null;
+	const hands = [...revealed.hands];
+	hands[index] = have + 1;
+	return { dealer: revealed.dealer, hands };
 }
 
 /**
- * One more card than `revealed`, toward `target` -- the dealer's seat first,
- * then each hand left to right. Dealing order within a single state jump
- * (a split, or the dealer's whole draw-out settling in one transition) is
- * therefore only approximate, but the point is a card at a time, not a replay
- * of the table's exact order.
+ * One more card than `revealed`, toward `target`, in the order a table deals
+ * them. The opening deal goes round the seats a card at a time -- player,
+ * upcard, player, hole -- so while any seat is still short of its first two
+ * cards the reveal follows that rotation. After it, the order is the order of
+ * play: every player hand left to right, and only then the dealer. That last
+ * part is what keeps a bust on the felt before the dealer answers it, since a
+ * busted round settles the dealer's whole draw-out in the same transition.
  */
 function revealOneMore(revealed: RevealCounts, target: RevealCounts): RevealCounts {
+	for (let round = 1; round <= 2; round += 1) {
+		for (let index = 0; index < target.hands.length; index += 1) {
+			const dealt = dealToHand(revealed, target, index, round);
+			if (dealt !== null) return dealt;
+		}
+		if (revealed.dealer < round && revealed.dealer < target.dealer) {
+			return { ...revealed, dealer: revealed.dealer + 1 };
+		}
+	}
+	for (let index = 0; index < target.hands.length; index += 1) {
+		const dealt = dealToHand(revealed, target, index, Infinity);
+		if (dealt !== null) return dealt;
+	}
 	if (revealed.dealer < target.dealer) {
 		return { ...revealed, dealer: revealed.dealer + 1 };
-	}
-	const hands = [...revealed.hands];
-	for (let index = 0; index < target.hands.length; index += 1) {
-		const have = hands[index] ?? 0;
-		if (have < target.hands[index]) {
-			hands[index] = have + 1;
-			return { dealer: revealed.dealer, hands };
-		}
 	}
 	return revealed;
 }
@@ -180,14 +203,18 @@ function totalLabel(hand: PlayHand, visibleCount: number): string {
  * `visibleCount`, since a hidden card is not information the felt gives out
  * just because the reveal queue has nominally reached its slot.
  */
-function dealerTotalLabel(state: GameState, visibleCount: number): string | null {
+function dealerTotalLabel(
+	state: GameState,
+	visibleCount: number,
+	holeHidden: boolean
+): string | null {
 	const dealer = state.dealer;
 	const cards = dealer.cards
 		.slice(0, visibleCount)
-		.filter((_, index) => !(dealer.holeHidden && index === 1));
+		.filter((_, index) => !(holeHidden && index === 1));
 	if (cards.length === 0) return null;
 	const [total] = partialTotal(cards);
-	if (dealer.holeHidden) return `showing ${total}`;
+	if (holeHidden) return `showing ${total}`;
 	const fullyRevealed = visibleCount >= dealer.cards.length;
 	return `${fullyRevealed && total > 21 ? 'bust ' : ''}${total}`;
 }
@@ -318,7 +345,21 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 	);
 	const settled = () => phase() === 'settled' && fullyDealt();
 
-	const dealerLabel = createMemo(() => dealerTotalLabel(props.state, revealed().dealer));
+	/**
+	 * Whether the felt still shows the hole card face down. The state machine
+	 * turns it over in the same transition that plays the dealer out, which on a
+	 * bust is the transition the player's last card is still queued behind -- so
+	 * the flip waits for the player's hands, the same way the dealer's draw does.
+	 */
+	const holeHidden = createMemo(
+		() =>
+			props.state.dealer.holeHidden
+			|| !handsReached(revealed(), targetCounts(props.state))
+	);
+
+	const dealerLabel = createMemo(() =>
+		dealerTotalLabel(props.state, revealed().dealer, holeHidden())
+	);
 
 	// Rounded up: a shoe with a card left in it is still a shoe you are playing
 	// out of, and "0 decks left" would read as one already shuffled.
@@ -460,7 +501,7 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 						<For each={props.state.dealer.cards.slice(0, revealed().dealer)}>
 							{(rank, index) => (
 								<Show
-									when={!(props.state.dealer.holeHidden && index() === 1)}
+									when={!(holeHidden() && index() === 1)}
 									fallback={
 										// ENHC tables never deal a hole card at all until the
 										// player's turn is over, so there is nothing to draw face

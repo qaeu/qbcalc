@@ -348,18 +348,19 @@ describe('PlayTable', () => {
 
 			expect(document.querySelectorAll('.play-table__card').length).toBe(0);
 
-			// Dealer's up card first...
+			// Round the table as a dealer deals it: player's first card...
 			vi.advanceTimersByTime(800);
 			expect(document.querySelectorAll('.play-table__card').length).toBe(1);
 
-			// ...then its hole card, which an ENHC table has nothing to draw for.
-			vi.advanceTimersByTime(800);
-			expect(document.querySelectorAll('.play-table__card').length).toBe(1);
-
-			// Then the player's two, one at a time.
+			// ...the up card...
 			vi.advanceTimersByTime(800);
 			expect(document.querySelectorAll('.play-table__card').length).toBe(2);
 
+			// ...the player's second...
+			vi.advanceTimersByTime(800);
+			expect(document.querySelectorAll('.play-table__card').length).toBe(3);
+
+			// ...and the hole card, which an ENHC table has nothing to draw for.
 			vi.advanceTimersByTime(800);
 			expect(document.querySelectorAll('.play-table__card').length).toBe(3);
 		});
@@ -387,12 +388,11 @@ describe('PlayTable', () => {
 					(node) => node.textContent
 				);
 
-			vi.advanceTimersByTime(800); // dealer's up card
-			vi.advanceTimersByTime(800); // dealer's hidden hole card
-			expect(totals()).not.toContain('hard 16');
-
 			vi.advanceTimersByTime(800); // player's first card
 			expect(totals()).toContain('hard 10');
+			expect(totals()).not.toContain('hard 16');
+
+			vi.advanceTimersByTime(800); // dealer's up card
 			expect(totals()).not.toContain('hard 16');
 
 			vi.advanceTimersByTime(800); // player's second card
@@ -413,6 +413,14 @@ describe('PlayTable', () => {
 			const dealerTotal = () =>
 				document.querySelector('.play-table__seat .play-table__total')?.textContent;
 
+			// The player's own two cards go down first, the up card between them,
+			// and only once the hand is complete does the hole card turn over.
+			vi.advanceTimersByTime(800);
+			expect(dealerTotal()).toBe('');
+
+			vi.advanceTimersByTime(800);
+			expect(dealerTotal()).toBe('showing 9');
+
 			vi.advanceTimersByTime(800);
 			expect(dealerTotal()).toBe('9');
 
@@ -421,6 +429,35 @@ describe('PlayTable', () => {
 
 			vi.advanceTimersByTime(800);
 			expect(dealerTotal()).toBe('19');
+		});
+
+		it('lands the card that busts the player before the dealer answers it', () => {
+			// T, 6 against a nine, hit into a ten: the hand busts, and the very
+			// same transition turns the hole card over and settles the round. The
+			// bust is the player's own card, so it goes down first -- the dealer's
+			// hand stays as the player last saw it until then.
+			const busted = settleRound(
+				applyAction(dealtState(['T', '9', '6', '5', 'T'], {}, 20), 'H')
+			);
+			expect(busted.hands[0].busted).toBe(true);
+			renderTable({
+				state: busted,
+				config: { ...DEFAULT_PLAY_CONFIG, animationSpeed: '1x' },
+			});
+
+			const totals = () =>
+				Array.from(document.querySelectorAll('.play-table__total')).map(
+					(node) => node.textContent
+				);
+
+			// The opening deal: player, up card, player, hole card.
+			vi.advanceTimersByTime(800 * 4);
+			expect(totals()).toEqual(['showing 9', 'hard 16']);
+
+			// The bust, and only with it the hole card the dealer answers on.
+			vi.advanceTimersByTime(800);
+			expect(totals()).toEqual(['14', 'hard 26']);
+			expect(screen.getByText('Bust')).toBeDefined();
 		});
 
 		it('holds the round back until the cards that decided it have landed', () => {
