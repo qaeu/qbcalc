@@ -495,6 +495,50 @@ describe('PlayTable', () => {
 			expect(onNextHand).toHaveBeenCalledOnce();
 		});
 
+		it('leaves the cards already on the felt in place as a new one lands', () => {
+			// The deal gesture is a mount animation, so a card that stays on the
+			// felt has to stay the same element -- the state machine hands back
+			// fresh `PlayHand` objects every transition, and a seat rebuilt around
+			// them would re-deal every card the player is already looking at.
+			const dealt = dealtState(HARD_16, {}, 20);
+			const [state, setState] = createSignal<GameState>(dealt);
+			render(() => (
+				<PlayTable
+					state={state()}
+					stack={1000}
+					bet={25}
+					unit={10}
+					config={{ ...DEFAULT_PLAY_CONFIG, animationSpeed: 'instant' }}
+					grading={null}
+					onAction={() => {}}
+					onInsurance={() => {}}
+					onChip={() => {}}
+					onClear={() => {}}
+					onRepeat={() => {}}
+					onDeal={() => {}}
+					onNewShoe={() => {}}
+					onNextHand={() => {}}
+				/>
+			));
+
+			const playerCards = () =>
+				Array.from(
+					document
+						.querySelectorAll('.play-table__seat')[1]
+						.querySelectorAll('.play-table__card')
+				);
+
+			const before = playerCards();
+			expect(before.length).toBe(2);
+
+			setState(applyAction(dealt, 'H'));
+
+			const after = playerCards();
+			expect(after.length).toBe(3);
+			expect(after[0]).toBe(before[0]);
+			expect(after[1]).toBe(before[1]);
+		});
+
 		it('does not skip the delay when a redeal follows a settled round', () => {
 			const settled = settleRound(applyAction(dealtState(HARD_16, {}, 20), 'S'));
 			const [state, setState] = createSignal<GameState>(settled);

@@ -13,6 +13,23 @@ $chip-colours: (
 );
 
 @layer screen {
+	// Out here rather than beside the rule that uses it: Sass leaves a nested
+	// @keyframes nested in the compiled CSS, where it is not a valid at-rule and
+	// is dropped -- so a nested one silently animates nothing.
+	//
+	// The deal gesture itself: in from the shoe's corner, squared up as it lands.
+	@keyframes play-table-deal {
+		from {
+			opacity: 0;
+			transform: translate(34px, -42px) rotate(8deg);
+		}
+
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+
 	.play-table {
 		display: flex;
 		flex-direction: column;
@@ -198,6 +215,13 @@ $chip-colours: (
 			line-height: 1;
 			// Each card is inserted as the reveal queue reaches it, so the deal
 			// gesture comes for free: the animation runs on mount and never again.
+			//
+			// Deliberately not behind `prefers-reduced-motion`, unlike the chip
+			// hover below: the deal is the felt's own control, not the browser's.
+			// Play has an animation speed in the sidebar, whose `instant` setting
+			// skips the reveal queue outright -- that is where a player turns the
+			// dealing off, and an OS-wide preference must not overrule the choice
+			// they made in the app itself.
 			animation: play-table-deal 380ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
 
 			&.is-red {
@@ -225,23 +249,6 @@ $chip-colours: (
 			@include phone {
 				border-radius: 4px;
 				padding: 4px 5px;
-			}
-		}
-
-		@keyframes play-table-deal {
-			from {
-				opacity: 0;
-				transform: translate(34px, -42px) rotate(8deg);
-			}
-			to {
-				opacity: 1;
-				transform: none;
-			}
-		}
-
-		@media (prefers-reduced-motion: reduce) {
-			&__card {
-				animation: none;
 			}
 		}
 

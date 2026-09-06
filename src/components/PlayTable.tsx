@@ -10,6 +10,7 @@ import {
 	createMemo,
 	createSignal,
 	For,
+	Index,
 	onCleanup,
 	Show,
 	type Component,
@@ -535,7 +536,12 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 						</div>
 					}
 				>
-					<For each={props.state.hands}>
+					{/* Keyed by seat rather than by hand: the state machine hands back a
+					    fresh `PlayHand` on every transition, and a keyed loop would tear
+					    the whole seat down and rebuild it -- re-running the deal
+					    animation on every card already lying on the felt. A seat is
+					    positional anyway, and a split splices into place. */}
+					<Index each={props.state.hands}>
 						{(hand, handIndex) => (
 							<div
 								class={`play-table__seat ${
@@ -544,7 +550,7 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 									// reads as a stray box around the only seat in play.
 									(
 										props.state.hands.length > 1
-										&& handIndex() === props.state.activeHandIndex
+										&& handIndex === props.state.activeHandIndex
 									) ?
 										'is-active'
 									:	''
@@ -554,22 +560,22 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 									You
 									<Show when={props.state.hands.length > 1}>
 										{' '}
-										<span class="play-table__hand-index">#{handIndex() + 1}</span>
+										<span class="play-table__hand-index">#{handIndex + 1}</span>
 									</Show>
 								</span>
 								<div class="play-table__cards">
-									<For each={hand.cards.slice(0, revealed().hands[handIndex()] ?? 0)}>
+									<For each={hand().cards.slice(0, revealed().hands[handIndex] ?? 0)}>
 										{(rank, index) => (
-											<Card rank={rank} row={handIndex() + 1} index={index()} />
+											<Card rank={rank} row={handIndex + 1} index={index()} />
 										)}
 									</For>
 								</div>
 								<span class="play-table__total">
-									{totalLabel(hand, revealed().hands[handIndex()] ?? 0)}
+									{totalLabel(hand(), revealed().hands[handIndex] ?? 0)}
 								</span>
 							</div>
 						)}
-					</For>
+					</Index>
 				</Show>
 			</div>
 
