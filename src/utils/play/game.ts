@@ -326,7 +326,8 @@ export function resolveInsurance(state: GameState, take: boolean): GameState {
  * with it. A rule that switches an action off for the whole game (no splitting,
  * no surrender) leaves nothing for the button to ever mean; one that only
  * narrows when it applies (`es10` surrender, doubling after a split) still
- * belongs there, greyed out on the hands it doesn't cover.
+ * belongs there, and holds the key it answers to on the hands it doesn't cover
+ * even though the bar draws no button for it.
  */
 export function offeredActions(ruleSet: RuleSet): PlayerAction[] {
 	const actions: PlayerAction[] = ['H', 'S', 'D'];

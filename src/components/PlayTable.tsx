@@ -755,18 +755,21 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 				<div class="play-table__actions">
 					<For each={offered()}>
 						{(action, index) => (
-							<button
-								type="button"
-								// Disabled in place rather than dropped: an action this table
-								// offers keeps its slot and its key on the hands that cannot
-								// take it, and a bar that reflowed would undo that.
-								disabled={!legal().includes(action)}
-								class={`play-table__action ${ACTION_CLASS[action]}`}
-								onClick={() => props.onAction(action)}
-							>
-								<span class="play-table__key">{index() + 1}</span>
-								{formatActionLabel(action)}
-							</button>
+							// Only the actions this hand can actually take are drawn -- no
+							// split on a hard 16, no double once it has hit. The key each
+							// one answers to is still its slot on the table's bar rather
+							// than its position in the row, so a digit means the same
+							// action every hand however few buttons are showing.
+							<Show when={legal().includes(action)}>
+								<button
+									type="button"
+									class={`play-table__action ${ACTION_CLASS[action]}`}
+									onClick={() => props.onAction(action)}
+								>
+									<span class="play-table__key">{index() + 1}</span>
+									{formatActionLabel(action)}
+								</button>
+							</Show>
 						)}
 					</For>
 				</div>

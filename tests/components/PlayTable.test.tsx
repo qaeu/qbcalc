@@ -202,25 +202,40 @@ describe('PlayTable', () => {
 			expect(onAction).toHaveBeenCalledWith('S');
 		});
 
-		it('renders an illegal action disabled rather than dropping it', () => {
+		it('draws no button for an action this hand cannot take', () => {
 			const { onAction } = renderTable({
 				state: dealtState(HARD_16, { surrender: 'late' }),
 			});
 
-			// Hard 16 is no pair, and surrender is off the table past the first two
-			// cards -- both are offered here, and neither does anything on this hand.
-			expect(
-				screen.getByRole<HTMLButtonElement>('button', { name: /Split/ }).disabled
-			).toBe(true);
+			// Hard 16 is no pair, so the table's split button has nothing to mean on
+			// this hand and the bar simply does not draw it.
+			expect(screen.queryByRole('button', { name: /Split/ })).toBeNull();
 
 			fireEvent.keyDown(document.body, { key: '4' });
 			expect(onAction).not.toHaveBeenCalled();
 		});
 
+		it('keeps a shown action on its own key when an earlier one is hidden', () => {
+			// Eights against a nine, split into another pair of eights at a table
+			// that does not allow doubling after a split: the third slot goes
+			// undrawn and the fourth is a live resplit, which still answers to 4.
+			const split = applyAction(
+				dealtState(['8', '9', '8', '6', '8', '3'], { doubleAfterSplit: false }),
+				'P'
+			);
+			const { onAction } = renderTable({ state: split });
+
+			expect(screen.queryByRole('button', { name: /Double/ })).toBeNull();
+			expect(screen.getByRole('button', { name: /Split/ }).textContent).toContain('4');
+
+			fireEvent.keyDown(document.body, { key: '4' });
+			expect(onAction).toHaveBeenCalledWith('P');
+		});
+
 		it('leaves an action the rules never offer off the bar entirely', () => {
 			// The default table has no surrender at all, so the button would never
-			// mean anything -- unlike a split the next hand may well be able to take.
-			renderTable();
+			// mean anything -- unlike a split, which this pair of eights can take.
+			renderTable({ state: dealtState(['8', '9', '8', '6']) });
 
 			expect(screen.queryByRole('button', { name: /Surrender/ })).toBeNull();
 			expect(screen.getByRole('button', { name: /Split/ })).toBeDefined();
