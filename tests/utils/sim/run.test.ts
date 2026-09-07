@@ -163,9 +163,48 @@ describe('back-counting', () => {
 		expect(played.some((bucket) => bucket.roundsPlayed > 0)).toBe(true);
 	});
 
-	it('gets up again above a wong-out count', () => {
-		const out = play(inputs({ rounds: 2_000, seed: 3, wongOutCount: 2 }));
-		for (const bucket of out.buckets.filter((bucket) => bucket.trueCount > 2)) {
+	it('sits out below a wong-out count when it never sat down for one', () => {
+		// Wong-in never bites, so the seat is held from the first round and given up
+		// only where the count falls under the exit: the two settings collapse to
+		// the round-by-round reading, and no bucket below it is wagered in.
+		const out = play(inputs({ rounds: 2_000, seed: 3, wongOutCount: 0 }));
+		for (const bucket of out.buckets.filter((bucket) => bucket.trueCount < 0)) {
+			expect(bucket.roundsPlayed).toBe(0);
+		}
+		expect(out.roundsPlayed).toBeGreaterThan(0);
+	});
+
+	it('holds the seat below the count it was taken at', () => {
+		// The whole point of the pair being read with hysteresis: a counter who sits
+		// down at +2 and leaves under -1 plays the cooling shoe in between, which is
+		// strictly more rounds than one who gets up the moment it drops under +2.
+		const config = { rounds: 2_000, seed: 3, wongInCount: 2 };
+		const tight = play(inputs(config));
+		const held = play(inputs({ ...config, wongOutCount: -1 }));
+		expect(held.roundsPlayed).toBeGreaterThan(tight.roundsPlayed);
+		// And they are rounds the tight setting never wagered on: counts under the
+		// entry, which only a seat already taken can reach.
+		const low = (result: SimResult) =>
+			result.buckets
+				.filter((bucket) => bucket.trueCount < 2)
+				.reduce((sum, bucket) => sum + bucket.roundsPlayed, 0);
+		expect(low(tight)).toBe(0);
+		expect(low(held)).toBeGreaterThan(0);
+	});
+
+	it('lets an exit above the entry win rather than seating every other round', () => {
+		// Sitting down at 0 and getting up under +3 is not refused, but nor is it
+		// taken literally: a seat given up the round after it is taken is not a
+		// strategy, so the exit does both jobs and the run plays +3 and up.
+		const config = { rounds: 2_000, seed: 3, wongInCount: 0 };
+		const plain = play(inputs(config));
+		const odd = play(inputs({ ...config, wongOutCount: 3 }));
+		expect(odd.roundsPlayed).toBeGreaterThan(0);
+		expect(odd.roundsPlayed).toBeLessThan(plain.roundsPlayed);
+		expect(odd.roundsPlayed).toBe(
+			play(inputs({ ...config, wongInCount: 3 })).roundsPlayed
+		);
+		for (const bucket of odd.buckets.filter((bucket) => bucket.trueCount < 3)) {
 			expect(bucket.roundsPlayed).toBe(0);
 		}
 	});
@@ -311,8 +350,8 @@ describe('settings that wager on nothing at all', () => {
 	 * that never wagers is a finite run with an answer -- and "how much of my time
 	 * would this leave me standing there" is a reasonable thing to ask.
 	 */
-	it('watches out a wong window with no count inside it', () => {
-		const result = play(inputs({ rounds: 500, wongInCount: 4, wongOutCount: 2 }));
+	it('watches out an entry count the shoe never reaches', () => {
+		const result = play(inputs({ rounds: 500, wongInCount: 9 }));
 		expect(result.roundsSeen).toBe(500);
 		expect(result.roundsPlayed).toBe(0);
 		expect(result.roundsWatched).toBe(500);
@@ -328,7 +367,7 @@ describe('settings that wager on nothing at all', () => {
 	});
 
 	it('reports zeroes for a run that staked nothing rather than dividing by them', () => {
-		const result = play(inputs({ rounds: 500, wongInCount: 4, wongOutCount: 2 }));
+		const result = play(inputs({ rounds: 500, wongInCount: 9 }));
 		expect(result.edgePercent).toBe(0);
 		expect(result.evEdgePercent).toBe(0);
 		expect(result.averageBet).toBe(0);

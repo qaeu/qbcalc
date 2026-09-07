@@ -24,7 +24,7 @@ function storeTinyConfig(overrides: Partial<SimConfig> = {}): void {
 		seed: 4,
 		...overrides,
 	};
-	localStorage.setItem('qbcalc:sim-config', JSON.stringify({ version: 1, ...config }));
+	localStorage.setItem('qbcalc:sim-config', JSON.stringify({ version: 2, ...config }));
 }
 
 const runButton = () => screen.getByRole('button', { name: 'Run simulation' });

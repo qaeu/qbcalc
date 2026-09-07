@@ -434,7 +434,7 @@ describe('sim config', () => {
 		deviations: 'full',
 		cutCardVarianceDecks: 0.5,
 		wongInCount: 1,
-		wongOutCount: 6,
+		wongOutCount: -1,
 		otherSpots: 2,
 		seed: 987654,
 		reseedEachRun: false,
@@ -462,18 +462,29 @@ describe('sim config', () => {
 		expect(loadSimConfig()).toBeNull();
 	});
 
+	it('drops a version 1 record, whose wong-out counted the other way', () => {
+		// Version 1 read `wongOutCount` as a count to get up *above*, so a stored +6
+		// means the opposite of what it would mean now. The bump is what keeps it
+		// from being restored as a setting that sits the session out.
+		localStorage.setItem(
+			SIM_CONFIG_KEY,
+			JSON.stringify({ version: 1, ...DEFAULT_SIM_CONFIG, wongOutCount: 6 })
+		);
+		expect(loadSimConfig()).toBeNull();
+	});
+
 	it('rejects a value no option in the form offers', () => {
 		// A round count the select cannot show would leave the form with nothing
 		// selected, so the record is dropped rather than restored.
 		localStorage.setItem(
 			SIM_CONFIG_KEY,
-			JSON.stringify({ version: 1, ...DEFAULT_SIM_CONFIG, rounds: 12_345 })
+			JSON.stringify({ version: 2, ...DEFAULT_SIM_CONFIG, rounds: 12_345 })
 		);
 		expect(loadSimConfig()).toBeNull();
 
 		localStorage.setItem(
 			SIM_CONFIG_KEY,
-			JSON.stringify({ version: 1, ...DEFAULT_SIM_CONFIG, deviations: 'psychic' })
+			JSON.stringify({ version: 2, ...DEFAULT_SIM_CONFIG, deviations: 'psychic' })
 		);
 		expect(loadSimConfig()).toBeNull();
 	});
@@ -482,7 +493,7 @@ describe('sim config', () => {
 		localStorage.setItem(SIM_CONFIG_KEY, 'not json');
 		expect(loadSimConfig()).toBeNull();
 
-		localStorage.setItem(SIM_CONFIG_KEY, JSON.stringify({ version: 1 }));
+		localStorage.setItem(SIM_CONFIG_KEY, JSON.stringify({ version: 2 }));
 		expect(loadSimConfig()).toBeNull();
 	});
 });

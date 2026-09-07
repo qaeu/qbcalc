@@ -104,9 +104,10 @@ departure.
 
 1. Read the shoe's true count and convert it to its Hi-Lo equivalent.
 2. File the round in its `ROUND_TRUE_COUNTS` bucket — every round _dealt_, played or not.
-3. Below `wongInCount` or above `wongOutCount`, sit out: the round is still dealt, the
-   cards still burn and the count still moves, but nothing is wagered. A count the ramp
-   stakes nothing at is sat out the same way.
+3. Take or give up the seat, then bet from it: a standing player sits down at
+   `wongInCount`, and a seated one gets up below `wongOutCount`. Sat out, the round is
+   still dealt, the cards still burn and the count still moves, but nothing is wagered. A
+   count the ramp stakes nothing at is sat out the same way.
 4. Otherwise size the bet with `betAtCount`, `startRound`, answer insurance, and drive
    `applyAction` through the policy until the round settles — grading every decision with
    `gradeDecision` and folding it with `recordDecision` / `recordRound`.
@@ -125,13 +126,26 @@ beside the money — see §What the result reports.
 
 Two things follow. A chunk is bounded in rounds dealt, which is what keeps it finite
 however much of the session is spent waiting. And **no combination of settings is
-refused**: a wong window with no count inside it, or a ramp that stakes nothing anywhere,
+refused**: an entry count the shoe never reaches, or a ramp that stakes nothing anywhere,
 is a finite run that wagers on nothing and says so, rather than a loop with no way out.
-`wongOutCount` below `wongInCount` is a perfectly measurable thing to ask about.
 
-The two ends of the wong range are sentinels meaning _never_, not literal ±10 counts: a
-shoe dealt to the cut card reaches past ten often enough that reading them literally would
-sit out a handful of rounds in a run that asked to play every one of them.
+### The seat, and why it is stateful
+
+Both wong settings are counts to sit out _below_ — the entry is where the player sits
+down, the exit where they get back up — and they are read with hysteresis, carried on
+`SimRun.seated` so a chunk boundary cannot move it. That is the only way the two can
+differ: a counter who sits down at +2 and leaves under −1 plays the shoe as it cools in
+between, which is a real strategy and a measurably different one from leaving the moment
+the count drops under the entry. The seat is carried across shuffles too — a fresh shoe
+counting zero is not the player standing up.
+
+The foot of either range is a sentinel meaning _never_, not a literal −10: a shoe dealt to
+the cut card reaches past ten often enough that reading it literally would sit out a
+handful of rounds in a run that asked to play every one of them. With no exit set, the
+entry count does both jobs, which is the plain round-by-round reading of wonging in. An
+exit set _above_ the entry is measured rather than refused, and simply wins: sitting down
+at a count you would stand up at again next round is not a strategy, so `wongCounts` lifts
+the entry to meet it instead of seating the player every other round.
 
 ### Cut-card jitter
 
@@ -198,22 +212,22 @@ what the conditional cells describe.
 
 `result.ts` derives everything in one pure function, so no component does arithmetic:
 
-| Figure                                            | What it is                                                                                                                              |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `stats.av`                                        | Money actually won or lost                                                                                                              |
-| `ev`                                              | Expectation of the rounds as they were opened                                                                                           |
-| `evEdgePercent`                                   | `ev / wagered` — what the hands played were _worth_, per unit staked                                                                    |
-| `edgePercent`                                     | `av / wagered` — what the cards actually _paid_                                                                                         |
-| `averageBet`                                      | `wagered / roundsPlayed`, in currency                                                                                                   |
-| `roundsSeen`                                      | Rounds dealt — the run's own budget, and its clock                                                                                      |
-| `roundsPlayed`                                    | Of those, the ones wagered on                                                                                                           |
-| `roundsWatched`, `watchedPercent`, `hoursWatched` | And the ones sat out: wonged past, or dealt at a count the ramp stakes nothing at. Where a back-counting strategy's cost actually lives |
-| `hours`                                           | Rounds **dealt** ÷ `roundsPerHour` — a back-counter's watching is time too                                                              |
-| `winRatePerHour`, `sdPerHour`                     | `av` and `√variance` over those hours                                                                                                   |
-| `n0Rounds`                                        | Read off the _expectation_, not the money: N0 is a property of the game, and a run that ran hot would otherwise report a shorter one    |
-| `evDeviationSigmas`                               | `(av − ev) / σ`, through `stats.ts`'s own `evDeviation` over the sim's round-level totals                                               |
-| `buckets`                                         | Per `ROUND_TRUE_COUNTS` bucket: rounds seen, rounds played, hands, wagered, AV and EV                                                   |
-| `samples`                                         | ~200 checkpoints of cumulative AV, EV and σ, spaced by rounds **dealt**, so a stretch spent back-counting draws as the flat line it is  |
+| Figure                                            | What it is                                                                                                                                  |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stats.av`                                        | Money actually won or lost                                                                                                                  |
+| `ev`                                              | Expectation of the rounds as they were opened                                                                                               |
+| `evEdgePercent`                                   | `ev / wagered` — what the hands played were _worth_, per unit staked                                                                        |
+| `edgePercent`                                     | `av / wagered` — what the cards actually _paid_                                                                                             |
+| `averageBet`                                      | `wagered / roundsPlayed`, in currency                                                                                                       |
+| `roundsSeen`                                      | Rounds dealt — the run's own budget, and its clock                                                                                          |
+| `roundsPlayed`                                    | Of those, the ones wagered on                                                                                                               |
+| `roundsWatched`, `watchedPercent`, `hoursWatched` | And the ones sat out: not in the seat, or dealt at a count the ramp stakes nothing at. Where a back-counting strategy's cost actually lives |
+| `hours`                                           | Rounds **dealt** ÷ `roundsPerHour` — a back-counter's watching is time too                                                                  |
+| `winRatePerHour`, `sdPerHour`                     | `av` and `√variance` over those hours                                                                                                       |
+| `n0Rounds`                                        | Read off the _expectation_, not the money: N0 is a property of the game, and a run that ran hot would otherwise report a shorter one        |
+| `evDeviationSigmas`                               | `(av − ev) / σ`, through `stats.ts`'s own `evDeviation` over the sim's round-level totals                                                   |
+| `buckets`                                         | Per `ROUND_TRUE_COUNTS` bucket: rounds seen, rounds played, hands, wagered, AV and EV                                                       |
+| `samples`                                         | ~200 checkpoints of cumulative AV, EV and σ, spaced by rounds **dealt**, so a stretch spent back-counting draws as the flat line it is      |
 
 `wagered` is the **opening** bet summed over the rounds played — what the ramp actually
 set — not the money that ended up on the felt once a hand doubled or split. That is what
@@ -283,9 +297,11 @@ exactly as the browser would route them.
 
 ## Storage
 
-`SimConfig` lives under `qbcalc:sim-config`, version 1, saved as typed. Like the bankroll
+`SimConfig` lives under `qbcalc:sim-config`, version 2, saved as typed. Like the bankroll
 and play configs it reaches nothing the EV worker computes, so it stays out of
 `CalculatorConfig` — filing it there would send every settings change off to recompute
 results it cannot alter. Each field is validated against the option list the form offers
 it from, so a record written under an older set of options is dropped rather than restored
-into a select with nothing to select.
+into a select with nothing to select. The version went to 2 when `wongOutCount` changed
+sense — version 1 read it as a count to get up _above_, so a stored +6 would have restored
+as the opposite of what it was set to.

@@ -30,16 +30,20 @@ export interface SimConfig {
 	/** Decks of uniform jitter either side of the cut card; 0 pins it exactly. */
 	cutCardVarianceDecks: number;
 	/**
-	 * Hi-Lo-equivalent true count below which the round is sat out -- the
-	 * back-counter's entry point. At the floor of the range it never bites and
-	 * every round is played.
+	 * Hi-Lo-equivalent true count the player sits *down* at -- the back-counter's
+	 * entry point. At the floor of the range it never bites and the player is
+	 * seated from the first round.
 	 */
 	wongInCount: number;
 	/**
-	 * And above which it is sat out again, for a player who leaves a hot shoe.
-	 * Deliberately not constrained against `wongInCount`: setting the two so that
-	 * no count lies between them is a perfectly measurable thing to ask about --
-	 * the run watches its rounds and wagers on none of them.
+	 * And the count they get *up* below again, once seated. The pair is read with
+	 * hysteresis, which is the only way the two can differ: a counter who sits
+	 * down at +2 stays in the seat as the shoe cools, and leaves it only when the
+	 * count falls under this. At the floor of the range there is no separate exit
+	 * and `wongInCount` serves as both, which is the round-by-round reading.
+	 * Deliberately not constrained against `wongInCount`: an exit set above the
+	 * entry is measured rather than refused, and simply wins -- see `wongCounts`
+	 * in run.ts.
 	 */
 	wongOutCount: number;
 	/** Other players at the table, whose cards are burned between rounds. */
@@ -55,17 +59,19 @@ export const DEFAULT_SIM_CONFIG: SimConfig = {
 	deviations: 'i18',
 	cutCardVarianceDecks: 0,
 	wongInCount: -10,
-	wongOutCount: 10,
+	wongOutCount: -10,
 	otherSpots: 0,
 	seed: 1,
 	reseedEachRun: true,
 };
 
 /**
- * The sentinel at either end of the wong range, meaning "no limit at all". It is
- * read as *never*, not as ±10: a shoe dealt to the cut card reaches past ten
+ * The sentinel at the foot of both wong settings, meaning "no limit at all". It
+ * is read as *never*, not as -10: a shoe dealt to the cut card reaches past ten
  * often enough that a literal reading would sit out a handful of rounds in a run
- * that asked to play every one of them. Both ends read as "Never" in the form.
+ * that asked to play every one of them. On `wongInCount` it means the player
+ * never waits to sit down; on `wongOutCount`, that they hold the seat down to
+ * the count they took it at. Both read as "Never" in the form.
  */
 export const WONG_LIMIT = 10;
 
@@ -112,12 +118,13 @@ export const WONG_IN_COUNTS: readonly SimOption<number>[] = [
 	{ value: 3, label: '+3 or better' },
 ];
 
-/** And where they get up again. The ceiling never bites. */
+/** And where they get up again, having sat down. The floor never bites. */
 export const WONG_OUT_COUNTS: readonly SimOption<number>[] = [
-	{ value: WONG_LIMIT, label: 'Never (play all)' },
-	{ value: 6, label: 'Above +6' },
-	{ value: 4, label: 'Above +4' },
-	{ value: 2, label: 'Above +2' },
+	{ value: -WONG_LIMIT, label: 'Never (hold the seat)' },
+	{ value: -3, label: 'Below -3' },
+	{ value: -2, label: 'Below -2' },
+	{ value: -1, label: 'Below -1' },
+	{ value: 0, label: 'Below 0' },
 ];
 
 /** How many other players share the table, in cards burned per round. */

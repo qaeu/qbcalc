@@ -184,7 +184,7 @@ const PLAY_SESSION_VERSION = 1;
  * is minutes of dealing and megabytes of buckets, and re-runnable from its seed.
  */
 const SIM_CONFIG_KEY = 'qbcalc:sim-config';
-const SIM_CONFIG_VERSION = 1;
+const SIM_CONFIG_VERSION = 2;
 
 interface StoredConfig extends CalculatorConfig {
 	version: number;

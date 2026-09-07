@@ -120,6 +120,15 @@ export interface SimRun {
 	/** Of those, the ones wagered on. */
 	roundsPlayed: number;
 	shoes: number;
+	/**
+	 * Whether the player is in the seat right now. Carried on the run rather than
+	 * recomputed per round because the wong settings are read with hysteresis: the
+	 * seat is taken at `wongInCount` and given up below `wongOutCount`, so what
+	 * happens at a count between the two depends on which side it was approached
+	 * from. Carried across shuffles too -- the count resetting to zero is not the
+	 * player standing up.
+	 */
+	seated: boolean;
 	wagered: number;
 	/** Insurance staked, kept apart from the main wager it is a fraction of. */
 	insuranceWagered: number;
@@ -221,6 +230,9 @@ export function createRun(inputs: SimInputs): SimRun {
 		roundsPlayed: 0,
 		// The one it was dealt with. `runChunk` counts each shuffle after it.
 		shoes: 1,
+		// A back-counter arrives standing. The loop's own entry test seats them
+		// before the first bet goes out, which is immediately where none is set.
+		seated: false,
 		wagered: 0,
 		insuranceWagered: 0,
 	};
@@ -235,6 +247,28 @@ export function createRun(inputs: SimInputs): SimRun {
  */
 export function isDone(run: SimRun): boolean {
 	return run.roundsSeen >= run.inputs.sim.rounds;
+}
+
+/**
+ * The two counts the seat turns on: the one a standing player sits down at, and
+ * the one a seated player gets up below. The floor of either range is a sentinel
+ * meaning "never" rather than a literal -10 -- a shoe dealt to the cut card
+ * reaches past ten often enough that reading it literally would sit out a handful
+ * of rounds in a run that asked to play every one of them.
+ *
+ * With no exit set, the entry count does both jobs: the seat is held exactly as
+ * long as the count that earned it, which is the plain round-by-round reading of
+ * wonging in. Set below the entry it is hysteresis proper -- sit down at +2, hold
+ * the seat until the shoe cools past -1 -- and that is the only arrangement in
+ * which the two settings differ. Set *above* the entry it simply wins: sitting
+ * down at a count you would stand up at again the next round is not a strategy,
+ * so the exit becomes the entry too rather than seating the player every other
+ * round.
+ */
+function wongCounts(sim: SimConfig): { entry: number; exit: number } {
+	const entry = sim.wongInCount > -WONG_LIMIT ? sim.wongInCount : -Infinity;
+	const exit = sim.wongOutCount > -WONG_LIMIT ? sim.wongOutCount : entry;
+	return { entry: Math.max(entry, exit), exit };
 }
 
 /** The Hi-Lo-equivalent count the ramp, the wong settings and the indices read. */
@@ -260,6 +294,7 @@ export function runChunk(run: SimRun, rounds: number): void {
 	const { ruleSet, tags, sim, ramp, unit } = run.inputs;
 	const scale = hiLoCountScale(baseComposition(ruleSet), tags);
 	const sampleEvery = Math.max(1, Math.floor(sim.rounds / TRAJECTORY_SAMPLES));
+	const { entry: entryCount, exit: exitCount } = wongCounts(sim);
 
 	for (let step = 0; step < rounds && !isDone(run); step += 1) {
 		const shoe = run.game.shoe;
@@ -273,13 +308,12 @@ export function runChunk(run: SimRun, rounds: number): void {
 		bucket.rounds += 1;
 		run.roundsSeen += 1;
 
-		// The ends of the wong range mean "never", not "at ±10": a shoe dealt to the
-		// cut card reaches past ±10 often enough that reading them literally would
-		// sit out a handful of rounds in a run that asked to play them all.
-		const satOut =
-			(sim.wongInCount > -WONG_LIMIT && hiLo < sim.wongInCount)
-			|| (sim.wongOutCount < WONG_LIMIT && hiLo > sim.wongOutCount);
-		const bet = satOut ? 0 : betAtCount(ramp, hiLo) * unit;
+		// Standing or sitting is decided before the bet, and it depends on which way
+		// the count arrived: a seat is taken at the entry count and kept until the
+		// count falls under the exit one. Where the two are equal -- the default --
+		// this is the same round-by-round test as before.
+		run.seated = run.seated ? hiLo >= exitCount : hiLo >= entryCount;
+		const bet = run.seated ? betAtCount(ramp, hiLo) * unit : 0;
 		if (bet <= 0) {
 			// The round is dealt without the player in it -- wonged out, or a count
 			// the ramp stakes nothing at. The cards come out, the count moves, and

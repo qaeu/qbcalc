@@ -33,7 +33,7 @@ export interface SimResult {
 	/** Of those, the ones wagered on. */
 	roundsPlayed: number;
 	/**
-	 * And the ones watched: wonged out, or dealt at a count the ramp stakes
+	 * And the ones watched: not in the seat, or dealt at a count the ramp stakes
 	 * nothing at. The cost of a back-counting strategy is mostly here -- the
 	 * rounds are time spent at the table earning nothing.
 	 */

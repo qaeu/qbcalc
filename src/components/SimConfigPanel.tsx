@@ -110,7 +110,7 @@ const SimConfigPanel: Component<SimConfigPanelProps> = (props) => {
 				</SettingsItem>
 				<SettingsItem
 					label="Wong out"
-					helptext="And the count above which they get up again. Rarely worth doing, and here to be measured rather than recommended — including when it is set below the wong-in count, which simply means no count is ever played."
+					helptext="And the count they get up below, once seated. Set under the wong-in count it holds the seat as the shoe cools rather than leaving the moment it stops being worth sitting down for; left never, the wong-in count does both jobs."
 				>
 					<SettingSelect
 						options={numericOptions(WONG_OUT_COUNTS)}
