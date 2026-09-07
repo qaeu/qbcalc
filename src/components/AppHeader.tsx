@@ -50,6 +50,9 @@ const AppHeader: Component<AppHeaderProps> = (props) => (
 				<Tabs.Trigger value="play" class="app-header__tab">
 					Play
 				</Tabs.Trigger>
+				<Tabs.Trigger value="sim" class="app-header__tab">
+					Sim
+				</Tabs.Trigger>
 			</Tabs.List>
 		</Tabs.Root>
 	</header>

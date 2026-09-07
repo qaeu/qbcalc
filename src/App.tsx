@@ -21,16 +21,19 @@ import {
 	loadBankrollConfig,
 	loadCalculatorConfig,
 	loadPlayConfig,
+	loadSimConfig,
 	ruleSetFromConfig,
 	saveBankrollConfig,
 	saveCalculatorConfig,
 	savePlayConfig,
+	saveSimConfig,
 	settingsFromConfig,
 	type BankrollConfig,
 	type CalculatorConfig,
 	type CalculatorSettings,
 	type PlayConfig,
 } from '#utils/storage';
+import { DEFAULT_SIM_CONFIG, type SimConfig } from '#utils/sim/config';
 import type { PrecisionId } from '#utils/ev/precision';
 import type {
 	EvSummaryResult,
@@ -50,6 +53,7 @@ import EvTable from '#c/EvTable';
 import PlayView from '#c/PlayView';
 import SettingsDrawer from '#c/SettingsDrawer';
 import SettingsSidebar from '#c/SettingsSidebar';
+import SimView from '#c/SimView';
 
 import '#styles/App';
 
@@ -121,6 +125,16 @@ const App: Component = () => {
 		// Saved as typed, like the bankroll settings and for the same reason:
 		// none of it reaches the worker, so there is nothing to recalculate.
 		savePlayConfig(next);
+	};
+
+	const [sim, setSim] = createSignal<SimConfig>(loadSimConfig() ?? DEFAULT_SIM_CONFIG);
+
+	const updateSim = <K extends keyof SimConfig>(key: K, value: SimConfig[K]) => {
+		const next = { ...sim(), [key]: value };
+		setSim(next);
+		// Saved as typed, for the same reason the play and bankroll settings are:
+		// nothing here reaches the EV worker, so there is nothing to recalculate.
+		saveSimConfig(next);
 	};
 
 	/**
@@ -519,8 +533,12 @@ const App: Component = () => {
 			calcTimeMs={calcTimeMs()}
 			onSettingsChange={requestCalculation}
 			// Play always grades at 'fast': the felt asks for a new count every
-			// few cards, and a seconds-long run has nothing to offer it.
-			onFullCalculation={tab() === 'play' ? undefined : runFullCalculation}
+			// few cards, and a seconds-long run has nothing to offer it. The Sim
+			// view prices its own grids in its own worker, so the button has
+			// nothing on screen to reprice for it either.
+			onFullCalculation={
+				tab() === 'play' || tab() === 'sim' ? undefined : runFullCalculation
+			}
 			isFullResult={resultPrecision() === 'full'}
 			isBusy={
 				isComputing() || isSummaryComputing() || latestRequestPrecision() === 'full'
@@ -574,6 +592,17 @@ const App: Component = () => {
 							unit={bankroll().unit}
 							grids={playGrids()}
 							onCountChange={requestPlayGrids}
+						/>
+					</Show>
+					<Show when={tab() === 'sim'}>
+						<SimView
+							ruleSet={playRuleSet()}
+							tags={liveSettings().tags}
+							system={liveSettings().system}
+							config={sim()}
+							onConfigChange={updateSim}
+							bankroll={bankroll()}
+							predicted={bankrollAnalysis()}
 						/>
 					</Show>
 				</div>

@@ -31,6 +31,32 @@ export interface ShoeSnapshot {
 	rng: number;
 }
 
+/**
+ * What a shoe is dealt *with*, as opposed to what it is dealt from. Nothing here
+ * is a table rule -- a cut card that lands in a slightly different place each
+ * shuffle is the dealer's hand, not the house's policy -- so it is carried
+ * beside `RuleSet` rather than in it.
+ */
+export interface ShoeOptions {
+	/**
+	 * How far the cut card may sit either side of `penetrationPercent`, in decks,
+	 * redrawn uniformly on every shuffle. Zero or omitted places it exactly where
+	 * the rule set says, which is what the Play view has always done. See
+	 * docs/sim-model.md §Cut-card jitter.
+	 */
+	cutCardVarianceDecks?: number;
+}
+
+/**
+ * Cards the jitter always leaves behind the cut card, so that whatever depth is
+ * drawn there is still a whole round -- splits, doubles and the dealer's draw
+ * included -- dealable after it.
+ */
+const MIN_TAIL_CARDS = CARDS_PER_DECK;
+
+/** And in front of it, so no shuffle produces a shoe worth barely a round. */
+const MIN_DEALT_CARDS = CARDS_PER_DECK;
+
 /** The dealt shoe, as the round state machine and the HUD read it. */
 export interface DealtShoe {
 	/** Removes and returns the next card, moving the running count by its tag. */
@@ -81,6 +107,23 @@ function shuffleCards(cards: Rank[], random: () => number): void {
 }
 
 /**
+ * A cut card drawn `jitter` cards either side of `nominal`, uniformly, and held
+ * far enough from both ends of the shoe to leave a round dealable on each side.
+ */
+function drawCutCard(
+	nominal: number,
+	jitter: number,
+	total: number,
+	random: SeededRandom
+): number {
+	const drawn = Math.round(nominal + (random() * 2 - 1) * jitter);
+	return Math.max(
+		Math.min(MIN_DEALT_CARDS, total),
+		Math.min(total - MIN_TAIL_CARDS, drawn)
+	);
+}
+
+/**
  * The one shoe both entry points build: `start` says where it is being picked up
  * from -- the head of a fresh one, or wherever a stored session left it -- and
  * `random` is the stream its shuffles come out of.
@@ -88,11 +131,16 @@ function shuffleCards(cards: Rank[], random: () => number): void {
 function dealtShoe(
 	tags: TagValues,
 	start: Omit<ShoeSnapshot, 'rng'>,
-	random: SeededRandom
+	random: SeededRandom,
+	options?: ShoeOptions
 ): DealtShoe {
 	// Held inside the shoe rather than read off the rule set each time: the cut
-	// card belongs to the shoe as it was shuffled.
-	const { cards, cutCard } = start;
+	// card belongs to the shoe as it was shuffled -- which is also why the jitter,
+	// where there is one, is redrawn by `shuffle` rather than fixed here.
+	const { cards } = start;
+	const nominalCut = start.cutCard;
+	const jitter = (options?.cutCardVarianceDecks ?? 0) * CARDS_PER_DECK;
+	let cutCard = start.cutCard;
 	let dealt = start.dealt;
 	let count = start.count;
 	let hidden: Rank[] = [...start.hidden];
@@ -106,6 +154,9 @@ function dealtShoe(
 
 	const shuffle = (): void => {
 		shuffleCards(cards, random);
+		// Off the shoe's own stream, and only where a jitter was asked for: with
+		// none, not a number is drawn and the shuffle is the one it always was.
+		if (jitter > 0) cutCard = drawCutCard(nominalCut, jitter, cards.length, random);
 		dealt = 0;
 		count = 0;
 		hidden = [];
@@ -154,8 +205,16 @@ function dealtShoe(
  * A shoe under `ruleSet`, counted with `tags` and shuffled from `seed`. One
  * random stream serves the shoe's whole life, so a session replays exactly from
  * its seed however many times it reshuffles.
+ *
+ * `options` is the sim's, and omitting it leaves the shoe byte-identical to the
+ * one the Play view has always been dealt.
  */
-export function createShoe(ruleSet: RuleSet, tags: TagValues, seed: number): DealtShoe {
+export function createShoe(
+	ruleSet: RuleSet,
+	tags: TagValues,
+	seed: number,
+	options?: ShoeOptions
+): DealtShoe {
 	const cards = shoeCards(ruleSet);
 	const shoe = dealtShoe(
 		tags,
@@ -166,7 +225,8 @@ export function createShoe(ruleSet: RuleSet, tags: TagValues, seed: number): Dea
 			hidden: [],
 			cutCard: Math.floor((cards.length * ruleSet.penetrationPercent) / 100),
 		},
-		mulberry32(seed)
+		mulberry32(seed),
+		options
 	);
 	shoe.shuffle();
 	return shoe;

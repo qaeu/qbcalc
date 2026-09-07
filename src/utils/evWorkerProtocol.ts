@@ -13,17 +13,16 @@ import {
 } from './ev/composition';
 import { hiLoCountScale } from './bankroll';
 import { RANKS } from './ev/cards';
-import {
-	computeEvGrids,
-	ShoeEv,
-	type AverageEvParts,
-	type CellAnalysis,
-	type EvGrids,
-} from './ev/engine';
+import { computeEvGrids, ShoeEv, type AverageEvParts, type EvGrids } from './ev/engine';
 import { analyzeInsurance } from './ev/insurance';
-import type { ActionAnalysis } from './ev/outcome';
+import {
+	pairPlayGrids,
+	playGridsFor,
+	type PlayGrids,
+	type PlayRawGrids,
+} from './ev/playGrids';
 import { precisionFor, type PrecisionId } from './ev/precision';
-import { PAIR_RANKS, ruleSetKey, type RuleSet } from './ev/rules';
+import { ruleSetKey, type RuleSet } from './ev/rules';
 import {
 	averageEvPercent,
 	buildAverageEv,
@@ -90,40 +89,16 @@ export interface EvSummaryResult {
 export interface EvWorkerResult extends EvTables, EvSummaryResult {}
 
 /**
- * Hard totals the Play grids are walked over. Wider than `HARD_TOTALS`, which
- * covers the totals a strategy table has anything to say about: a played hand can
- * hold hard 4 (2,2) or hit its way to hard 20, and a hand the grids do not reach
- * is a hand the coach cannot grade.
+ * The Play grids' own shapes now live in `ev/playGrids.ts`, since the sim worker
+ * builds them too -- re-exported here so every caller that has always asked this
+ * module for them still can.
  */
-export const PLAY_HARD_TOTALS: readonly number[] = [
-	4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-];
-
-/**
- * Soft totals the same grids are walked over: A,A (12) through soft 21. Soft 21
- * is priced as the stand it always is -- see `ShoeEv.analyzeGrid` -- so its cell
- * carries one action, which the coach handles like any other.
- */
-export const PLAY_SOFT_TOTALS: readonly number[] = [
-	12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
-];
-
-/**
- * One graded cell: every action the table offers this hand, priced against the
- * count-adjusted shoe and against the unadjusted one. The pair is what separates
- * a basic-strategy error from a missed deviation -- see `play/coach.ts`.
- */
-export interface PlayCell {
-	actions: readonly ActionAnalysis[];
-	baseActions: readonly ActionAnalysis[];
-}
-
-/** The three grids the Play view's coach looks a live hand up in. */
-export interface PlayGrids {
-	hard: Map<string, PlayCell>;
-	soft: Map<string, PlayCell>;
-	split: Map<string, PlayCell>;
-}
+export {
+	PLAY_HARD_TOTALS,
+	PLAY_SOFT_TOTALS,
+	type PlayCell,
+	type PlayGrids,
+} from './ev/playGrids';
 
 /**
  * `precision` is echoed rather than assumed: the UI labels the figures it applies
@@ -319,31 +294,6 @@ function edgeCurveFor(
 	return curve;
 }
 
-/** One composition's Play grids, before a base set and a count set are paired. */
-interface PlayRawGrids {
-	hard: Map<string, CellAnalysis>;
-	soft: Map<string, CellAnalysis>;
-	split: Map<string, CellAnalysis>;
-}
-
-/**
- * The widened grids for one composition. One engine for all three, as
- * `computeEvGrids` does, so the memos the first grid fills serve the other two --
- * and no `analyzeAverage` and no edge curve, neither of which the Play view reads.
- */
-function playGridsFor(
-	ruleSet: RuleSet,
-	comp: Composition,
-	precision: PrecisionId
-): PlayRawGrids {
-	const engine = new ShoeEv(ruleSet, precisionFor(precision));
-	return {
-		hard: engine.analyzeGrid(comp, PLAY_HARD_TOTALS, RANKS, false),
-		soft: engine.analyzeGrid(comp, PLAY_SOFT_TOTALS, RANKS, true),
-		split: engine.analyzeSplitGrid(comp, PAIR_RANKS, RANKS),
-	};
-}
-
 /**
  * The unadjusted shoe's Play grids, kept for the same reason `cachedBaseGrids`
  * keeps the Tables view's: every graded hand is measured against them, and they
@@ -396,17 +346,6 @@ function playCountGridsFor(
 	return grids;
 }
 
-function pairPlayGrid(
-	baseGrid: Map<string, CellAnalysis>,
-	countGrid: Map<string, CellAnalysis>
-): Map<string, PlayCell> {
-	const out = new Map<string, PlayCell>();
-	for (const [key, countCell] of countGrid) {
-		out.set(key, { actions: countCell.actions, baseActions: baseGrid.get(key)!.actions });
-	}
-	return out;
-}
-
 export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerResponse {
 	try {
 		const {
@@ -444,11 +383,7 @@ export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerRespo
 				status: 'success',
 				scope: 'play',
 				precision,
-				result: {
-					hard: pairPlayGrid(baseGrids.hard, countGrids.hard),
-					soft: pairPlayGrid(baseGrids.soft, countGrids.soft),
-					split: pairPlayGrid(baseGrids.split, countGrids.split),
-				},
+				result: pairPlayGrids(baseGrids, countGrids),
 			};
 		}
 

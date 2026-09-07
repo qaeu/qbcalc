@@ -18,6 +18,16 @@ import { HI_LO_TAGS, isCountingSystemId, type CountingSystemId } from './countin
 import { isCellDisplayMode, type CellDisplayMode } from './cellDisplay';
 import { isStoredPlaySession, type StoredPlaySession } from './play/session';
 import { EMPTY_PLAY_STATS, type PlayStats } from './play/stats';
+import {
+	CUT_CARD_VARIANCES,
+	DEVIATION_MODES,
+	isSimOption,
+	OTHER_SPOTS,
+	ROUND_COUNTS,
+	WONG_IN_COUNTS,
+	WONG_OUT_COUNTS,
+	type SimConfig,
+} from './sim/config';
 
 /**
  * Everything the sidebar owns: the engine's calculator params plus the
@@ -167,6 +177,15 @@ const PLAY_CONFIG_VERSION = 1;
 const PLAY_STATS_VERSION = 2;
 const PLAY_SESSION_VERSION = 1;
 
+/**
+ * The Sim view's settings, kept out of `CalculatorConfig` for the same reason the
+ * bankroll and play configs are: none of it reaches anything the EV worker
+ * computes, so it is saved as typed. A run's *result* is not stored at all -- it
+ * is minutes of dealing and megabytes of buckets, and re-runnable from its seed.
+ */
+const SIM_CONFIG_KEY = 'qbcalc:sim-config';
+const SIM_CONFIG_VERSION = 1;
+
 interface StoredConfig extends CalculatorConfig {
 	version: number;
 }
@@ -248,6 +267,31 @@ function isStoredPlayConfig(value: unknown): value is StoredPlayConfig {
 		&& COACHING_LEVELS.some((level) => level.value === config.coaching)
 		&& typeof config.showCount === 'boolean'
 		&& ANIMATION_SPEEDS.some((speed) => speed.value === config.animationSpeed)
+	);
+}
+
+interface StoredSimConfig extends SimConfig {
+	version: number;
+}
+
+/**
+ * Each field is checked against the list the form offers it from, so a record
+ * written under an older set of options is dropped rather than restored into a
+ * select with nothing to select. The seed is the exception: it is any number.
+ */
+function isStoredSimConfig(value: unknown): value is StoredSimConfig {
+	if (typeof value !== 'object' || value === null) return false;
+	const config = value as Record<string, unknown>;
+	return (
+		config.version === SIM_CONFIG_VERSION
+		&& isSimOption(ROUND_COUNTS, config.rounds)
+		&& isSimOption(DEVIATION_MODES, config.deviations)
+		&& isSimOption(CUT_CARD_VARIANCES, config.cutCardVarianceDecks)
+		&& isSimOption(WONG_IN_COUNTS, config.wongInCount)
+		&& isSimOption(WONG_OUT_COUNTS, config.wongOutCount)
+		&& isSimOption(OTHER_SPOTS, config.otherSpots)
+		&& Number.isFinite(config.seed)
+		&& typeof config.reseedEachRun === 'boolean'
 	);
 }
 
@@ -594,6 +638,37 @@ export function savePlayConfig(config: PlayConfig): void {
 	try {
 		const stored: StoredPlayConfig = { version: PLAY_CONFIG_VERSION, ...config };
 		localStorage.setItem(PLAY_CONFIG_KEY, JSON.stringify(stored));
+	} catch {
+		// As above.
+	}
+}
+
+export function loadSimConfig(): SimConfig | null {
+	try {
+		const raw = localStorage.getItem(SIM_CONFIG_KEY);
+		if (!raw) return null;
+		const parsed: unknown = JSON.parse(raw);
+		return isStoredSimConfig(parsed) ?
+				{
+					rounds: parsed.rounds,
+					deviations: parsed.deviations,
+					cutCardVarianceDecks: parsed.cutCardVarianceDecks,
+					wongInCount: parsed.wongInCount,
+					wongOutCount: parsed.wongOutCount,
+					otherSpots: parsed.otherSpots,
+					seed: parsed.seed,
+					reseedEachRun: parsed.reseedEachRun,
+				}
+			:	null;
+	} catch {
+		return null;
+	}
+}
+
+export function saveSimConfig(config: SimConfig): void {
+	try {
+		const stored: StoredSimConfig = { version: SIM_CONFIG_VERSION, ...config };
+		localStorage.setItem(SIM_CONFIG_KEY, JSON.stringify(stored));
 	} catch {
 		// As above.
 	}

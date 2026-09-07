@@ -39,6 +39,11 @@ export function goToPlay(): void {
 	fireEvent.click(within(appHeader()).getByRole('tab', { name: /Play/ }));
 }
 
+/** As `goToBankroll`, for the fourth view. */
+export function goToSim(): void {
+	fireEvent.click(within(appHeader()).getByRole('tab', { name: /Sim/ }));
+}
+
 /** The Bankroll view's cards, and the placeholders they show while recomputing. */
 export const summaryText = () => document.querySelector('.ev-summary')?.textContent;
 export const skeletons = () => document.querySelectorAll('.ev-summary__skeleton').length;
@@ -103,3 +108,10 @@ export const MOUNT_TIMEOUT_MS = 20_000;
 
 /** As `MOUNT_TIMEOUT_MS`, for a case that also waits out a full-precision run. */
 export const FULL_RUN_TIMEOUT_MS = 30_000;
+
+/**
+ * As `MOUNT_TIMEOUT_MS`, for a case that also deals a simulated session. The sim
+ * runs its own worker in chunks across the event loop, so even a deliberately
+ * tiny run costs several turns on top of the mount.
+ */
+export const SIM_RUN_TIMEOUT_MS = 30_000;

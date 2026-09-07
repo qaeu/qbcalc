@@ -120,12 +120,22 @@
 				border-bottom-color: get($primaries, 'base');
 			}
 
-			// Three even tap targets across the bar, rather than three labels
-			// bunched at one end of it.
+			// Even tap targets across the bar, rather than the labels bunched at
+			// one end of it.
 			@include compact {
 				flex: 1;
 				justify-content: center;
 				padding: 12px 8px;
+			}
+
+			// Four labels rather than three, and "Bankroll" is the long one: at
+			// 360px the tracking and the side padding are what has to give, since
+			// a wrapped tab label would cost the bar a whole line.
+			@include phone {
+				@include print(12px, 0.1em);
+				padding: 12px 4px;
+				font-weight: 600;
+				white-space: nowrap;
 			}
 		}
 	}

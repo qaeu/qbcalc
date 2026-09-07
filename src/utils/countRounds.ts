@@ -137,9 +137,11 @@ function shuffle(shoe: Float64Array, random: () => number): void {
 
 /**
  * The bucket a round's count is filed under: rounded to the nearest whole count
- * and held inside the drawn range, whose ends are open.
+ * and held inside the drawn range, whose ends are open. Exported because the sim
+ * files its own rounds into the same buckets, and two definitions of where a
+ * count sits would put the same round in different bars of two graphs.
  */
-function bucketOf(trueCount: number): number {
+export function roundCountBucket(trueCount: number): number {
 	const first = ROUND_TRUE_COUNTS[0];
 	const last = ROUND_TRUE_COUNTS[ROUND_TRUE_COUNTS.length - 1];
 	const held = Math.min(last, Math.max(first, Math.round(trueCount)));
@@ -189,7 +191,7 @@ export function simulateRoundFrequency(
 			// count to bet into where there is nothing left to deal.
 			if (decksLeft <= 0) break;
 			const trueCount = scale > 0 ? runningCount / decksLeft / scale : 0;
-			const bucket = bucketOf(trueCount);
+			const bucket = roundCountBucket(trueCount);
 			counts[bucket] += 1;
 			moments[bucket] += trueCount;
 			squares[bucket] += trueCount * trueCount;

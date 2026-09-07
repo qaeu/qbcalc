@@ -8,6 +8,8 @@ import { FAST_PRECISION, FULL_PRECISION, type Precision } from '#utils/ev/precis
 import { DEFAULT_RULE_SET, type RuleSet } from '#utils/ev/rules';
 import { averageEvPercent, computeEvComparison } from '#utils/ev/tables';
 import { HI_LO_TAGS } from '#utils/countingSystems';
+import { DEFAULT_SIM_CONFIG } from '#utils/sim/config';
+import { createRun, isDone, runChunk } from '#utils/sim/run';
 
 /**
  * The engine against published figures, rather than against itself.
@@ -232,6 +234,46 @@ describe('house edge against published figures, in full mode', () => {
 		const gain = averageEv({ decks: 1 }, full) - averageEv({ decks: 8 }, full);
 		expect(gain).toBeCloseTo(0.586, 2);
 		expect(gain).toBeGreaterThan(0.48);
+	});
+});
+
+describe('play-stack throughput', () => {
+	/**
+	 * What the Sim view's hand counts rest on. `game.ts` returns a fresh state on
+	 * every transition rather than mutating one, which is the right shape for a
+	 * pure state machine and the wrong shape for a hot loop -- so this pins what
+	 * that costs before anyone offers to deal a million hands through it.
+	 *
+	 * Not a threshold on wall-clock: CI machines differ by more than the figure is
+	 * worth. It asserts the order of magnitude -- microseconds a round, not
+	 * milliseconds -- which is the only thing the form's top option depends on.
+	 */
+	it('deals thousands of rounds a second', { timeout: TIMEOUT_MS }, () => {
+		const rounds = 20_000;
+		const run = createRun({
+			ruleSet: { ...PEEK_S17, dealerHitsSoft17: true },
+			tags: HI_LO_TAGS,
+			sim: { ...DEFAULT_SIM_CONFIG, rounds, seed: 1, deviations: 'i18' },
+			ramp: [1, 1, 2, 3, 5, 8, 12],
+			unit: 25,
+			roundsPerHour: 80,
+			precision: 'fast',
+		});
+		// The first chunk prices the counts the shoe reaches, which is a cost of
+		// its own and not part of the dealing rate -- so it is paid before the
+		// clock starts, exactly as the worker's 'pricing' phase reports it apart.
+		runChunk(run, 1);
+
+		const started = performance.now();
+		while (!isDone(run)) runChunk(run, 5_000);
+		const elapsedMs = performance.now() - started;
+		const perRoundUs = (elapsedMs * 1000) / rounds;
+
+		expect(run.roundsPlayed).toBe(rounds);
+		// Microseconds a round, so a hundred thousand hands is a second or two and
+		// a million is tens of seconds. If this ever fails, the form's top hand
+		// counts are the thing to reconsider -- see docs/sim-model.md §Throughput.
+		expect(perRoundUs).toBeLessThan(500);
 	});
 });
 

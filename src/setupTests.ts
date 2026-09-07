@@ -3,6 +3,7 @@ import { afterEach } from 'vitest';
 import { cleanup } from '@solidjs/testing-library';
 
 import { computeEvWorkerResponse, type EvWorkerRequest } from '#utils/evWorkerProtocol';
+import { handleSimWorkerMessage, type SimWorkerMessage } from '#utils/simWorkerProtocol';
 
 // jsdom has no ResizeObserver; Ark UI's floating-ui positioning (popovers,
 // hover cards, tooltips, ...) needs one to observe anchor/content elements.
@@ -18,21 +19,35 @@ globalThis.ResizeObserver ??= ResizeObserverStub;
 // and the resulting TypeError otherwise aborts the interaction mid-flight.
 Element.prototype.scrollTo ??= () => {};
 
-// jsdom has no Worker implementation. EvTable offloads EV computation to
-// blackjackEv.worker.ts via a real Worker in the browser; this stub runs the
-// same request/response protocol on a microtask instead of a real thread, so
-// component tests can await it like the real async flow.
+// jsdom has no Worker implementation. Two of the app's modules are offloaded to
+// real Workers in the browser -- blackjackEv.worker.ts and sim.worker.ts -- so
+// this stub runs the same protocols in-process instead of on a thread. Which one
+// a stub answers is decided by the URL it was constructed with, exactly as the
+// browser decides it: an EV request answers on a microtask, a sim request runs
+// its own chunked loop and emits the progress/complete sequence the real worker
+// would.
 class WorkerStub {
 	onmessage: ((event: MessageEvent) => void) | null = null;
 	onerror: ((event: ErrorEvent) => void) | null = null;
 	private readonly listeners = new Map<string, Set<(event: MessageEvent) => void>>();
+	private readonly isSim: boolean;
 
-	postMessage(data: EvWorkerRequest) {
-		queueMicrotask(() => {
-			const event = new MessageEvent('message', { data: computeEvWorkerResponse(data) });
-			this.onmessage?.(event);
-			for (const listener of this.listeners.get('message') ?? []) listener(event);
-		});
+	constructor(url?: URL | string) {
+		this.isSim = String(url ?? '').includes('sim.worker');
+	}
+
+	private emit(data: unknown) {
+		const event = new MessageEvent('message', { data });
+		this.onmessage?.(event);
+		for (const listener of this.listeners.get('message') ?? []) listener(event);
+	}
+
+	postMessage(data: EvWorkerRequest | SimWorkerMessage) {
+		if (this.isSim) {
+			handleSimWorkerMessage(data as SimWorkerMessage, (response) => this.emit(response));
+			return;
+		}
+		queueMicrotask(() => this.emit(computeEvWorkerResponse(data as EvWorkerRequest)));
 	}
 
 	addEventListener(type: string, listener: (event: MessageEvent) => void) {

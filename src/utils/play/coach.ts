@@ -59,8 +59,12 @@ function legalOnly(
  * *total*, as the grids are indexed -- so 5,4,3 is graded as the hard 12 it is.
  * A pair the player may still split is looked up in the splits grid instead,
  * since that is the only grid whose cell carries a price for splitting it.
+ *
+ * Exported because the sim's policy plays off exactly the cell the coach would
+ * grade against: one definition of which grid a live hand belongs to, so a hand
+ * can never be played out of one cell and marked against another.
  */
-function cellFor(
+export function cellFor(
 	state: GameState,
 	legal: readonly PlayerAction[],
 	grids: PlayGrids

@@ -57,7 +57,11 @@ Two projects, split by what a test drives rather than by what it asserts:
   every one carries an explicit timeout (`MOUNT_TIMEOUT_MS` and friends from
   `appHarness.ts`, which also holds the view switches, the viewport stub and the
   worker spy the files share). One file per feature: mount and recalculation,
-  the count keys, the full-calculation button, the compact viewport, Play.
+  the count keys, the full-calculation button, the compact viewport, Play, Sim.
+  `app.sim.test.tsx` runs a deliberately tiny simulation — a thousand hands,
+  written straight to `qbcalc:sim-config` rather than driven through the form —
+  and carries `SIM_RUN_TIMEOUT_MS`, since the run finishes over many turns of the
+  event loop rather than in one call.
 
 `npm test` runs both.
 
@@ -73,7 +77,22 @@ Two projects, split by what a test drives rather than by what it asserts:
 
 ### src/setupTests.ts
 
-Runs `cleanup()` from `@solidjs/testing-library` after each test.
+Runs `cleanup()` from `@solidjs/testing-library` after each test, and clears
+`localStorage`.
+
+It also stands in for jsdom's missing `ResizeObserver`, `Element.scrollTo` and
+`Worker`. The `Worker` stub serves **two** protocols and routes on the URL it was
+constructed with, exactly as the browser would:
+
+- anything else — `evWorkerProtocol.ts`'s `computeEvWorkerResponse`, answered on a
+  microtask so a component test can await it like the real async flow;
+- a URL naming `sim.worker` — `simWorkerProtocol.ts`'s `handleSimWorkerMessage`,
+  which runs its own chunked loop across zero-delay timeouts and emits the same
+  `progress` / `complete` / `cancelled` / `error` sequence the real worker does.
+
+The sim protocol can also be driven directly, without a stub Worker at all — see
+`tests/utils/simWorkerProtocol.test.ts`, which is what the split between the
+protocol module and the thin worker shell is for.
 
 ## Writing New Tests
 

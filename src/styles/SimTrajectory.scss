@@ -1,0 +1,79 @@
+@use 'base' as *;
+
+@layer screen {
+	.sim-trajectory {
+		@include card;
+		margin-bottom: 0;
+
+		&__header {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			gap: 12px;
+			flex-wrap: wrap;
+		}
+
+		&__title {
+			@include panel-title;
+		}
+
+		&__plot {
+			display: block;
+			width: 100%;
+			height: auto;
+			margin-top: 8px;
+		}
+
+		// Two nested bands rather than four edges: the outer is +/-2 sigma and the
+		// inner +/-1, and stacking them at the same low opacity is what makes the
+		// inner one read as the darker of the two without a second colour.
+		&__band {
+			fill: get($infos, 'base');
+			opacity: 0.16;
+
+			&.is-inner {
+				opacity: 0.22;
+			}
+		}
+
+		&__zero {
+			stroke: $rule-strong;
+			stroke-width: 1;
+		}
+
+		// The expectation is a dashed guide, the money the solid line drawn over
+		// it: one of them is a claim about the game and the other is what happened.
+		&__expectation {
+			fill: none;
+			stroke: oklch(from get($neutrals, 'fg') l c h / 0.55);
+			stroke-width: 1.5;
+			stroke-dasharray: 6 5;
+		}
+
+		&__money {
+			fill: none;
+			stroke: get($primaries, 'base');
+			stroke-width: 2;
+			stroke-linejoin: round;
+			stroke-linecap: round;
+		}
+
+		&__tick {
+			fill: oklch(from get($neutrals, 'fg') l c h / 0.5);
+			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
+			font-size: 13px;
+			font-variant-numeric: tabular-nums;
+		}
+
+		&__reading,
+		&__empty {
+			@include print(12px, 0.01em, $caps: false);
+			margin: 10px 0 0;
+			min-height: 1.4em;
+		}
+
+		&__empty {
+			color: oklch(from get($neutrals, 'fg') l c h / 0.45);
+		}
+	}
+}

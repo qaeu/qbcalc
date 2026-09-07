@@ -1,0 +1,88 @@
+@use 'base' as *;
+
+@layer screen {
+	.sim-count-table {
+		@include card;
+		margin-bottom: 0;
+
+		&__title {
+			@include panel-title;
+			margin-bottom: 12px;
+		}
+
+		// Thirteen rows of six columns is wider than a phone, and squeezing the
+		// figures is worse than scrolling them.
+		&__scroll {
+			overflow-x: auto;
+		}
+
+		&__table {
+			width: 100%;
+			border-collapse: collapse;
+			font-variant-numeric: tabular-nums;
+			white-space: nowrap;
+
+			th,
+			td {
+				padding: 6px 10px;
+				text-align: right;
+				border-bottom: 1px solid $rule;
+			}
+
+			thead th {
+				@include print(10px, 0.14em);
+				color: oklch(from get($neutrals, 'fg') l c h / 0.5);
+				border-bottom-color: $rule-strong;
+			}
+
+			tbody th {
+				@include print(12px, 0.06em);
+				text-align: left;
+				color: get($neutrals, 'fg');
+			}
+
+			tbody td {
+				font-size: 13px;
+				color: get($neutrals, 'fg');
+			}
+
+			// A count that was watched but never wagered at -- wonged out, or
+			// bet nothing by the ramp. The rounds happened, so the row stays,
+			// but none of the money columns describe anything.
+			tr.is-sat-out {
+				color: oklch(from get($neutrals, 'fg') l c h / 0.35);
+
+				th,
+				td {
+					color: inherit;
+				}
+			}
+
+			.is-positive {
+				color: get($successes, 'fg-light');
+			}
+
+			.is-negative {
+				color: get($errors, 'fg-light');
+			}
+		}
+
+		// Stretched to whatever the column gives it, which is what
+		// `preserveAspectRatio="none"` on the drawing is for.
+		&__bar {
+			display: block;
+			width: 100%;
+			min-width: 60px;
+			height: 8px;
+		}
+
+		&__bar-fill {
+			fill: get($primaries, 'base');
+			opacity: 0.55;
+		}
+
+		tr.is-sat-out &__bar-fill {
+			fill: get($neutrals, 'sep-light');
+		}
+	}
+}

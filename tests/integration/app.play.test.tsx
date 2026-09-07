@@ -9,13 +9,13 @@ describe('App', () => {
 
 	describe('the Play view', () => {
 		it(
-			'offers a third tab that deals a shoe under the current rules',
+			'offers a tab of its own that deals a shoe under the current rules',
 			async () => {
 				render(() => <App />);
 
 				const header = document.querySelector<HTMLElement>('.app-header');
 				if (!header) throw new Error('App header not found');
-				expect(within(header).getAllByRole('tab')).toHaveLength(3);
+				expect(within(header).getAllByRole('tab')).toHaveLength(4);
 
 				goToPlay();
 				await waitFor(() => expect(document.querySelector('.play-table')).not.toBeNull());

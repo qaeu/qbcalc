@@ -16,17 +16,21 @@ import {
 	resetPlayStats,
 	savePlayConfig,
 	savePlayStats,
+	loadSimConfig,
+	saveSimConfig,
 	type BankrollConfig,
 	type CalculatorConfig,
 	type PlayConfig,
 } from '#utils/storage';
 import { EMPTY_PLAY_STATS, type PlayStats } from '#utils/play/stats';
+import { DEFAULT_SIM_CONFIG, type SimConfig } from '#utils/sim/config';
 
 const STORAGE_KEY = 'qbcalc:calculator-config';
 const DISPLAY_MODE_KEY = 'qbcalc:cell-display-mode';
 const BANKROLL_KEY = 'qbcalc:bankroll';
 const PLAY_CONFIG_KEY = 'qbcalc:play-config';
 const PLAY_STATS_KEY = 'qbcalc:play-stats';
+const SIM_CONFIG_KEY = 'qbcalc:sim-config';
 /** Mirrors the module's own constant: the schema `saveCalculatorConfig` writes. */
 const STORAGE_VERSION = 5;
 
@@ -421,5 +425,64 @@ describe('play stats', () => {
 	it('stores an empty record as the zeroes it is', () => {
 		savePlayStats(EMPTY_PLAY_STATS);
 		expect(loadPlayStats()).toEqual(EMPTY_PLAY_STATS);
+	});
+});
+
+describe('sim config', () => {
+	const CONFIG: SimConfig = {
+		rounds: 100_000,
+		deviations: 'full',
+		cutCardVarianceDecks: 0.5,
+		wongInCount: 1,
+		wongOutCount: 6,
+		otherSpots: 2,
+		seed: 987654,
+		reseedEachRun: false,
+	};
+
+	it('round-trips a saved config', () => {
+		saveSimConfig(CONFIG);
+		expect(loadSimConfig()).toEqual(CONFIG);
+	});
+
+	it('round-trips the default one', () => {
+		saveSimConfig(DEFAULT_SIM_CONFIG);
+		expect(loadSimConfig()).toEqual(DEFAULT_SIM_CONFIG);
+	});
+
+	it('returns null when nothing has been saved', () => {
+		expect(loadSimConfig()).toBeNull();
+	});
+
+	it('rejects a stored config from another schema version', () => {
+		localStorage.setItem(
+			SIM_CONFIG_KEY,
+			JSON.stringify({ version: 99, ...DEFAULT_SIM_CONFIG })
+		);
+		expect(loadSimConfig()).toBeNull();
+	});
+
+	it('rejects a value no option in the form offers', () => {
+		// A round count the select cannot show would leave the form with nothing
+		// selected, so the record is dropped rather than restored.
+		localStorage.setItem(
+			SIM_CONFIG_KEY,
+			JSON.stringify({ version: 1, ...DEFAULT_SIM_CONFIG, rounds: 12_345 })
+		);
+		expect(loadSimConfig()).toBeNull();
+
+		localStorage.setItem(
+			SIM_CONFIG_KEY,
+			JSON.stringify({ version: 1, ...DEFAULT_SIM_CONFIG, deviations: 'psychic' })
+		);
+		expect(loadSimConfig()).toBeNull();
+	});
+
+	it('rejects a malformed record', () => {
+		localStorage.setItem(SIM_CONFIG_KEY, 'not json');
+		expect(loadSimConfig()).toBeNull();
+
+		localStorage.setItem(SIM_CONFIG_KEY, JSON.stringify({ version: 1 }));
+		expect(loadSimConfig()).toBeNull();
 	});
 });

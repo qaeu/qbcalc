@@ -75,6 +75,15 @@ const BLACKJACK_PAYOUT_VALUE: Record<BlackjackPayout, number> = {
 	'1:1': 1,
 };
 
+/**
+ * The same figure as a function, for a caller that has to price a natural rather
+ * than pay one: the sim, which needs a round nobody acted in to have an
+ * expectation as well as a result. See docs/sim-model.md §Accumulating EV.
+ */
+export function blackjackPayoutValue(payout: BlackjackPayout): number {
+	return BLACKJACK_PAYOUT_VALUE[payout];
+}
+
 function totalOf(cards: readonly Rank[]): [number, boolean] {
 	let total = 0;
 	let soft = false;

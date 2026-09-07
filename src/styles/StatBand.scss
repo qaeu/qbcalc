@@ -1,0 +1,84 @@
+@use 'base' as *;
+
+@layer screen {
+	// The printed band the Bankroll figures are set in, lifted out of PlayStats
+	// so the Sim stats read the same way. The dividing hairlines are the grid's
+	// own 1px gaps showing the container through, which is what keeps them
+	// correct however many figures there are and wherever the row wraps -- a
+	// per-cell border cannot know which cell starts a line. See EvSummary.scss,
+	// which still carries its own copy of this for its loading skeletons.
+	.stat-band {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+		gap: 1px;
+		background-color: $rule-strong;
+		border: 1px solid $rule-strong;
+		border-radius: 3px;
+		overflow: hidden;
+
+		@include phone {
+			grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+		}
+
+		// Opaque on purpose: the hairlines are the container showing through the
+		// gaps, so a translucent figure would tint itself with them.
+		&__card {
+			display: flex;
+			flex-direction: column;
+			gap: 5px;
+			padding: 15px 18px 16px;
+			background-color: $panel;
+
+			@include phone {
+				padding: 12px 13px 13px;
+			}
+		}
+
+		&__label {
+			@include print(10px, 0.16em);
+			color: oklch(from get($neutrals, 'fg') l c h / 0.5);
+		}
+
+		&__value {
+			// Condensed and tracked tight: the figure is the largest thing in the
+			// band, so it is set as a printed number rather than as body text that
+			// happens to be big. Tabular, so it doesn't jitter its own width as a
+			// run's figures climb.
+			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
+			font-variant-numeric: tabular-nums;
+			font-size: 28px;
+			font-weight: 700;
+			letter-spacing: -0.01em;
+			line-height: 1.05;
+			color: get($neutrals, 'fg');
+
+			@include phone {
+				font-size: 23px;
+			}
+
+			&.is-positive {
+				color: get($successes, 'fg-light');
+			}
+
+			&.is-negative {
+				color: get($errors, 'fg-light');
+			}
+		}
+
+		&__unit {
+			margin-left: 3px;
+			font-size: 13px;
+			font-weight: 500;
+			letter-spacing: 0.04em;
+			color: oklch(from get($neutrals, 'fg') l c h / 0.5);
+		}
+
+		// The second reading, under the figure: small, sentence-cased, and in the
+		// label's own muted ink so it reads as a footnote rather than a rival.
+		&__note {
+			@include print(10px, 0.02em, $caps: false);
+			color: oklch(from get($neutrals, 'fg') l c h / 0.45);
+			font-variant-numeric: tabular-nums;
+		}
+	}
+}
