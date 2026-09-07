@@ -29,9 +29,10 @@ export interface SimWorkerRequest {
 	unit: number;
 	roundsPerHour: number;
 	/**
-	 * Always 'fast' today. A sim prices a handful of counts and then deals against
-	 * them a million times, so the seconds-long full-precision walk would buy a
-	 * third decimal place at the cost of the whole run's budget.
+	 * 'fast' unless the sidebar's full calculation is what the figures beside the
+	 * run were last priced at. Pricing is a fixed opening cost -- a run visits
+	 * perhaps twenty counts and then deals against them a million times -- so full
+	 * precision costs a second or two of grids and nothing per round.
 	 */
 	precision?: PrecisionId;
 }

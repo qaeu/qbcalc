@@ -637,6 +637,7 @@ const App: Component = () => {
 							onConfigChange={updateSim}
 							bankroll={bankroll()}
 							predicted={bankrollAnalysis()}
+							precision={resultPrecision()}
 						/>
 					</Show>
 				</div>

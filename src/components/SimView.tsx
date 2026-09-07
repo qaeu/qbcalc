@@ -11,6 +11,7 @@ import { createSignal, onCleanup, Show, type Component } from 'solid-js';
 import type { BankrollAnalysis } from '#utils/bankroll';
 import type { CountingSystemId } from '#utils/countingSystems';
 import type { TagValues } from '#utils/ev/composition';
+import type { PrecisionId } from '#utils/ev/precision';
 import type { RuleSet } from '#utils/ev/rules';
 import { formatDuration } from '#utils/format';
 import type { SimConfig } from '#utils/sim/config';
@@ -35,6 +36,14 @@ interface SimViewProps {
 	bankroll: BankrollConfig;
 	/** What the Bankroll view predicts for the same game, where there is a result yet. */
 	predicted: BankrollAnalysis | undefined;
+	/**
+	 * The precision the figures on screen were last priced at, which a run adopts:
+	 * a session dealt off full-precision grids is the one comparable with a
+	 * full-precision predicted column. Back to 'fast' as soon as anything else
+	 * recalculates, so it costs nothing unless the button was the last thing
+	 * pressed. See docs/sim-model.md §Pricing the counts.
+	 */
+	precision: PrecisionId;
 }
 
 const SimView: Component<SimViewProps> = (props) => {
@@ -116,10 +125,10 @@ const SimView: Component<SimViewProps> = (props) => {
 			ramp: props.bankroll.ramp,
 			unit: props.bankroll.unit,
 			roundsPerHour: props.bankroll.roundsPerHour,
-			// A sim deals against a handful of priced counts a million times over, so
-			// the seconds-long full-precision walk would cost the run for a decimal
-			// place nothing here reports.
-			precision: 'fast',
+			// Whatever the figures beside the run were last priced at. A run visits
+			// perhaps twenty counts, so full precision costs a second or two of
+			// pricing and nothing per round after it.
+			precision: props.precision,
 		};
 		w.postMessage(request);
 	};
@@ -130,7 +139,12 @@ const SimView: Component<SimViewProps> = (props) => {
 
 	return (
 		<section class="sim-view">
-			<SimSetup ruleSet={props.ruleSet} system={props.system} bankroll={props.bankroll} />
+			<SimSetup
+				ruleSet={props.ruleSet}
+				system={props.system}
+				bankroll={props.bankroll}
+				precision={props.precision}
+			/>
 			<SimConfigPanel
 				config={props.config}
 				onChange={props.onConfigChange}

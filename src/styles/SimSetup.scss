@@ -29,6 +29,13 @@
 			border-radius: 2px;
 			background-color: rgb(0 0 0 / 0.2);
 			color: get($neutrals, 'fg');
+
+			// The precision reading, marked the same way the sidebar marks a full
+			// calculation, since it is the same fact being reported twice.
+			&--accent {
+				border-color: get($primaries, 'fg-light');
+				color: get($primaries, 'fg-light');
+			}
 		}
 
 		&__hint {

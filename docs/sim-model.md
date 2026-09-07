@@ -63,12 +63,13 @@ Counts are clamped to **±10**. Past that `applyTrueCountToComposition` is askin
 removals approaching what the shoe holds, the composition is barely representable, and the
 play it produces has stopped changing.
 
-Runs always price at `'fast'`. A sim deals against a handful of grids a million times, so
-the seconds-long full-precision walk would cost the whole run's budget for a decimal place
-nothing here reports. See §Against the bankroll model for what that precision costs in
-accuracy. The sidebar's full calculation is offered on this view all the same: it never
-touches the run, but it reprices the summary figures the predicted column is derived from,
-which is the half of the comparison this view does not deal itself.
+A run prices at `'fast'` unless the sidebar's full calculation is the last thing that
+priced the figures beside it, in which case it deals off full-precision grids so that both
+halves of the comparison are quoted in one frame. Precision is an opening cost and not a
+per-round one: pricing twenty counts goes from about a quarter of a second to about a
+second and a half, and dealing is unchanged. What it buys is small — see §Against the
+bankroll model — so it is offered rather than defaulted to, and any other recalculation
+drops the next run back to fast on its own.
 
 ## Deviation modes
 
