@@ -67,6 +67,16 @@ describe('a simulated session', () => {
 		expect(result.shoes).toBeLessThan(result.roundsPlayed);
 	});
 
+	it('deals naturals at about the rate the deck does', () => {
+		// A fresh shoe deals one about 4.75% of the time, and 5,000 rounds is loose
+		// enough sampling to bracket rather than pin. Only a round's first hand can
+		// hold one, so there can never be more than there were rounds played.
+		expect(result.blackjacks).toBeGreaterThan(0);
+		expect(result.blackjacks).toBeLessThanOrEqual(result.roundsPlayed);
+		expect(result.blackjackPercent).toBeGreaterThan(3.5);
+		expect(result.blackjackPercent).toBeLessThan(6);
+	});
+
 	it('files every round it saw into a bucket', () => {
 		const bucketed = result.buckets.reduce((sum, bucket) => sum + bucket.rounds, 0);
 		expect(bucketed).toBe(result.roundsSeen);

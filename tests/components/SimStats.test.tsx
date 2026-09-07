@@ -43,6 +43,8 @@ const RESULT: SimResult = {
 	hoursWatched: 156.25,
 	hands: 51_200,
 	shoes: 1_160,
+	blackjacks: 2_380,
+	blackjackPercent: 4.76,
 	wagered: 200_000,
 	edgePercent: 0.625,
 	evEdgePercent: 0.49,
@@ -84,6 +86,8 @@ describe('SimStats', () => {
 		expect(figure('Player edge')).toContain('+0.490');
 		expect(figure('Realised edge')).toContain('+0.625');
 		expect(figure('Hands played')).toContain('51k');
+		expect(figure('Blackjacks')).toContain('2,380');
+		expect(figure('Blackjacks')).toContain('4.8% of rounds played');
 		// A fifth of the session was stood through rather than played.
 		expect(figure('Sat out')).toContain('20.0%');
 		expect(figure('Sat out')).toContain('13k rounds watched');

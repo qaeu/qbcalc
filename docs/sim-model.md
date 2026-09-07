@@ -212,22 +212,23 @@ what the conditional cells describe.
 
 `result.ts` derives everything in one pure function, so no component does arithmetic:
 
-| Figure                                            | What it is                                                                                                                                  |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stats.av`                                        | Money actually won or lost                                                                                                                  |
-| `ev`                                              | Expectation of the rounds as they were opened                                                                                               |
-| `evEdgePercent`                                   | `ev / wagered` — what the hands played were _worth_, per unit staked                                                                        |
-| `edgePercent`                                     | `av / wagered` — what the cards actually _paid_                                                                                             |
-| `averageBet`                                      | `wagered / roundsPlayed`, in currency                                                                                                       |
-| `roundsSeen`                                      | Rounds dealt — the run's own budget, and its clock                                                                                          |
-| `roundsPlayed`                                    | Of those, the ones wagered on                                                                                                               |
-| `roundsWatched`, `watchedPercent`, `hoursWatched` | And the ones sat out: not in the seat, or dealt at a count the ramp stakes nothing at. Where a back-counting strategy's cost actually lives |
-| `hours`                                           | Rounds **dealt** ÷ `roundsPerHour` — a back-counter's watching is time too                                                                  |
-| `winRatePerHour`, `sdPerHour`                     | `av` and `√variance` over those hours                                                                                                       |
-| `n0Rounds`                                        | Read off the _expectation_, not the money: N0 is a property of the game, and a run that ran hot would otherwise report a shorter one        |
-| `evDeviationSigmas`                               | `(av − ev) / σ`, through `stats.ts`'s own `evDeviation` over the sim's round-level totals                                                   |
-| `buckets`                                         | Per `ROUND_TRUE_COUNTS` bucket: rounds seen, rounds played, hands, wagered, AV and EV                                                       |
-| `samples`                                         | ~200 checkpoints of cumulative AV, EV and σ, spaced by rounds **dealt**, so a stretch spent back-counting draws as the flat line it is      |
+| Figure                                            | What it is                                                                                                                                   |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stats.av`                                        | Money actually won or lost                                                                                                                   |
+| `ev`                                              | Expectation of the rounds as they were opened                                                                                                |
+| `evEdgePercent`                                   | `ev / wagered` — what the hands played were _worth_, per unit staked                                                                         |
+| `edgePercent`                                     | `av / wagered` — what the cards actually _paid_                                                                                              |
+| `averageBet`                                      | `wagered / roundsPlayed`, in currency                                                                                                        |
+| `roundsSeen`                                      | Rounds dealt — the run's own budget, and its clock                                                                                           |
+| `roundsPlayed`                                    | Of those, the ones wagered on                                                                                                                |
+| `roundsWatched`, `watchedPercent`, `hoursWatched` | And the ones sat out: not in the seat, or dealt at a count the ramp stakes nothing at. Where a back-counting strategy's cost actually lives  |
+| `hours`                                           | Rounds **dealt** ÷ `roundsPerHour` — a back-counter's watching is time too                                                                   |
+| `blackjacks`, `blackjackPercent`                  | Rounds opened on a natural, and their share of the rounds played. A dealer's matching natural still counts one; a split hand's 21 never does |
+| `winRatePerHour`, `sdPerHour`                     | `av` and `√variance` over those hours                                                                                                        |
+| `n0Rounds`                                        | Read off the _expectation_, not the money: N0 is a property of the game, and a run that ran hot would otherwise report a shorter one         |
+| `evDeviationSigmas`                               | `(av − ev) / σ`, through `stats.ts`'s own `evDeviation` over the sim's round-level totals                                                    |
+| `buckets`                                         | Per `ROUND_TRUE_COUNTS` bucket: rounds seen, rounds played, hands, wagered, AV and EV                                                        |
+| `samples`                                         | ~200 checkpoints of cumulative AV, EV and σ, spaced by rounds **dealt**, so a stretch spent back-counting draws as the flat line it is       |
 
 `wagered` is the **opening** bet summed over the rounds played — what the ramp actually
 set — not the money that ended up on the felt once a hand doubled or split. That is what

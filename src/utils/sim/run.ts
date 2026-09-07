@@ -121,6 +121,12 @@ export interface SimRun {
 	roundsPlayed: number;
 	shoes: number;
 	/**
+	 * Rounds opened on a natural, counted whatever the dealer then showed -- a
+	 * natural pushed against a dealer's is still one dealt. Only the round's first
+	 * hand can hold one; a split hand's twenty-one never counts.
+	 */
+	blackjacks: number;
+	/**
 	 * Whether the player is in the seat right now. Carried on the run rather than
 	 * recomputed per round because the wong settings are read with hysteresis: the
 	 * seat is taken at `wongInCount` and given up below `wongOutCount`, so what
@@ -230,6 +236,7 @@ export function createRun(inputs: SimInputs): SimRun {
 		roundsPlayed: 0,
 		// The one it was dealt with. `runChunk` counts each shuffle after it.
 		shoes: 1,
+		blackjacks: 0,
 		// A back-counter arrives standing. The loop's own entry test seats them
 		// before the first bet goes out, which is immediately where none is set.
 		seated: false,
@@ -391,6 +398,7 @@ function playRound(run: SimRun, bucket: SimBucket, bet: number, hiLo: number): v
 	const settled = settleRound(state);
 	run.stats = recordRound(run.stats, settled.net, settled.hands.length);
 	run.game = settled;
+	if (settled.hands[0]?.blackjack) run.blackjacks += 1;
 
 	if (!opened) {
 		const natural = naturalEv(settled, run.strategy.compFor(trueCount), bet);

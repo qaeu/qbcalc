@@ -70,6 +70,11 @@ const SimStats: Component<SimStatsProps> = (props) => {
 			},
 			{ label: 'Hands played', value: formatRounds(result.hands) },
 			{
+				label: 'Blackjacks',
+				value: formatRounds(result.blackjacks),
+				note: `${formatPercent(result.blackjackPercent)} of rounds played`,
+			},
+			{
 				// What a back-counting strategy actually costs: rounds stood through
 				// earning nothing. Zero for a player who sits down and plays them all.
 				label: 'Sat out',

@@ -44,6 +44,10 @@ export interface SimResult {
 	hoursWatched: number;
 	hands: number;
 	shoes: number;
+	/** Rounds opened on a natural, dealer's match included. */
+	blackjacks: number;
+	/** `blackjacks` as a share of the rounds played, in percent. */
+	blackjackPercent: number;
 	/** Opening bets summed over the rounds played, in currency. */
 	wagered: number;
 
@@ -98,6 +102,8 @@ export function summarizeRun(run: SimRun): SimResult {
 		hoursWatched: roundsPerHour > 0 ? roundsWatched / roundsPerHour : 0,
 		hands: stats.hands,
 		shoes: run.shoes,
+		blackjacks: run.blackjacks,
+		blackjackPercent: roundsPlayed > 0 ? (run.blackjacks / roundsPlayed) * 100 : 0,
 		wagered,
 
 		edgePercent: wagered > 0 ? (stats.av / wagered) * 100 : 0,
