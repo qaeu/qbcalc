@@ -17,11 +17,25 @@
 			@include panel-title;
 		}
 
+		// The popover is positioned against this box rather than against the
+		// viewport, so its offsets can be read straight off the plot's own
+		// coordinates as percentages of the same width.
+		&__figure {
+			position: relative;
+			margin-top: 8px;
+		}
+
 		&__plot {
 			display: block;
 			width: 100%;
 			height: auto;
-			margin-top: 8px;
+			// The pointer reading is taken from the raw position, so a drag across
+			// the plot on a touch screen should track rather than scroll the page.
+			touch-action: none;
+
+			&:focus-visible {
+				outline-offset: -2px;
+			}
 		}
 
 		// Two nested bands rather than four edges: the outer is +/-2 sigma and the
@@ -58,11 +72,173 @@
 			stroke-linecap: round;
 		}
 
+		// Fainter than the zero line and dashed, so the money axis can be read off
+		// without the gridlines competing with the band edges for attention.
+		&__grid {
+			stroke: oklch(from get($neutrals, 'fg') l c h / 0.1);
+			stroke-width: 1;
+			stroke-dasharray: 3 5;
+		}
+
 		&__tick {
 			fill: oklch(from get($neutrals, 'fg') l c h / 0.5);
 			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
 			font-size: 13px;
 			font-variant-numeric: tabular-nums;
+		}
+
+		&__crosshair {
+			stroke: oklch(from get($primaries, 'base') l c h / 0.45);
+			stroke-width: 1;
+			stroke-dasharray: 2 3;
+		}
+
+		&__dot {
+			fill: get($primaries, 'base-dark');
+			stroke: $panel;
+			stroke-width: 1.5;
+
+			&.is-expectation {
+				fill: oklch(from get($neutrals, 'fg') l c h / 0.55);
+			}
+		}
+
+		// Parked in whichever corner of the plot the drawing leaves emptiest
+		// rather than carried under the pointer, so the walk it is describing
+		// stays visible; the crosshair is what says which point it is about. Set
+		// on the felt at low opacity for the same reason -- a band edge or a
+		// gridline passing behind it still reads through.
+		&__popover {
+			@include shadow($shadow-light);
+			position: absolute;
+			z-index: 20;
+			padding: 8px 11px;
+			background-color: oklch(from $panel l c h / 0.78);
+			backdrop-filter: blur(3px);
+			border-top: 1px solid $rule-strong;
+			border-radius: 6px;
+			font-size: 13px;
+			font-variant-numeric: tabular-nums;
+			pointer-events: none;
+			white-space: nowrap;
+
+			// Every corner is given as a `top`/`left` pair on the plot's own edges,
+			// in percent so they hold as the drawing scales, with the box pulled
+			// back over itself at the far edges. Not `right`/`bottom`: an offset
+			// that flips to `auto` cannot be animated, and the box slides between
+			// corners rather than cutting, so a pointer crossing the middle of the
+			// plot doesn't make the figures jump.
+			transform: translate(var(--sim-trajectory-x, 0), var(--sim-trajectory-y, 0));
+			transition:
+				top 180ms ease,
+				left 180ms ease,
+				transform 180ms ease;
+
+			@media (prefers-reduced-motion: reduce) {
+				transition: none;
+			}
+
+			// PAD_LEFT and PAD_RIGHT as fractions of VIEW_WIDTH -- inside the money
+			// axis on the left, and on the plot's right edge.
+			&.is-left {
+				left: 8%;
+				--sim-trajectory-x: 0;
+			}
+
+			&.is-right {
+				left: 98%;
+				--sim-trajectory-x: -100%;
+			}
+
+			// PAD_TOP and the plot's floor as fractions of VIEW_HEIGHT, so the
+			// bottom corners clear the round-count ticks under the plot.
+			&.is-top {
+				top: 7%;
+				--sim-trajectory-y: 0;
+			}
+
+			&.is-bottom {
+				top: 89%;
+				--sim-trajectory-y: -100%;
+			}
+		}
+
+		&__popover-head {
+			@include print(11px, 0.14em);
+			margin-bottom: 6px;
+			padding-bottom: 5px;
+			border-bottom: 1px solid $rule;
+		}
+
+		&__popover-grid {
+			display: grid;
+			grid-template-columns: auto auto;
+			column-gap: 14px;
+			row-gap: 4px;
+
+			span:nth-child(odd) {
+				color: get($neutrals, 'fg-light');
+			}
+
+			span:nth-child(even) {
+				text-align: right;
+			}
+
+			.is-positive {
+				color: get($successes, 'fg-light');
+			}
+
+			.is-negative {
+				color: get($errors, 'fg-light');
+			}
+		}
+
+		&__legend {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px 18px;
+			margin: 10px 0 0;
+			padding: 0;
+			list-style: none;
+
+			li {
+				@include print(12px, 0.01em, $caps: false);
+				display: inline-flex;
+				align-items: center;
+				gap: 7px;
+			}
+		}
+
+		// The legend's swatches are the drawn objects themselves at rest: the
+		// solid line, the dashed one, and the two band fills over the felt.
+		&__swatch {
+			flex: none;
+			width: 16px;
+			height: 3px;
+			border-radius: 1px;
+
+			&.is-money {
+				background-color: get($primaries, 'base');
+			}
+
+			&.is-expectation {
+				background-image: linear-gradient(
+					to right,
+					oklch(from get($neutrals, 'fg') l c h / 0.55) 0 6px,
+					transparent 6px 11px,
+					oklch(from get($neutrals, 'fg') l c h / 0.55) 11px
+				);
+			}
+
+			&.is-inner-band,
+			&.is-band {
+				height: 10px;
+				background-color: oklch(from get($infos, 'base') l c h / 0.16);
+			}
+
+			&.is-inner-band {
+				background-color: oklch(from get($infos, 'base') l c h / 0.34);
+			}
 		}
 
 		&__reading,
