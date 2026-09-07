@@ -70,7 +70,7 @@ const SimConfigPanel: Component<SimConfigPanelProps> = (props) => {
 			<div class="sim-config__grid">
 				<SettingsItem
 					label="Rounds"
-					helptext="Rounds dealt at the table, whether or not the player wagers on them. It is the session being sized, not the action in it — a back-counter who sits out most of a shoe has still stood there for all of it, and the result says how much of the run went that way."
+					helptext="Rounds dealt at the table, whether or not the player wagers on them."
 				>
 					<SettingSelect
 						options={numericOptions(ROUND_COUNTS)}
@@ -80,7 +80,7 @@ const SimConfigPanel: Component<SimConfigPanelProps> = (props) => {
 				</SettingsItem>
 				<SettingsItem
 					label="Deviations"
-					helptext="How the hands are played. Basic strategy never departs from the full-shoe grids; Illustrious 18 lays the eighteen best-known indices over them; Full indices plays the count-adjusted grids outright, which is the ceiling."
+					helptext="How the hands are played. Illustrious 18 adds the eighteen best-known indices; Full indices plays the count-adjusted grids outright."
 				>
 					<SettingSelect
 						options={DEVIATION_MODES}
@@ -90,7 +90,7 @@ const SimConfigPanel: Component<SimConfigPanelProps> = (props) => {
 				</SettingsItem>
 				<SettingsItem
 					label="Cut card variance"
-					helptext="How far the cut card may sit either side of the penetration set in the rules, redrawn on every shuffle. A real dealer does not place it to the card."
+					helptext="How far the cut card may sit either side of the penetration in the rules, redrawn on every shuffle."
 				>
 					<SettingSelect
 						options={numericOptions(CUT_CARD_VARIANCES)}
@@ -100,7 +100,7 @@ const SimConfigPanel: Component<SimConfigPanelProps> = (props) => {
 				</SettingsItem>
 				<SettingsItem
 					label="Wong in"
-					helptext="The true count the player sits down at. Below it the round is still dealt — the cards burn and the count moves — but nothing is wagered."
+					helptext="The true count the player sits down at. Below it the round is still dealt, but nothing is wagered."
 				>
 					<SettingSelect
 						options={numericOptions(WONG_IN_COUNTS)}
@@ -110,7 +110,7 @@ const SimConfigPanel: Component<SimConfigPanelProps> = (props) => {
 				</SettingsItem>
 				<SettingsItem
 					label="Wong out"
-					helptext="And the count they get up below, once seated. Set under the wong-in count it holds the seat as the shoe cools rather than leaving the moment it stops being worth sitting down for; left never, the wong-in count does both jobs."
+					helptext="The count the player leaves at, once seated. Set under the wong-in count it holds the seat as the shoe cools."
 				>
 					<SettingSelect
 						options={numericOptions(WONG_OUT_COUNTS)}
@@ -120,7 +120,7 @@ const SimConfigPanel: Component<SimConfigPanelProps> = (props) => {
 				</SettingsItem>
 				<SettingsItem
 					label="Other players"
-					helptext="Players sharing the table. Their hands are modelled as cards burned between rounds: what they cost the counter is penetration, not decisions."
+					helptext="Players sharing the table. Their hands are modelled as cards burned between rounds — they cost penetration, not decisions."
 				>
 					<SettingSelect
 						options={numericOptions(OTHER_SPOTS)}
