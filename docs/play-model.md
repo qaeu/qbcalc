@@ -129,7 +129,14 @@ Two simplifications sit under this, both inherited from the engine:
   `PLAY_HARD_TOTALS` 4–20 and `PLAY_SOFT_TOTALS` 12–21, against the strategy tables' narrower
   ranges — so that no live hand falls outside the grids and goes ungraded.
 
-Play always grades at `'fast'` precision. The worker keeps one `cachedPlayBaseGrids` entry per
+Play always grades at `'fast'` precision — including while the sidebar's full calculation is
+running, which reprices the summary figures beside it and never the coach's grids. The felt is
+a second caller on a worker that is one request deep, so `App` holds a grid request back while
+a request the grids or the cards are waiting on is still out, and reissues it (at the newest
+count alone) once that response lands. Without that hold the first hand dealt would supersede
+the summary run the app mounts with, and the sidebar's own figures would never arrive.
+
+The worker keeps one `cachedPlayBaseGrids` entry per
 rule set and precision, plus an eight-entry LRU of count-adjusted grids keyed by rules,
 precision, tags and count: a shoe wanders back and forth over a handful of whole counts and
 revisits each of them for round after round, so most of a session's grading is a cache hit.

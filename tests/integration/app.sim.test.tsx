@@ -5,10 +5,13 @@ import App from '#App';
 import { DEFAULT_SIM_CONFIG, type SimConfig } from '#utils/sim/config';
 
 import {
+	fullCalculationButton,
+	FULL_RUN_TIMEOUT_MS,
 	goToSim,
 	MOUNT_TIMEOUT_MS,
 	resetBrowserState,
 	SIM_RUN_TIMEOUT_MS,
+	spyOnWorkerRequests,
 } from './appHarness';
 
 /**
@@ -77,15 +80,31 @@ describe('App', () => {
 		);
 
 		it(
-			'hides the full-calculation button, which the sim never asks for',
+			'offers the full calculation, which reprices what it is predicted against',
 			async () => {
 				window.location.hash = '#sim';
+				const postMessage = spyOnWorkerRequests();
 				render(() => <App />);
 
 				await waitFor(() => expect(document.querySelector('.sim-view')).not.toBeNull());
-				expect(screen.queryByRole('button', { name: 'Run full calculation' })).toBeNull();
+
+				const button = fullCalculationButton();
+				await waitFor(() => expect(button).toHaveProperty('disabled', false));
+				postMessage.mockClear();
+
+				// The sim deals at 'fast' in its own worker whatever this does; what
+				// the button moves is the summary basis the prediction column beside
+				// the result is derived from.
+				fireEvent.click(button);
+				expect(postMessage.mock.calls[0][0]).toMatchObject({
+					scope: 'summary',
+					precision: 'full',
+				});
+				await waitFor(() => expect(button).toHaveProperty('disabled', true));
+
+				postMessage.mockRestore();
 			},
-			MOUNT_TIMEOUT_MS
+			FULL_RUN_TIMEOUT_MS
 		);
 
 		it(

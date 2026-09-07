@@ -1,6 +1,8 @@
 import { vi } from 'vitest';
 import { fireEvent, screen, within } from '@solidjs/testing-library';
 
+import type { EvWorkerRequest } from '#utils/evWorkerProtocol';
+
 /**
  * The pieces every App-level test needs: the real worker and the real engine run
  * behind these cases, so they drive the app through the header, the sidebar and
@@ -62,6 +64,15 @@ export const spyOnWorkerRequests = () =>
 		globalThis.Worker.prototype as { postMessage: (data: unknown) => void },
 		'postMessage'
 	);
+
+/**
+ * What such a spy recorded, as EV requests. Handy where the app has a second
+ * caller on the worker -- the Play view asks for grids of its own as the felt
+ * moves -- so a case can name the request it means rather than the first one.
+ */
+export const workerRequests = (
+	spy: ReturnType<typeof spyOnWorkerRequests>
+): EvWorkerRequest[] => spy.mock.calls.map((call) => call[0] as EvWorkerRequest);
 
 /**
  * Answers media queries against a made-up viewport, understanding the two

@@ -1,8 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@solidjs/testing-library';
+import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 
 import App from '#App';
-import { goToPlay, MOUNT_TIMEOUT_MS, resetBrowserState } from './appHarness';
+import {
+	fullCalculationButton,
+	FULL_RUN_TIMEOUT_MS,
+	goToPlay,
+	MOUNT_TIMEOUT_MS,
+	resetBrowserState,
+	spyOnWorkerRequests,
+	workerRequests,
+} from './appHarness';
 
 describe('App', () => {
 	beforeEach(resetBrowserState);
@@ -41,15 +49,30 @@ describe('App', () => {
 		);
 
 		it(
-			'hides the full-calculation button, which Play never asks for',
+			'offers the full calculation, which reprices the summary figures',
 			async () => {
 				window.location.hash = '#play';
+				const postMessage = spyOnWorkerRequests();
 				render(() => <App />);
 
 				await waitFor(() => expect(document.querySelector('.play-table')).not.toBeNull());
-				expect(screen.queryByRole('button', { name: 'Run full calculation' })).toBeNull();
+
+				const button = fullCalculationButton();
+				await waitFor(() => expect(button).toHaveProperty('disabled', false));
+				postMessage.mockClear();
+
+				// The Play coach grades off 'play'-scope grids, which stay fast; what
+				// the button reprices here is the summary basis the sidebar's own
+				// Kelly hint -- and the Sim view's prediction column -- read.
+				fireEvent.click(button);
+				expect(
+					workerRequests(postMessage).find((request) => request.precision === 'full')
+				).toMatchObject({ scope: 'summary', precision: 'full' });
+				await waitFor(() => expect(button).toHaveProperty('disabled', true));
+
+				postMessage.mockRestore();
 			},
-			MOUNT_TIMEOUT_MS
+			FULL_RUN_TIMEOUT_MS
 		);
 	});
 });

@@ -66,7 +66,9 @@ play it produces has stopped changing.
 Runs always price at `'fast'`. A sim deals against a handful of grids a million times, so
 the seconds-long full-precision walk would cost the whole run's budget for a decimal place
 nothing here reports. See §Against the bankroll model for what that precision costs in
-accuracy.
+accuracy. The sidebar's full calculation is offered on this view all the same: it never
+touches the run, but it reprices the summary figures the predicted column is derived from,
+which is the half of the comparison this view does not deal itself.
 
 ## Deviation modes
 

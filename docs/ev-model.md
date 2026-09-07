@@ -155,8 +155,14 @@ stays out of `RuleSet` and out of `ruleSetKey`, and travels as its own
 | published          |           |                            | −0.615%         |              |
 
 Fast is what every ordinary recalculation runs at — a settings edit, a count step, the
-Tables catch-up — and full is a one-shot behind the sidebar's button, so the next
-recalculation of any kind drops back to fast on its own.
+Tables catch-up, the Play view's grids — and full is a one-shot behind the sidebar's button,
+so the next recalculation of any kind drops back to fast on its own.
+
+The button is offered on every view, since the sidebar it sits in is. What it reprices is
+whatever the view on screen reads at: the grids on Tables (`'tables'` scope), and the summary
+figures everywhere else (`'summary'`), which the Bankroll cards, the sidebar's own Kelly hint
+and the Sim view's predicted column are all derived from. The Play coach is the one thing it
+does not reach — see play-model.md §The grading basis.
 
 ### Freezing the shoe
 

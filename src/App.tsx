@@ -294,6 +294,22 @@ const App: Component = () => {
 	// at whatever the grid last showed -- see the Tables catch-up effect below.
 	let latestRequestScope: 'tables' | 'summary' | 'play' = 'tables';
 	let holdTimer: number | undefined;
+	/**
+	 * Whether a request the grids or the cards are waiting on is still out. The
+	 * worker is one request deep -- dispatching supersedes the response to
+	 * whatever came before it -- and the Play view is a second caller on it,
+	 * asking for grids as the felt moves. Without this, a card dealt during a
+	 * calculation throws that calculation away: the summary run the app mounts
+	 * with never lands (and its 'computing' flag never drops), and a deliberate
+	 * full run is lost to the next transition.
+	 */
+	let awaitingNonPlayResponse = false;
+	/**
+	 * A count the felt asked for while one was out, held rather than dispatched,
+	 * and reissued once the response lands. Only the newest is worth keeping: the
+	 * coach grades at the count in front of it, not the counts on the way there.
+	 */
+	let pendingPlayCount: number | null = null;
 
 	const getWorker = (): Worker => {
 		if (!worker) {
@@ -323,6 +339,7 @@ const App: Component = () => {
 						setPlayGrids(response.result);
 						return;
 					}
+					awaitingNonPlayResponse = false;
 					setIsComputing(false);
 					setIsSummaryComputing(false);
 					setLatestRequestPrecision('fast');
@@ -345,6 +362,13 @@ const App: Component = () => {
 					} else {
 						setCalcTimeMs(null);
 						setError(response.message);
+					}
+					// Whatever the felt asked for while this was running, now that
+					// the worker is free to answer it.
+					if (pendingPlayCount !== null) {
+						const count = pendingPlayCount;
+						pendingPlayCount = null;
+						requestPlayGrids(count);
 					}
 				};
 
@@ -388,6 +412,7 @@ const App: Component = () => {
 		// would kill the background transition out of the loading state. Clearing
 		// it here would break that animation from a distance.
 		if (scope === 'tables') setIsComputing(true);
+		if (scope !== 'play') awaitingNonPlayResponse = true;
 		// A count-only recalculation is not something the cards are waiting for:
 		// they keep their figures rather than dropping to skeletons. A full run is,
 		// since it is going to move every one of them. A play request is neither --
@@ -470,6 +495,13 @@ const App: Component = () => {
 	 * Reprices what is on screen at full precision, at whichever view's scope is
 	 * showing. Deliberate and one-shot: nothing else in the app ever asks for
 	 * 'full', so the next recalculation of any kind drops back to 'fast'.
+	 *
+	 * Runnable from every view. Off Tables that means the summary figures, which
+	 * are not the Bankroll view's alone: the sidebar's own Kelly hint reads them
+	 * from wherever it is opened, and the Sim view's prediction column is derived
+	 * from them too. The Play coach is the one thing a full run does not reach --
+	 * it grades off 'play'-scope grids, which stay fast for the reason
+	 * `requestPlayGrids` gives.
 	 */
 	const runFullCalculation = () => {
 		runCalculation(
@@ -495,6 +527,14 @@ const App: Component = () => {
 		const cached = playGridCache.get(count);
 		if (cached) {
 			setPlayGrids(cached);
+			return;
+		}
+		// Held rather than dispatched while the grids or the cards are waiting on
+		// the worker: the coach keeps grading off the count it has for the moment
+		// that takes, which costs a hand nothing, where superseding that response
+		// would cost the view that asked for it everything.
+		if (awaitingNonPlayResponse) {
+			pendingPlayCount = count;
 			return;
 		}
 		runCalculation({ ...latestRequestConfig, trueCount: count }, 'play');
@@ -532,13 +572,7 @@ const App: Component = () => {
 			config={{ ...liveSettings(), trueCount: trueCount() }}
 			calcTimeMs={calcTimeMs()}
 			onSettingsChange={requestCalculation}
-			// Play always grades at 'fast': the felt asks for a new count every
-			// few cards, and a seconds-long run has nothing to offer it. The Sim
-			// view prices its own grids in its own worker, so the button has
-			// nothing on screen to reprice for it either.
-			onFullCalculation={
-				tab() === 'play' || tab() === 'sim' ? undefined : runFullCalculation
-			}
+			onFullCalculation={runFullCalculation}
 			isFullResult={resultPrecision() === 'full'}
 			isBusy={
 				isComputing() || isSummaryComputing() || latestRequestPrecision() === 'full'
