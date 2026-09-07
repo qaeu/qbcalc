@@ -35,6 +35,13 @@ These are deliberate, and they are what the numbers should be read against.
    draws are computed independently against the same shoe composition, not conditioned on
    what the other hand actually drew.
 
+   This one has been measured. Removing the player's two cards from the shoe before pricing
+   the same opening decision raises its price by **+0.08 points of edge off a full shoe and
+   +0.14 at three-quarters penetration** — the largest single term in the sim's AV-over-EV
+   gap, and the reason every _double_ cell in that gap's per-cell decomposition reads high
+   (doubling means two low cards have left the shoe). See docs/sim-model.md §What the
+   residual is.
+
 2. **Only the playing-decision channel of the count is captured.** The tables do not
    include the extra 3:2 payout from more player blackjacks at the deal — that only
    matters at the two-card stage, which is outside the scope of a hit/stand/double/split
@@ -48,6 +55,13 @@ These are deliberate, and they are what the numbers should be read against.
    is held fixed. This is one reasonable way to collapse a count value into a composition
    — it is not the only shoe that produces a given count, since the same count can arise
    from many different actual removal histories.
+
+   Measured against real dealt shoes under Hi-Lo, the map is worth about **+0.09 points of
+   edge**: the shoe actually in front of the player is reliably a little more valuable than
+   the idealised one its count maps to. Depletion on its own — a shoe two-thirds dealt,
+   priced as a full one — is worth nothing measurable (+0.02 ± 0.06), so composition EV is
+   near enough linear over the range a shoe wanders and this term is the map, not the
+   depth. See docs/sim-model.md §What the residual is.
 
 4. **`splitLimit` is a genuine per-round cap** — the hands a split produces share one
    budget and can never exceed it — but because simplification 1 keeps sibling split hands

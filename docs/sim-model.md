@@ -119,6 +119,27 @@ departure.
 The run is stepped in chunks and is mutable on purpose: copying an accumulator a million
 times to keep it pure would be the whole cost of the run.
 
+### The observer seam
+
+`SimInputs.observe` is an optional callback, never set by the app, called once per round
+the player was in with a `SimRoundRecord`: the cell the opening decision came out of, the
+action taken, what the round was priced at, the bet, what it paid, and the count. It is
+what `tests/utils/sim/attribution.ts` decomposes the AV-over-EV gap with, and it exists as
+a seam rather than as attribution code in the loop so that `playRound` stays the thing it
+is. A run that asks for nothing pays one `undefined` check per round.
+
+Two things about its shape are deliberate. The cell key comes from `cellAddressFor`, the
+same function `coach.ts` looks a live hand up with, so a round can never be filed under one
+cell and graded against another. And `evPercent` is the round's whole priced expectation —
+insurance and unplayed naturals included — rather than `Grading.chosenEvPercent` alone, so
+that summing `net − ev` over the records gives back the run's own gap exactly and the
+resulting table is a decomposition rather than a set of loose readings.
+
+**Bucket only on what was known before the cards fell** — cell, action, count, bet.
+Conditioning on the outcome is worthless at a no-peek table: splitting rounds by "did the
+dealer have a natural" produces buckets of +3.24 and −3.09 points whose only meaningful
+content is their sum, because a no-peek cell is priced unconditionally.
+
 ### What a run is measured in
 
 `SimConfig.rounds` counts **rounds dealt at the table, played or not**. It is the session
@@ -271,16 +292,75 @@ paid a 21 dealt to a split hand as a natural, at 3:2, which the grids correctly 
 an ordinary 21. It was worth **+0.23 points of edge** on the default game, nearly all of it
 on split aces, where it moved a round's average result by a third of a unit.
 
-What is left is small and no longer dominated by any one term. Measured over 4M rounds of
-the default six-deck game, flat-bet and playing the engine's own index at every cell, AV
-runs about **0.15–0.25 points of edge above EV** — roughly **+0.6σ to +1σ per hundred
-thousand rounds**. Splits account for about 0.04 points of that. Fast precision accounts for
-**about 0.004 points**: repricing an identical run at full precision moves the gap by less
-than a hundredth of a point, and does not change a single action. The rest is not attributed
-to a particular approximation, and guessing at one is how the wrong account above got
-written in the first place.
+What is left is small, and it is **not** a second bug. Measured over 4M rounds of the
+default six-deck game, flat-bet and playing the engine's own index at every cell, AV runs
+about **0.15–0.25 points of edge above EV** — roughly **+0.6σ to +1σ per hundred thousand
+rounds**. That residual has since been attributed, and both terms in it are simplifications
+the EV model states outright rather than defects in either implementation.
 
-Note what _cannot_ be in this figure: anything the grids and `game.ts` agree on. The
+### What the residual is
+
+`tests/utils/sim/attribution.ts` measures it, driven by `attribution.test.ts`, which is
+skipped unless `QBCALC_ATTRIBUTION` is set. Two experiments, both run over the same
+twenty-seed set so the arms are paired, on a peeking six-deck game, flat bet, heads up, full
+indices.
+
+**Is it a settlement disagreement?** A control arm makes the priced composition equal the
+dealt one: a null tag vector, so every round is priced off `baseComposition` via the count-0
+grids, and a cut card 3% in, so the shoe reshuffles about every round. Over 35M rounds it
+leaves a gap of **+0.057 ± 0.017 points** — real, but a fraction of the residual, so most of
+the residual is the pricing frame rather than anything `game.ts` pays.
+
+**What the frame is worth.** The decisive measurement compares _predictions_ rather than
+outcomes, so it carries no settlement variance and 5,000 rounds settle what tens of millions
+of dealt ones would be needed for: price the same opening decision off the grids the sim
+used, and off grids built from the shoe's actual remaining composition.
+
+| Arm       | Tags  | Pen. | frame Δ            | own-cards Δ        |
+| --------- | ----- | ---- | ------------------ | ------------------ |
+| control   | null  | 3%   | −0.020 ± 0.009     | **+0.084 ± 0.005** |
+| depletion | null  | 75%  | +0.018 ± 0.060     | **+0.142 ± 0.011** |
+| count map | Hi-Lo | 75%  | **+0.107 ± 0.041** | **+0.145 ± 0.011** |
+
+Read down the columns:
+
+- **Depletion is worth nothing.** Dealing from a shoe two-thirds gone while pricing it as a
+  full one moves the opening decision by 0.018 ± 0.060 points. Composition EV is near enough
+  linear over the range a shoe actually wanders.
+- **The count→composition map is worth about +0.09.** All of the frame column's movement
+  appears when the tags start carrying information — that is `applyTrueCountToComposition`
+  (ev-model.md §Simplifications (3)) collapsing a count into one idealised shoe out of the
+  many that produce it, and the shoe in front of the player being reliably worth a little
+  more than that one.
+- **The player's own cards are worth +0.08 to +0.15**, and this is the larger term. The
+  grids leave the player's two cards in the shoe, because a grid is indexed by _total_ and
+  cannot know which two cards made it (ev-model.md §Simplifications (1)). Taking them out
+  raises the price of the same decision by that much. No precision mode reaches it: `full`
+  removes them only in the average hand, which is why repricing an identical run at full
+  precision moves the gap by **about 0.004 points** and changes not one action.
+
+The two add to roughly the observed residual, and the own-cards term alone accounts for the
+control arm's +0.057 — it is a per-decision figure over the ~92% of rounds that have an
+opening decision, so about +0.077 of gap, which is where the control arm sits.
+
+**Per-cell attribution agrees.** Decomposing the control arm's gap over 35M rounds and 331
+`(cell, action)` pairs — via `SimInputs.observe`, §The observer seam — turns up no cell
+worth more than **0.008 points**, so there is no second split-ace bug hiding in it. What the
+table shows instead is a signature: every _double_ cell reads high, `11-2` by +1.7 points,
+`10-7` by +1.8, `soft 18-3` by +2.8. Doubling means two low cards have left the shoe, which
+enriches it in tens exactly as the own-cards measurement says. A cell seen in 1% of rounds
+gets a standard error near 0.19 points on its own mean, so anything thinner than about
+13,000 rounds cannot resolve a one-point cell error and the report marks those rows rather
+than inviting them to be read.
+
+**Why this is documented and not fixed.** Both terms are the EV model working as specified.
+A flat correction constant was considered and rejected: this gap is the only cross-check the
+app has between the dealt game and the priced grids, and a constant would have masked the
+split-ace bug above entirely.
+
+### What cannot be in the figure at all
+
+Anything the grids and `game.ts` agree on. The
 no-hole-card "all bets lost" convention (ev-model.md §Simplifications (5)) is the clearest
 case — `standTable` charges a dealer natural as a full loss and `doubleEv` scales it with
 the stake, `settleHand` takes the same money, so it cancels here exactly. It is a rule

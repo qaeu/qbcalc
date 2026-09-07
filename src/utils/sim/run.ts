@@ -14,8 +14,8 @@ import { CARD_UNITS, RANK_INDEX, type Rank } from '../ev/cards';
 import { baseComposition, type Composition, type TagValues } from '../ev/composition';
 import { insuranceEvPercent, insuranceTenFraction } from '../ev/insurance';
 import type { PrecisionId } from '../ev/precision';
-import type { RuleSet } from '../ev/rules';
-import { gradeDecision } from '../play/coach';
+import type { PlayerAction, RuleSet } from '../ev/rules';
+import { cellAddressFor, gradeDecision } from '../play/coach';
 import {
 	applyAction,
 	blackjackPayoutValue,
@@ -38,6 +38,37 @@ import { decideAction, decideInsurance } from './policy';
 import { createStrategy, type Strategy } from './strategy';
 import { WONG_LIMIT, type SimConfig } from './config';
 
+/**
+ * One round as a diagnostic sees it: which cell the money went out on, what was
+ * priced there, and what came back. Bucketed only on what was known *before* the
+ * cards fell -- the cell, the action, the count and the bet -- because at a
+ * no-peek table conditioning on the outcome splits rounds into buckets whose only
+ * meaningful content is their sum. See docs/sim-model.md §The loop.
+ */
+export interface SimRoundRecord {
+	/**
+	 * Which grid the opening decision came out of, and its key -- or `natural`
+	 * for a round nobody acted in, priced by `naturalEv` rather than by a cell.
+	 * Every round played gets a record, so the per-cell contributions built off
+	 * these sum to the whole run's gap rather than to most of it.
+	 */
+	cell: string;
+	/** Absent on a `natural` round, where there was no decision to take. */
+	openingAction?: PlayerAction;
+	/**
+	 * What the round was priced at, in percent of the opening bet -- the same
+	 * `roundEv` the run accumulates, so `net/bet - evPercent/100` summed over the
+	 * records is the run's whole AV-over-EV gap and nothing is left outside the
+	 * decomposition. That is `Grading.chosenEvPercent` on almost every round; it
+	 * differs only where the round was priced without a decision (a natural) or
+	 * carried an insurance stake beside the main one.
+	 */
+	evPercent: number;
+	bet: number;
+	net: number;
+	hiLo: number;
+}
+
 /** Everything a run is: the sim's own settings plus the game they are run against. */
 export interface SimInputs {
 	ruleSet: RuleSet;
@@ -49,6 +80,13 @@ export interface SimInputs {
 	unit: number;
 	roundsPerHour: number;
 	precision: PrecisionId;
+	/**
+	 * Diagnostic seam: called once per round the player was in, with the round as
+	 * the accumulators saw it. Never set in the app -- it exists so the AV-over-EV
+	 * gap can be attributed cell by cell without the attribution living in the
+	 * loop. A run that does not ask for it pays one undefined check per round.
+	 */
+	observe?: (round: SimRoundRecord) => void;
 }
 
 /** What one `ROUND_TRUE_COUNTS` bucket saw. */
@@ -346,7 +384,7 @@ export function runChunk(run: SimRun, rounds: number): void {
 }
 
 function playRound(run: SimRun, bucket: SimBucket, bet: number, hiLo: number): void {
-	const { sim } = run.inputs;
+	const { sim, observe } = run.inputs;
 	const shoe = run.game.shoe;
 	// Read once, before the round's own cards move it: the grids a hand is played
 	// off are the shoe's as it stood when the bet went out, which is the same
@@ -361,6 +399,9 @@ function playRound(run: SimRun, bucket: SimBucket, bet: number, hiLo: number): v
 	let roundEv = 0;
 	let roundVariance = 0;
 	let opened = false;
+	// Only ever read by the observer below, and only filled where one is set.
+	let openingCell = 'natural';
+	let openingAction: PlayerAction | undefined;
 
 	if (state.phase === 'insurance') {
 		const comp = run.strategy.compFor(trueCount);
@@ -390,6 +431,11 @@ function playRound(run: SimRun, bucket: SimBucket, bet: number, hiLo: number): v
 				roundEv += wager * evFraction;
 				roundVariance +=
 					wager * wager * (graded.chosenSecondMoment - evFraction * evFraction);
+				if (observe) {
+					const address = cellAddressFor(state, legal);
+					openingCell = `${address.grid}:${address.key}`;
+					openingAction = action;
+				}
 			}
 		}
 		state = applyAction(state, action);
@@ -404,6 +450,17 @@ function playRound(run: SimRun, bucket: SimBucket, bet: number, hiLo: number): v
 		const natural = naturalEv(settled, run.strategy.compFor(trueCount), bet);
 		roundEv += natural.ev;
 		roundVariance += natural.variance;
+	}
+
+	if (observe) {
+		observe({
+			cell: openingCell,
+			openingAction,
+			evPercent: (roundEv / bet) * 100,
+			bet,
+			net: settled.net,
+			hiLo,
+		});
 	}
 
 	run.ev += roundEv;

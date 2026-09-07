@@ -54,11 +54,39 @@ function legalOnly(
 	return actions.filter((action) => legal.includes(action.action));
 }
 
+/** Which of the three grids a live hand belongs to, and its key within it. */
+export interface CellAddress {
+	grid: 'hard' | 'soft' | 'split';
+	key: string;
+}
+
 /**
- * The cell a live hand is looked up in. A multi-card hand is priced by its
- * *total*, as the grids are indexed -- so 5,4,3 is graded as the hard 12 it is.
- * A pair the player may still split is looked up in the splits grid instead,
- * since that is the only grid whose cell carries a price for splitting it.
+ * Where a live hand is looked up. A multi-card hand is priced by its *total*, as
+ * the grids are indexed -- so 5,4,3 is graded as the hard 12 it is. A pair the
+ * player may still split is looked up in the splits grid instead, since that is
+ * the only grid whose cell carries a price for splitting it.
+ *
+ * Split out from `cellFor` so that naming a cell and fetching one are the same
+ * decision: the sim's diagnostic seam files a round under the address the coach
+ * graded it at, rather than working out for itself which grid it must have been.
+ */
+export function cellAddressFor(
+	state: GameState,
+	legal: readonly PlayerAction[]
+): CellAddress {
+	const hand = state.hands[state.activeHandIndex];
+	const upcard = state.dealer.cards[0];
+	if (legal.includes('P')) {
+		return { grid: 'split', key: splitGridKey(hand.cards[0], upcard) };
+	}
+	return {
+		grid: hand.soft ? 'soft' : 'hard',
+		key: gridKey(hand.total, upcard),
+	};
+}
+
+/**
+ * The cell a live hand is looked up in, at the address above.
  *
  * Exported because the sim's policy plays off exactly the cell the coach would
  * grade against: one definition of which grid a live hand belongs to, so a hand
@@ -69,13 +97,8 @@ export function cellFor(
 	legal: readonly PlayerAction[],
 	grids: PlayGrids
 ): PlayCell | undefined {
-	const hand = state.hands[state.activeHandIndex];
-	const upcard = state.dealer.cards[0];
-	if (legal.includes('P')) {
-		return grids.split.get(splitGridKey(hand.cards[0], upcard));
-	}
-	const grid = hand.soft ? grids.soft : grids.hard;
-	return grid.get(gridKey(hand.total, upcard));
+	const { grid, key } = cellAddressFor(state, legal);
+	return grids[grid].get(key);
 }
 
 /**
