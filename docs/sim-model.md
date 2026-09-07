@@ -264,15 +264,35 @@ expectation, which is the whole reason the trajectory chart draws σ bands rathe
 single number.
 
 **And where the deviation figure is not purely luck.** `evDeviationSigmas` reads how far
-the money ran from the hands as priced, and the pricing is the engine's, at fast
-precision. Two of the engine's own approximations show up here as a systematic offset
-rather than as noise: fast precision's draw cap under-prices hitting (ev-model.md
-§Precision modes, worth about 0.06–0.08 points), and the split model under-prices splitting
-by rather more. Measured over the default six-deck game, AV runs about **0.3 points of edge
-above EV** for reasons that have nothing to do with luck — roughly **+1σ per hundred
-thousand hands**. A reading of +1σ is therefore unremarkable; it is the departures from
-that, and the sign and size of a run at ±3σ, that carry information. This is the sim
-telling the truth about the engine, and it is recorded here rather than corrected away.
+the money ran from the hands as priced, so anything the game pays that the grids do not
+price shows up in it as a systematic offset rather than as noise. That makes it a test of
+the two implementations against each other, and it has already caught one bug: `game.ts`
+paid a 21 dealt to a split hand as a natural, at 3:2, which the grids correctly price as
+an ordinary 21. It was worth **+0.23 points of edge** on the default game, nearly all of it
+on split aces, where it moved a round's average result by a third of a unit.
+
+What is left is small and no longer dominated by any one term. Measured over 4M rounds of
+the default six-deck game, flat-bet and playing the engine's own index at every cell, AV
+runs about **0.15–0.25 points of edge above EV** — roughly **+0.6σ to +1σ per hundred
+thousand rounds**. Splits account for about 0.04 points of that. Fast precision accounts for
+**about 0.004 points**: repricing an identical run at full precision moves the gap by less
+than a hundredth of a point, and does not change a single action. The rest is not attributed
+to a particular approximation, and guessing at one is how the wrong account above got
+written in the first place.
+
+Note what _cannot_ be in this figure: anything the grids and `game.ts` agree on. The
+no-hole-card "all bets lost" convention (ev-model.md §Simplifications (5)) is the clearest
+case — `standTable` charges a dealer natural as a full loss and `doubleEv` scales it with
+the stake, `settleHand` takes the same money, so it cancels here exactly. It is a rule
+choice that moves the edge itself rather than the agreement about it, and a small one: the
+extra stake it takes beyond the opening wager comes up in about 0.034% of rounds and is
+worth **0.034 points of edge** against an original-bets-only table.
+
+The offset is an edge, so its σ reading grows as the square root of the rounds dealt: about
++1σ at a hundred thousand rounds is roughly +3σ at a million and +7σ at five million. A
+large sigma figure on a long run is therefore expected rather than surprising, and the
+figure worth reading against this section is `edgePercent − evEdgePercent` in points, which
+does not grow with the run.
 
 ## The worker
 

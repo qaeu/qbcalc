@@ -78,7 +78,12 @@ worth recording:
    natural still pushes against it, and a wager already surrendered is off the table.
 3. **A split deals to both halves at once.** A table deals them one at a time; nothing here
    depends on the order, and a resplit works either way. Split aces take one card and freeze
-   unless `hitSplitAces`, in which case they play on normally.
+   unless `hitSplitAces`, in which case they play on normally. **A 21 dealt to a split hand
+   is never a natural**: a split ace pulling a ten is paid even money and loses to a dealer's
+   blackjack rather than pushing with it, which is the rule the grids price
+   (ev-model.md §The dealer's natural). `newHand` derives `blackjack` from two cards
+   totalling 21, so the split branch has to say otherwise — it paid 3:2 there until it did,
+   worth 0.23 points of edge in the sim (sim-model.md §Against the bankroll model).
 
 `PlayHand.net` and `GameState.net` are _net_ money — `+bet` for a win, `−bet` for a loss, `0`
 for a push, `−bet / 2` for a surrender, `bet × payout` for a natural — never the stake coming

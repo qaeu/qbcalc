@@ -238,6 +238,27 @@ describe('splitting', () => {
 		expect(legalActions(state)).toContain('H');
 	});
 
+	it('pays a ten on a split ace as an ordinary 21, not as a natural', () => {
+		// A,A against a dealer ten holding an eight; each half draws a ten.
+		const state = settleRound(
+			applyAction(deal(rules({ dealerPeek: true }), ['A', 'T', 'A', '8', 'T', 'T']), 'P')
+		);
+		expect(state.hands.map((hand) => hand.total)).toEqual([21, 21]);
+		expect(state.hands.every((hand) => hand.blackjack)).toBe(false);
+		expect(state.hands.map((hand) => hand.result)).toEqual(['win', 'win']);
+		// Even money on both halves, not the 3:2 a natural would have paid.
+		expect(state.net).toBe(20);
+	});
+
+	it('loses that 21 to a dealer natural rather than pushing with it', () => {
+		const state = settleRound(
+			applyAction(deal(rules({ dealerPeek: false }), ['A', 'A', 'A', 'T', 'T', 'T']), 'P')
+		);
+		expect(state.dealer.blackjack).toBe(true);
+		expect(state.hands.map((hand) => hand.result)).toEqual(['lose', 'lose']);
+		expect(state.net).toBe(-20);
+	});
+
 	it('resplits aces only where the rule allows it', () => {
 		const script: Rank[] = ['A', '9', 'A', '5', 'A', 'A', '4', '3', '8'];
 		const allowed = applyAction(

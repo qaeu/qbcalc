@@ -418,7 +418,11 @@ export function applyAction(state: GameState, action: PlayerAction): GameState {
 			// Both halves are dealt to at once. A table deals them one at a time,
 			// but nothing here depends on the order and a resplit works either way.
 			const [left, right] = hand.cards;
-			const shared = { fromSplit: true, fromSplitAces };
+			// A 21 dealt to a split hand is an ordinary 21, never a natural: it is
+			// paid even money and it loses to a dealer's blackjack. Without this the
+			// `blackjack` `newHand` derives from two cards totalling 21 would pay a
+			// split ace's ten at 3:2 -- see docs/ev-model.md §The dealer's natural.
+			const shared = { fromSplit: true, fromSplitAces, blackjack: false };
 			// Each of the two carries the same money the one hand did.
 			const firstHand = newHand([left, next.shoe.draw()], hand.bet, shared);
 			const secondHand = newHand([right, next.shoe.draw()], hand.bet, shared);
