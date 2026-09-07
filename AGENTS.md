@@ -195,3 +195,8 @@ See [TESTING.md](./TESTING.md) for setup details.
 - Document complex logic with comments.
 - Write tests for edge cases.
 - Avoid side effects in render functions; use `createEffect` instead.
+
+### Commit Messages
+
+- **First line is a single concise sentence** stating the action taken, starting with a verb (e.g. "Add a bet spread card to the bankroll view").
+- **Any further detail goes in bullets** below that line, each one concise.
