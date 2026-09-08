@@ -34,16 +34,27 @@
 				box-shadow $dur-fast $ease,
 				transform $dur-fast $ease;
 
-			&[data-hover] {
-				border-color: get($neutrals, 'sep');
-			}
-
 			// Switched on is the cut card's gold, as everywhere else in the app
-			// that something is the one in play.
+			// that something is the one in play. The rim is a step *down* the
+			// scale from the fill -- the box stays a thing cut into the felt
+			// rather than a chip laid on it, and it leaves the hover edge below
+			// somewhere to go.
 			&[data-state='checked'] {
 				background-color: get($primaries, 'base');
-				border-color: get($primaries, 'base-dark');
-				box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3);
+				border-color: get($primaries, 'sep-dark');
+				box-shadow: none;
+			}
+
+			// After the checked fill, so the box takes the same green border
+			// lift every other field in the drawer does whichever way it is
+			// switched. On gold that edge alone is a quiet change, so the fill
+			// comes up the scale with it.
+			&[data-hover] {
+				border-color: get($neutrals, 'sep');
+
+				&[data-state='checked'] {
+					background-color: get($primaries, 'fg-light');
+				}
 			}
 
 			// Focus lands on the hidden input Ark keeps for the keyboard, so the
