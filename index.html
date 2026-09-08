@@ -15,6 +15,33 @@
 			rel="stylesheet"
 		/>
 		<title>qbcalc</title>
+		<meta
+			name="description"
+			content="A client-side blackjack calculator: count-aware expected value, dealt practice hands, and session simulations."
+		/>
+
+		<!-- Open Graph. Absolute URLs throughout: a scraper has no page base to
+		     resolve a relative one against, and a `<meta>`'s `content` is not
+		     something Vite's `base` rewrite touches. `%SITE_URL%` is filled in
+		     by the `qbcalc:site-url` plugin, from the same constants `base`
+		     itself is built out of. -->
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="qbcalc" />
+		<meta property="og:title" content="qbcalc — Blackjack EV Calculator" />
+		<meta
+			property="og:description"
+			content="A client-side blackjack calculator: count-aware expected value, dealt practice hands, and session simulations."
+		/>
+		<meta property="og:url" content="%SITE_URL%" />
+		<meta property="og:image" content="%SITE_URL%og-image.png" />
+		<meta property="og:image:type" content="image/png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta
+			property="og:image:alt"
+			content="The qbcalc header over green baize, beside a slice of its hit/stand/double strategy grid."
+		/>
+		<meta name="twitter:card" content="summary_large_image" />
 	</head>
 	<body>
 		<noscript>You need to enable JavaScript to run this app.</noscript>
