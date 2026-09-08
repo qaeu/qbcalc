@@ -14,6 +14,7 @@
 		"test:ui": "vitest --ui",
 		"test:coverage": "vitest --coverage",
 		"og:image": "tsx tools/render-og-image.ts",
+		"typecheck": "tsc --noEmit",
 		"lint": "eslint .",
 		"format": "prettier --write ."
 	},

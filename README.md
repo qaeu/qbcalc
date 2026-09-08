@@ -28,6 +28,11 @@ It correctly bundles Solid in production mode and optimizes the build for the be
 
 Runs unit tests with Vitest. See [TESTING.md](./TESTING.md) for more details.
 
+### `npm run typecheck`
+
+Type-checks the project with `tsc --noEmit`. Vite does not type-check during a build,
+so this is the only thing that catches a type error.
+
 ### `npm run lint` / `npm run format`
 
 Runs ESLint and Prettier respectively.

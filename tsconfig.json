@@ -19,6 +19,9 @@
 		},
 
 		// Type Checking & Safety
+		// Node's globals aren't installed (nothing here is typed against them),
+		// so vitest's own declarations don't resolve. Their errors are noise.
+		"skipLibCheck": true,
 		"strict": true,
 		"types": ["vite/client", "vitest/globals"]
 	}
