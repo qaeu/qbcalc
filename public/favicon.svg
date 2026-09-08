@@ -1,1 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2a7e3b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
+<!-- The card index the app is named for: a lowercase `q` in cream, with the
+     gold cut card down the right edge, on baize.
+
+     Colours are the literal `_palette.scss` steps, since a favicon is loaded
+     outside the app and cannot read a custom property: baize-1 `#0f3d2d` (which
+     is also the `theme-color` in `index.html`, so tab and icon are one object),
+     gold-9 `#d9a441`, sand-12 `#f4ebcd`.
+
+     The `q` is an outlined Archivo Narrow 700 glyph rather than a `<text>` run:
+     a favicon has no webfont, so live text would render in whatever sans the
+     browser happened to have. It is set at 46px on a baseline of 41, which is
+     four units above the text baseline that would centre the cap: the descender
+     is what has to be balanced here, not the bowl. Regenerating it means
+     re-outlining from the font, not editing the path by hand. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+	<clipPath id="tile">
+		<rect width="64" height="64" rx="12"/>
+	</clipPath>
+	<rect width="64" height="64" rx="12" fill="#0f3d2d"/>
+	<path d="M50 0h8v64h-8z" fill="#d9a441" clip-path="url(#tile)"/>
+	<path fill="#f4ebcd" d="M28.47 48.96V38.52H28.24Q27.6 39.94 26.15 40.75Q24.7 41.55 22.86 41.55Q20.75 41.55 19.04 40.24Q17.34 38.93 16.35 36.12Q15.36 33.32 15.36 28.95Q15.36 22.37 17.46 19.31Q19.55 16.25 23.14 16.25Q24.88 16.25 26.31 17.15Q27.74 18.05 28.61 19.79H28.84L29.39 16.8H33.99V48.96ZM24.79 36.54Q26.82 36.54 27.64 34.74Q28.47 32.95 28.47 29.68V28.03Q28.47 24.76 27.64 23.01Q26.82 21.27 24.79 21.27Q22.81 21.27 21.96 23.01Q21.11 24.76 21.11 28.03V29.78Q21.11 33.04 21.96 34.79Q22.81 36.54 24.79 36.54Z"/>
+</svg>
