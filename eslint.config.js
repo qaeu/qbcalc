@@ -15,5 +15,13 @@ export default defineConfig([
 			globals: globals.browser,
 			parserOptions: { project: 'tsconfig.json' },
 		},
+		rules: {
+			// Solid's own rules, which spreading `solid` above would otherwise
+			// carry and this key would then replace.
+			...solid.rules,
+			// A `let` bound by `ref={...}` is assigned by the JSX compiler, not in
+			// the source, so this rule reads every Solid ref as never assigned.
+			'no-unassigned-vars': 'off',
+		},
 	},
 ]);
