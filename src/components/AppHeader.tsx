@@ -26,7 +26,9 @@ const AppHeader: Component<AppHeaderProps> = (props) => (
 			class="app-header__inner"
 		>
 			<div class="app-header__title-row">
-				<h1 class="app-header__title">Blackjack EV Calculator</h1>
+				<h1 class="app-header__title">
+					qbcalc <span class="app-header__title-sub">· blackjack ev</span>
+				</h1>
 				<Show when={props.onOpenSettings}>
 					{(open) => (
 						<button

@@ -19,7 +19,7 @@ describe('App', () => {
 		() => {
 			render(() => <App />);
 			expect(
-				screen.getByRole('heading', { name: 'Blackjack EV Calculator' })
+				screen.getByRole('heading', { name: 'qbcalc · blackjack ev' })
 			).toBeDefined();
 		},
 		MOUNT_TIMEOUT_MS

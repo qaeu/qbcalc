@@ -48,6 +48,9 @@
 		&__title {
 			display: flex;
 			align-items: center;
+			// The name and its qualifier are separate flex items, so the space
+			// between them in the markup collapses -- the gap puts it back.
+			gap: 0.3em;
 			min-width: 0;
 			padding: 15px 0 14px;
 			text-shadow: 0 1px 0 rgb(0 0 0 / 0.6);
@@ -55,6 +58,13 @@
 			@include compact {
 				padding: 14px 0;
 			}
+		}
+
+		// What the name is, set behind the name itself: the book weight and the
+		// dimmer print, so the wordmark reads as one line with one emphasis.
+		&__title-sub {
+			font-weight: 400;
+			color: get($neutrals, 'fg-light');
 		}
 
 		// Deliberately not gated on the `compact` mixin as well. Whether the
@@ -101,6 +111,10 @@
 			// labels are the app's own navigation rather than lettering on the
 			// table, and the bar has the room to set them at full width.
 			font-family: 'Archivo', system-ui, sans-serif;
+			// Lighter than the shared tab's 600: at full width the labels do not
+			// need the extra weight, and the medium keeps them under the wordmark
+			// rather than level with it.
+			font-weight: 500;
 			padding: 0 18px;
 
 			// Even tap targets across the bar, rather than the labels bunched at
@@ -120,7 +134,6 @@
 				font-size: 12px;
 				letter-spacing: 0.1em;
 				padding: 12px 4px;
-				font-weight: 600;
 				white-space: nowrap;
 			}
 		}
