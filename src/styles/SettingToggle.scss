@@ -1,0 +1,87 @@
+@use 'base' as *;
+
+@layer screen {
+	// The whole row is the target: a rule is switched by hitting its name, not
+	// by hitting the 19px box beside it.
+	.setting-toggle {
+		display: flex;
+		align-items: center;
+		gap: 9px;
+		min-height: $control-height;
+		font-size: 13px;
+		color: get($neutrals, 'fg-light');
+		cursor: pointer;
+
+		@include touch {
+			min-height: $control-height-touch;
+		}
+
+		// Cut into the felt like a field, since that is what it is: a small one
+		// with a mark in it rather than a number.
+		&__box {
+			display: grid;
+			place-items: center;
+			flex: none;
+			width: 19px;
+			height: 19px;
+			border: 1px solid $rule-strong;
+			border-radius: 3px;
+			background-color: rgb(0 0 0 / 0.3);
+			box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.3);
+			transition:
+				background-color $dur-base $ease,
+				border-color $dur-base $ease,
+				box-shadow $dur-fast $ease,
+				transform $dur-fast $ease;
+
+			&[data-hover] {
+				border-color: get($neutrals, 'sep');
+			}
+
+			// Switched on is the cut card's gold, as everywhere else in the app
+			// that something is the one in play.
+			&[data-state='checked'] {
+				background-color: get($primaries, 'base');
+				border-color: get($primaries, 'base-dark');
+				box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3);
+			}
+
+			// Focus lands on the hidden input Ark keeps for the keyboard, so the
+			// ring is drawn from the state it hands the box instead.
+			&[data-focus-visible] {
+				outline: 2px solid get($primaries, 'base');
+				outline-offset: 2px;
+			}
+
+			&[data-active] {
+				transform: translateY(1px);
+			}
+
+			&[data-disabled] {
+				@include disabled-control;
+			}
+		}
+
+		// The mark itself, in the rail's own brown: on gold, ink rather than
+		// more light. Ark hides it while the box is unchecked with the `hidden`
+		// attribute alone, so the `display` below has to leave that alone.
+		&__mark:not([hidden]) {
+			display: grid;
+			place-items: center;
+			color: var(--rail-1);
+
+			svg {
+				width: 13px;
+				height: 13px;
+				stroke-width: 3.4;
+			}
+		}
+
+		// Carries the label text and, where there is one, its hint icon -- the
+		// same row `SettingsItem` sets a stacked setting's label in.
+		&__label {
+			@include label-row;
+			user-select: none;
+		}
+	}
+}

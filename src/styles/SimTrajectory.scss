@@ -130,13 +130,9 @@
 			// plot doesn't make the figures jump.
 			transform: translate(var(--sim-trajectory-x, 0), var(--sim-trajectory-y, 0));
 			transition:
-				top 180ms ease,
-				left 180ms ease,
-				transform 180ms ease;
-
-			@media (prefers-reduced-motion: reduce) {
-				transition: none;
-			}
+				top $dur-base $ease,
+				left $dur-base $ease,
+				transform $dur-base $ease;
 
 			// PAD_LEFT and PAD_RIGHT as fractions of VIEW_WIDTH -- inside the money
 			// axis on the left, and on the plot's right edge.

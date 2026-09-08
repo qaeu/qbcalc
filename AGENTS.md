@@ -145,8 +145,17 @@ Formatting is enforced by Prettier (`.prettierrc`): tabs, single quotes, 90 colu
     `$successes`, `$warnings`, `$errors`, `$infos`.
   - **Material mixins**: `baize`, `rail`, `print`, `card-stock` — the physical surfaces the
     design is built from. Reach for these before inventing a background.
-  - **Reusable mixins**: `container`, `card`, `info-box`, `button`, `form-control`,
-    `code-block`, `shadow`/`shadow-short`/`shadow-inset`.
+  - **Motion tokens**: `$dur-fast` (120ms, press and hover-in), `$dur-base` (180ms,
+    hover-out and colour), `$dur-slow` (300ms, a recalculated figure), and `$ease` for all
+    of them. `$control-height` / `$control-height-touch` are the heights every control
+    lands on. Use the tokens rather than a duration of your own. The app carries no
+    `prefers-reduced-motion` guard: the Play view's own animation-speed setting is where
+    motion is turned down, so don't add one back per component.
+  - **Reusable mixins**: `container`, `card`, `info-box`, `button`, `form-control`, `tab`,
+    `icon-button`, `disabled-control`, `code-block`,
+    `shadow`/`shadow-short`/`shadow-inset`. The control mixins carry every state — hover,
+    press, focus, disabled — and the touch floor, so a new control should take one rather
+    than paint its own resting look.
 - **Casing**: `print()` sets the table-layout voice and defaults to uppercase. Pass
   `$caps: false` for anything that is a sentence rather than a label — capitals are how a
   felt is lettered, not how prose is read.

@@ -55,6 +55,12 @@ const PlayStats: Component<PlayStatsProps> = (props) => {
 	return (
 		<div class="play-stats">
 			<StatBand figures={figures()} />
+			{/*
+			 * Both slots are always in the row, the cancel merely hidden while
+			 * there is nothing to cancel: swapping one button for two would move
+			 * everything beside it at the exact moment the pointer is over the
+			 * one button in the app that cannot be undone.
+			 */}
 			<div class="play-stats__reset">
 				<Show
 					when={confirming()}
@@ -71,6 +77,12 @@ const PlayStats: Component<PlayStatsProps> = (props) => {
 					<button
 						type="button"
 						class="play-stats__reset-button is-confirming"
+						// Focused as it appears, so Enter finishes what the first
+						// click started and Escape backs out of it.
+						ref={(element) => queueMicrotask(() => element.focus())}
+						onKeyDown={(event) => {
+							if (event.key === 'Escape') setConfirming(false);
+						}}
 						onClick={() => {
 							props.onReset();
 							setConfirming(false);
@@ -78,14 +90,19 @@ const PlayStats: Component<PlayStatsProps> = (props) => {
 					>
 						Confirm reset?
 					</button>
-					<button
-						type="button"
-						class="play-stats__reset-button"
-						onClick={() => setConfirming(false)}
-					>
-						Cancel
-					</button>
 				</Show>
+				<button
+					type="button"
+					class={`play-stats__reset-button ${confirming() ? '' : 'is-reserved'}`}
+					// Present either way so the row keeps its confirmed width. Held
+					// by `visibility` rather than by `display`, which is what
+					// reserves the space -- and which also takes the button out of
+					// the tab order and away from a screen reader while it is not
+					// offering anything.
+					onClick={() => setConfirming(false)}
+				>
+					Cancel
+				</button>
 			</div>
 		</div>
 	);

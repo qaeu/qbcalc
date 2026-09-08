@@ -82,7 +82,7 @@ $chip-colours: (
 				oklch(from get($neutrals, 'fg-light') l c h / 0.55),
 				oklch(from get($neutrals, 'fg') l c h / 0.8)
 			);
-			transition: width 200ms ease;
+			transition: width $dur-base $ease;
 		}
 
 		&__count {
@@ -216,12 +216,9 @@ $chip-colours: (
 			// Each card is inserted as the reveal queue reaches it, so the deal
 			// gesture comes for free: the animation runs on mount and never again.
 			//
-			// Deliberately not behind `prefers-reduced-motion`, unlike the chip
-			// hover below: the deal is the felt's own control, not the browser's.
-			// Play has an animation speed in the sidebar, whose `instant` setting
-			// skips the reveal queue outright -- that is where a player turns the
-			// dealing off, and an OS-wide preference must not overrule the choice
-			// they made in the app itself.
+			// The deal is the felt's own animation: Play has an animation speed in
+			// the sidebar, whose `instant` setting skips the reveal queue outright,
+			// and that is where a player turns the dealing off.
 			animation: play-table-deal 380ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
 
 			&.is-red {
@@ -410,8 +407,8 @@ $chip-colours: (
 				0 4px 9px rgb(0 0 0 / 0.45),
 				inset 0 1px 0 rgb(255 255 255 / 0.25);
 			transition:
-				transform 140ms ease,
-				box-shadow 140ms ease;
+				transform $dur-fast $ease,
+				box-shadow $dur-fast $ease;
 
 			// The inlay: the flat centre the denomination is printed on, ringed
 			// against the spotted edge.
@@ -456,17 +453,18 @@ $chip-colours: (
 					inset 0 1px 0 rgb(255 255 255 / 0.25);
 			}
 
-			&:disabled {
-				opacity: 0.3;
-				cursor: default;
+			// Pressing a lifted chip puts it back down on the felt rather than
+			// moving it further: it is the one control that already travels on
+			// hover, so the press undoes that instead of adding to it.
+			&:active:not(:disabled) {
+				transform: translateY(0);
+				box-shadow:
+					0 2px 5px rgb(0 0 0 / 0.5),
+					inset 0 2px 4px rgb(0 0 0 / 0.3);
 			}
 
-			@media (prefers-reduced-motion: reduce) {
-				transition: none;
-
-				&:hover:not(:disabled) {
-					transform: none;
-				}
+			&:disabled {
+				@include disabled-control;
 			}
 		}
 
@@ -547,16 +545,9 @@ $chip-colours: (
 			}
 		}
 
-		// A 44px tap target is the floor on touch, which the shared button
-		// chrome's padding does not reach. Applied to the felt's own controls
-		// rather than to `button` at large, so nothing else in the app changes
-		// size.
-		&__action,
-		&__control {
-			@include touch {
-				padding: 13px;
-			}
-		}
+		// The 44px tap target the felt used to reach with padding of its own is
+		// the shared `button` mixin's floor now, so every control in the app
+		// gets it rather than only these two.
 
 		// The digit that fires the button beside it. Hidden where there are no
 		// keys to press -- the handlers stay wired, so a phone with a keyboard

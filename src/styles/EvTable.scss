@@ -126,6 +126,7 @@ $action-cell-opacity: 1.5;
 			transition:
 				background-color $cell-fade-duration ease,
 				border-color $cell-fade-duration ease,
+				box-shadow $cell-fade-duration ease,
 				color $cell-fade-duration ease;
 		}
 
@@ -133,8 +134,22 @@ $action-cell-opacity: 1.5;
 		// pointing at a cell picks the snappier one here while a recalculated cell
 		// still eases at $cell-fade-duration. Moving the pointer away reads from
 		// the rule above instead, so the highlight releases at the slower rate.
+		//
+		// The gold hairline is what says the cell opens something: brightening
+		// the fill is also what the count moving does, so on its own it reads as
+		// a recalculation rather than as an invitation. Drawn inside the cell so
+		// it never overlaps the neighbour a pixel away.
 		td:hover {
+			box-shadow:
+				inset -1px 0 0 $rule,
+				inset 0 0 0 1px oklch(from get($primaries, 'base') l c h / 0.45);
 			transition-duration: $cell-hover-duration;
+		}
+
+		// Inside the cell for the same reason -- the plot on the Sim view chose
+		// the same offset over the global ring for the same reason.
+		td:focus-visible {
+			outline-offset: -2px;
 		}
 
 		@mixin action-colour($colourset, $opacity: 1) {
@@ -316,6 +331,9 @@ $action-cell-opacity: 1.5;
 			padding: 3px 8px;
 			border-color: transparent;
 			background-color: transparent;
+			// Nothing to catch the light on a control with no box of its own;
+			// the press the shared button gained still reads, since it moves.
+			box-shadow: none;
 		}
 
 		&__mode-button {

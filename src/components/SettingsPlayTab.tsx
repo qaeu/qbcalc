@@ -10,6 +10,7 @@ import {
 
 import SettingSelect, { type SettingOption } from '#c/SettingSelect';
 import SettingsItem from '#c/SettingsItem';
+import SettingToggle from '#c/SettingToggle';
 
 import '#styles/SettingsPlayTab';
 
@@ -43,17 +44,12 @@ const SettingsPlayTab: Component<SettingsPlayTabProps> = (props) => (
 				onChange={(coaching) => props.onChange('coaching', coaching)}
 			/>
 		</SettingsItem>
-		<SettingsItem
+		<SettingToggle
 			label="Show count"
 			helptext="Reveals the running and true counts on the felt. Off by default -- keeping the count is the thing being practised"
-			layout="row"
-		>
-			<input
-				type="checkbox"
-				checked={props.config.showCount}
-				onChange={(event) => props.onChange('showCount', event.currentTarget.checked)}
-			/>
-		</SettingsItem>
+			checked={props.config.showCount}
+			onChange={(checked) => props.onChange('showCount', checked)}
+		/>
 		<SettingsItem
 			label="Animation speed"
 			helptext="How fast cards land on the felt. Instant skips the deal entirely"

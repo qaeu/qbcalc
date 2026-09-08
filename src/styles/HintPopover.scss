@@ -3,15 +3,12 @@
 @layer screen {
 	.hint-popover {
 		&__trigger {
+			// The shared icon button at label size, `cursor: help` and all --
+			// see `hint-icon`. The box it used to draw by hand is that mixin's
+			// now, so the icon beside a label and the one on the rail behave the
+			// same way.
 			@include hint-icon;
-			// The base layer dresses every bare <button> as a button; this one
-			// is an icon printed beside a label, so it is undressed again.
-			padding: 0;
-			border: 0;
-			border-radius: 2px;
-			background: none;
 			line-height: 0;
-			transition: color 0.2s ease;
 
 			&:hover,
 			&[data-state='open'] {

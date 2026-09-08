@@ -64,17 +64,17 @@
 		// disagree with the first, and the way it fails is the bad one: the
 		// sidebar out of the layout and no button to open it with.
 		&__settings {
-			display: inline-flex;
-			flex: none;
-			align-items: center;
-			justify-content: center;
-			padding: 9px;
-			border-color: rgb(236 223 180 / 0.22);
+			@include icon-button;
+			// Sat on the rail rather than on the felt, so unlike the drawer's own
+			// close it keeps a hairline and a recess at rest -- the rail has no
+			// other object on it to read the button against.
+			border-color: $rule-strong;
 			background-color: rgb(0 0 0 / 0.2);
-			color: get($neutrals, 'fg-light');
 
+			// The shared hover draws its hairline onto a chromeless box; this one
+			// already has a stronger hairline than that, so it keeps it.
 			&:hover:not(:disabled) {
-				color: get($neutrals, 'fg');
+				border-color: $rule-strong;
 			}
 
 			svg {
@@ -96,29 +96,8 @@
 		}
 
 		&__tab {
-			@include print(13px, 0.16em);
-			display: flex;
-			align-items: center;
+			@include tab(13px, 0.16em);
 			padding: 0 18px;
-			border: none;
-			border-bottom: 2px solid transparent;
-			border-radius: 0;
-			background-color: transparent;
-			font-weight: 600;
-			cursor: pointer;
-			transition:
-				color 0.2s ease,
-				border-color 0.2s ease;
-
-			&:hover:not(:disabled) {
-				background-color: transparent;
-				color: get($neutrals, 'fg');
-			}
-
-			&[data-selected] {
-				color: get($neutrals, 'fg');
-				border-bottom-color: get($primaries, 'base');
-			}
 
 			// Even tap targets across the bar, rather than the labels bunched at
 			// one end of it.

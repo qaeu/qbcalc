@@ -88,20 +88,7 @@ $drawer-z-index: 40;
 
 		// Icon only, so the shared button chrome would read as a stray box.
 		&__close {
-			display: inline-flex;
-			padding: 8px;
-			border: 0;
-			box-shadow: none;
-			color: get($neutrals, 'fg-light');
-
-			&:hover {
-				color: $foreground;
-			}
-
-			svg {
-				width: 18px;
-				height: 18px;
-			}
+			@include icon-button;
 		}
 
 		// The sidebar inside the drawer is already as wide as the panel allows,

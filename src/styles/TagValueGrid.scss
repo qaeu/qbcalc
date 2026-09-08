@@ -19,14 +19,6 @@
 				min-width: 0;
 				padding: 6px 4px;
 				text-align: center;
-				// Five fields to a row leaves no space for spinners.
-				appearance: textfield;
-
-				&::-webkit-outer-spin-button,
-				&::-webkit-inner-spin-button {
-					appearance: none;
-					margin: 0;
-				}
 			}
 		}
 	}

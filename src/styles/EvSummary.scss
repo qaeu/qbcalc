@@ -60,7 +60,7 @@ $skeleton-pulse-duration: 1.4s;
 			letter-spacing: -0.01em;
 			line-height: 1.05;
 			color: get($neutrals, 'fg');
-			transition: color 300ms ease;
+			transition: color $dur-slow $ease;
 
 			@include phone {
 				font-size: 23px;
@@ -126,12 +126,6 @@ $skeleton-pulse-duration: 1.4s;
 			}
 			50% {
 				opacity: 0.8;
-			}
-		}
-
-		@media (prefers-reduced-motion: reduce) {
-			&__skeleton::after {
-				animation: none;
 			}
 		}
 	}

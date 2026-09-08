@@ -20,6 +20,7 @@ import {
 
 import SettingSelect, { type SettingOption } from '#c/SettingSelect';
 import SettingsItem from '#c/SettingsItem';
+import SettingToggle from '#c/SettingToggle';
 
 import '#styles/SimConfigPanel';
 
@@ -143,26 +144,23 @@ const SimConfigPanel: Component<SimConfigPanelProps> = (props) => {
 						}}
 					/>
 				</SettingsItem>
-				<SettingsItem
+				<SettingToggle
 					label="New seed each run"
-					layout="row"
 					helptext="On, every run deals a fresh session and the seed box shows what it used. Off, runs repeat."
-				>
-					<input
-						type="checkbox"
-						checked={props.config.reseedEachRun}
-						onChange={(event) =>
-							props.onChange('reseedEachRun', event.currentTarget.checked)
-						}
-					/>
-				</SettingsItem>
+					checked={props.config.reseedEachRun}
+					onChange={(checked) => props.onChange('reseedEachRun', checked)}
+				/>
 			</div>
 
 			<div class="sim-config__actions">
 				<Show
 					when={props.running}
 					fallback={
-						<button type="button" class="sim-config__run" onClick={() => props.onRun()}>
+						<button
+							type="button"
+							class="sim-config__run highlight"
+							onClick={() => props.onRun()}
+						>
 							Run simulation
 						</button>
 					}

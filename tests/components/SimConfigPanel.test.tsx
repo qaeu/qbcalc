@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { fireEvent, render, screen } from '@solidjs/testing-library';
+import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 
 import { DEFAULT_SIM_CONFIG } from '#utils/sim/config';
 
@@ -94,12 +94,16 @@ describe('SimConfigPanel', () => {
 		expect(onChange).toHaveBeenCalledWith('seed', 4242);
 	});
 
-	it('toggles re-seeding', () => {
+	// Awaited rather than read straight back: the toggle is Ark's checkbox, and
+	// the state change it reports arrives after the click returns.
+	it('toggles re-seeding', async () => {
 		const { onChange } = renderPanel();
 		fireEvent.click(screen.getByLabelText('New seed each run'));
-		expect(onChange).toHaveBeenCalledWith(
-			'reseedEachRun',
-			!DEFAULT_SIM_CONFIG.reseedEachRun
+		await waitFor(() =>
+			expect(onChange).toHaveBeenCalledWith(
+				'reseedEachRun',
+				!DEFAULT_SIM_CONFIG.reseedEachRun
+			)
 		);
 	});
 });

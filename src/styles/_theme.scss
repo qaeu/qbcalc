@@ -147,6 +147,22 @@ $shadow-light: $black;
 		inset 0 4px 12px oklch(from $colour l c h / 0.25);
 }
 
+/* - MOTION - */
+
+// Three speeds, so a control's states are told apart by how fast they arrive
+// rather than by each component picking a number. Everything eases the same
+// way: fast out of rest, settling into the new state.
+$dur-fast: 120ms; // press, hover-in
+$dur-base: 180ms; // hover-out, colour changes
+$dur-slow: 300ms; // a recalculated figure settling
+$ease: cubic-bezier(0.2, 0, 0, 1);
+
+// The height every control lands on, so a field, a button and a tab in the
+// same row line up without any of them being measured by hand. The touch
+// floor is the 44px tap target, applied wherever the mixins are.
+$control-height: 34px;
+$control-height-touch: 44px;
+
 /* - BREAKPOINTS - */
 
 $breakpoint-tablet: 800px;
@@ -214,10 +230,21 @@ $breakpoint-short: 600px;
 	}
 }
 
+// One answer to "this is not available": flattened off the surface, dimmed,
+// and blocked at the cursor. Shared by fields, select triggers, menu options
+// and the chips, which each used to say it their own way -- a rule the table
+// forbids should look forbidden the same way wherever it is met.
+@mixin disabled-control {
+	opacity: 0.55;
+	box-shadow: none;
+	cursor: not-allowed;
+}
+
 // A control on the felt: recessed, printed, and marked in gold when it is the
 // one in play.
 @mixin button($colourset: $primaries) {
 	@include print(13px, 0.14em);
+	min-height: $control-height;
 	padding: 9px 14px;
 	border: 1px solid $rule-strong;
 	border-radius: 3px;
@@ -225,15 +252,38 @@ $breakpoint-short: 600px;
 	background-color: rgb(0 0 0 / 0.22);
 	cursor: pointer;
 	font-weight: 600;
+	// The lit top edge of a key cut into the felt; the press below sinks it.
+	box-shadow: inset 0 1px 0 rgb(236 223 180 / 0.05);
 	transition:
-		background-color 0.2s ease,
-		border-color 0.2s ease,
-		color 0.2s ease;
+		background-color $dur-base $ease,
+		border-color $dur-base $ease,
+		color $dur-base $ease,
+		box-shadow $dur-fast $ease,
+		transform $dur-fast $ease;
 
 	&:hover:not(:disabled, .active) {
 		border-color: get($colourset, 'sep-dark');
 		background-color: rgb(0 0 0 / 0.34);
 		color: get($colourset, 'fg');
+	}
+
+	// The one confirmation every control in the app was missing: the button
+	// moves under the finger, so the click is known to have landed rather than
+	// only being known once its result arrives.
+	&:active:not(:disabled) {
+		transform: translateY(1px);
+		background-color: rgb(0 0 0 / 0.46);
+		box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.45);
+		transition-duration: $dur-fast;
+	}
+
+	// The one to press. Was hover-only; now marked at rest by a gold hairline,
+	// gold ink and a lit top edge -- no fill, so `.active`'s gold keeps meaning
+	// "this is the selected one" and nothing else.
+	&.highlight {
+		border-color: get($colourset, 'base-dark');
+		color: get($colourset, 'fg');
+		box-shadow: inset 0 1px 0 oklch(from get($colourset, 'base') l c h / 0.18);
 	}
 
 	&.highlight:hover:not(:disabled, .active) {
@@ -250,20 +300,173 @@ $breakpoint-short: 600px;
 		background-color: rgb(0 0 0 / 0.1);
 		border-color: $rule;
 		color: get($neutrals, 'sep-dark');
-		cursor: default;
+		box-shadow: none;
+		cursor: not-allowed;
+	}
+
+	@include touch {
+		min-height: $control-height-touch;
 	}
 }
 
 // Shared look for text/number inputs and select triggers. Cut into the felt
-// rather than laid on it, so a field reads as somewhere to write.
+// rather than laid on it, so a field reads as somewhere to write -- and, since
+// it is written into rather than merely pointed at, it carries the same four
+// states the button beside it does.
 @mixin form-control {
 	box-sizing: border-box;
 	width: 100%;
+	min-height: $control-height;
 	padding: 7px 9px;
 	border: 1px solid $rule-strong;
 	border-radius: 2px;
 	background-color: rgb(0 0 0 / 0.3);
 	color: $foreground;
+	box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.25);
+	transition:
+		background-color $dur-base $ease,
+		border-color $dur-base $ease,
+		box-shadow $dur-base $ease;
+
+	&:hover:not(:disabled, [data-disabled]) {
+		border-color: get($neutrals, 'sep');
+	}
+
+	// The cut edge itself lights up, rather than the global ring floating 2px
+	// off a recessed field: the border is where the field ends, so that is
+	// where "this one has the keyboard" belongs.
+	&:focus-visible {
+		outline: none;
+		border-color: $primary;
+		background-color: rgb(0 0 0 / 0.4);
+		box-shadow:
+			inset 0 1px 2px rgb(0 0 0 / 0.25),
+			0 0 0 1px $primary;
+	}
+
+	&:disabled,
+	&[data-disabled] {
+		@include disabled-control;
+	}
+
+	&::placeholder {
+		color: oklch(from $foreground l c h / 0.3);
+	}
+
+	// Every field wearing this is typed into rather than nudged, and the two
+	// grids narrow enough to have no room for spinners were already stripping
+	// them by hand.
+	&[type='number'] {
+		appearance: textfield;
+	}
+
+	&::-webkit-outer-spin-button,
+	&::-webkit-inner-spin-button {
+		appearance: none;
+		margin: 0;
+	}
+
+	@include touch {
+		min-height: $control-height-touch;
+	}
+}
+
+// A label in a tab strip, marked underneath in gold while it is the live one.
+// The three strips in the app -- the header's, the Play view's and the
+// sidebar's -- each keep their own size, tracking and padding and pass them
+// in; only the states are shared, which is what they had drifted apart on.
+@mixin tab($size: 12px, $tracking: 0.16em) {
+	@include print($size, $tracking);
+	display: flex;
+	align-items: center;
+	min-height: $control-height;
+	border: none;
+	border-bottom: 2px solid transparent;
+	border-radius: 0;
+	background-color: transparent;
+	box-shadow: none;
+	font-weight: 600;
+	cursor: pointer;
+	transition:
+		color $dur-base $ease,
+		background-color $dur-base $ease,
+		border-color $dur-base $ease;
+
+	// The underline is previewed in the felt's own hairline rather than in
+	// gold, so the gold one keeps meaning "this is the view you are in".
+	&:hover:not(:disabled, [data-selected]) {
+		color: get($neutrals, 'fg');
+		background-color: get($neutrals, 'fade-light');
+		border-bottom-color: $rule-strong;
+	}
+
+	&:active:not(:disabled) {
+		background-color: rgb(0 0 0 / 0.2);
+		box-shadow: none;
+		transform: none;
+	}
+
+	&[data-selected] {
+		color: get($neutrals, 'fg');
+		border-bottom-color: get($primaries, 'base');
+	}
+
+	&:disabled {
+		color: get($neutrals, 'sep-dark');
+		cursor: not-allowed;
+	}
+
+	@include touch {
+		min-height: $control-height-touch;
+	}
+}
+
+// A button that is only its icon: square, chromeless where it sits, and
+// growing a hairline under the pointer so it still reads as pressable without
+// drawing a box on the rail.
+@mixin icon-button($size: $control-height) {
+	display: inline-grid;
+	place-items: center;
+	flex: none;
+	width: $size;
+	height: $size;
+	padding: 0;
+	border: 1px solid transparent;
+	border-radius: 3px;
+	background-color: transparent;
+	box-shadow: none;
+	color: get($neutrals, 'fg-light');
+	cursor: pointer;
+	transition:
+		color $dur-base $ease,
+		background-color $dur-base $ease,
+		border-color $dur-base $ease;
+
+	&:hover:not(:disabled) {
+		color: get($neutrals, 'fg');
+		background-color: get($neutrals, 'fade-light');
+		border-color: $rule;
+	}
+
+	&:active:not(:disabled) {
+		background-color: rgb(0 0 0 / 0.28);
+		box-shadow: none;
+		transform: none;
+	}
+
+	&:disabled {
+		@include disabled-control;
+	}
+
+	svg {
+		width: 18px;
+		height: 18px;
+	}
+
+	@include touch {
+		width: $control-height-touch;
+		height: $control-height-touch;
+	}
 }
 
 // Heading for a section within a settings panel or card
@@ -281,10 +484,11 @@ $breakpoint-short: 600px;
 }
 
 // The help icon itself, which opens its hint on hover, click or Enter --
-// see `#c/HintPopover`
+// see `#c/HintPopover`. The box is the shared icon button at label size; the
+// cursor stays `help`, since what it opens is an explanation rather than a
+// place to go.
 @mixin hint-icon {
-	display: inline-flex;
-	color: get($neutrals, 'fg-light');
+	@include icon-button(22px);
 	cursor: help;
 
 	svg {

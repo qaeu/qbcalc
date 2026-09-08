@@ -21,13 +21,6 @@
 				min-width: 0;
 				padding: 6px 2px;
 				text-align: center;
-				appearance: textfield;
-
-				&::-webkit-outer-spin-button,
-				&::-webkit-inner-spin-button {
-					appearance: none;
-					margin: 0;
-				}
 			}
 		}
 	}

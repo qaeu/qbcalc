@@ -17,6 +17,7 @@ import { ruleSetFromConfig, type CalculatorSettings } from '#utils/storage';
 
 import SettingSelect, { type SettingOption } from '#c/SettingSelect';
 import SettingsItem from '#c/SettingsItem';
+import SettingToggle from '#c/SettingToggle';
 
 import '#styles/SettingsRulesTab';
 
@@ -167,64 +168,42 @@ const SettingsRulesTab: Component<SettingsRulesTabProps> = (props) => {
 				/>
 			</SettingsItem>
 			<div class="settings-rules-tab__toggle-grid">
-				<SettingsItem label="S17" helptext="Dealer stands on soft 17" layout="row">
-					<input
-						type="checkbox"
-						checked={!props.config.dealerHitsSoft17}
-						onInput={(event) =>
-							props.setConfig('dealerHitsSoft17', !event.currentTarget.checked)
-						}
-					/>
-				</SettingsItem>
-				<SettingsItem label="DAS" helptext="Double after split allowed" layout="row">
-					<input
-						type="checkbox"
-						checked={props.config.doubleAfterSplit}
-						onInput={(event) =>
-							props.setConfig('doubleAfterSplit', event.currentTarget.checked)
-						}
-					/>
-				</SettingsItem>
-				<SettingsItem label="RSA" helptext="Resplit aces allowed" layout="row">
-					<input
-						type="checkbox"
-						checked={props.config.resplitAces}
-						onInput={(event) =>
-							props.setConfig('resplitAces', event.currentTarget.checked)
-						}
-					/>
-				</SettingsItem>
-				<SettingsItem label="HSA" helptext="Hit split aces allowed" layout="row">
-					<input
-						type="checkbox"
-						checked={props.config.hitSplitAces}
-						onInput={(event) =>
-							props.setConfig('hitSplitAces', event.currentTarget.checked)
-						}
-					/>
-				</SettingsItem>
-				<SettingsItem
+				<SettingToggle
+					label="S17"
+					helptext="Dealer stands on soft 17"
+					checked={!props.config.dealerHitsSoft17}
+					onChange={(checked) => props.setConfig('dealerHitsSoft17', !checked)}
+				/>
+				<SettingToggle
+					label="DAS"
+					helptext="Double after split allowed"
+					checked={props.config.doubleAfterSplit}
+					onChange={(checked) => props.setConfig('doubleAfterSplit', checked)}
+				/>
+				<SettingToggle
+					label="RSA"
+					helptext="Resplit aces allowed"
+					checked={props.config.resplitAces}
+					onChange={(checked) => props.setConfig('resplitAces', checked)}
+				/>
+				<SettingToggle
+					label="HSA"
+					helptext="Hit split aces allowed"
+					checked={props.config.hitSplitAces}
+					onChange={(checked) => props.setConfig('hitSplitAces', checked)}
+				/>
+				<SettingToggle
 					label="INS"
 					helptext="Insurance offered 2:1 on ace upcard"
-					layout="row"
-				>
-					<input
-						type="checkbox"
-						checked={props.config.insurance}
-						onInput={(event) => props.setConfig('insurance', event.currentTarget.checked)}
-					/>
-				</SettingsItem>
-				<SettingsItem
+					checked={props.config.insurance}
+					onChange={(checked) => props.setConfig('insurance', checked)}
+				/>
+				<SettingToggle
 					label="ENHC"
 					helptext="European no hole card; dealer natural takes all bets"
-					layout="row"
-				>
-					<input
-						type="checkbox"
-						checked={!props.config.dealerPeek}
-						onInput={(event) => setEnhc(event.currentTarget.checked)}
-					/>
-				</SettingsItem>
+					checked={!props.config.dealerPeek}
+					onChange={setEnhc}
+				/>
 			</div>
 		</div>
 	);

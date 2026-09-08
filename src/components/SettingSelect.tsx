@@ -10,7 +10,7 @@ import { Select, createListCollection } from '@ark-ui/solid/select';
 import { createMemo, For, type JSX } from 'solid-js';
 import { Portal } from 'solid-js/web';
 
-import { ChevronDown } from 'lucide-solid';
+import { Check, ChevronDown } from 'lucide-solid';
 
 import { usePortalMount } from '#c/portalMount';
 
@@ -64,6 +64,12 @@ function SettingSelect<T extends string>(props: SettingSelectProps<T>): JSX.Elem
 							{(item) => (
 								<Select.Item item={item} class="setting-select__item">
 									<Select.ItemText>{item.label}</Select.ItemText>
+									{/* The chosen option is marked as well as coloured: gold ink
+									    alone is the one thing in the menu a reader who cannot
+									    tell it from the rest has nothing to fall back on. */}
+									<Select.ItemIndicator class="setting-select__item-mark">
+										<Check />
+									</Select.ItemIndicator>
 								</Select.Item>
 							)}
 						</For>
