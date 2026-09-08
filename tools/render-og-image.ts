@@ -10,8 +10,6 @@
 // copies `public/`, so nothing regenerates the card at deploy time. Needs a
 // network connection, since the card pulls Archivo from Google Fonts exactly
 // as the page does.
-import { fileURLToPath } from 'node:url';
-
 import { chromium } from 'playwright';
 
 // The dimensions Facebook, X, Discord and Slack all preview at 1.91:1 without
@@ -19,20 +17,23 @@ import { chromium } from 'playwright';
 const WIDTH = 1200;
 const HEIGHT = 630;
 
-const card = new URL('./og-card.html', import.meta.url);
-// A path rather than the URL: `screenshot` takes a filesystem path.
-const out = fileURLToPath(new URL('../public/og-image.png', import.meta.url));
+// The card is addressed relative to this file, the image relative to the
+// working directory: `screenshot` wants a filesystem path rather than a URL,
+// and resolving one here would mean a `node:url` import and the Node types to
+// go with it. npm runs a script from the package root, so the two agree.
+const CARD_URL = new URL('./og-card.html', import.meta.url).href;
+const OUT_PATH = 'public/og-image.png';
 
 const browser = await chromium.launch();
 try {
 	const page = await browser.newPage({ viewport: { width: WIDTH, height: HEIGHT } });
-	await page.goto(card.href);
+	await page.goto(CARD_URL);
 	// Both waits earn their place: the first blocks on the webfonts, without
 	// which the card renders in a fallback face, and the second gives the
 	// layout they land in a frame to settle before the shutter.
 	await page.evaluate(() => document.fonts.ready);
 	await page.waitForTimeout(500);
-	await page.screenshot({ path: out });
+	await page.screenshot({ path: OUT_PATH });
 } finally {
 	await browser.close();
 }

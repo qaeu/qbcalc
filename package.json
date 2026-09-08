@@ -13,7 +13,7 @@
 		"test:integration": "vitest run --project integration",
 		"test:ui": "vitest --ui",
 		"test:coverage": "vitest --coverage",
-		"og:image": "node tools/render-og-image.mjs",
+		"og:image": "tsx tools/render-og-image.ts",
 		"lint": "eslint .",
 		"format": "prettier --write ."
 	},
@@ -31,6 +31,7 @@
 		"playwright": "^1.62.1",
 		"prettier": "^3.6.2",
 		"sass": "^1.93.2",
+		"tsx": "^4.23.13",
 		"typescript": "^5.7.2",
 		"typescript-eslint": "^8.46.2",
 		"vite": "^8.2.0",
