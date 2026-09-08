@@ -421,6 +421,30 @@ $breakpoint-short: 600px;
 	}
 }
 
+// The key that fires the button it sits in, printed as a cap on the face.
+// Hidden on touch, where there are no keys to press -- the handlers stay
+// wired, so a phone with a keyboard attached still works, it just gets no
+// hints.
+@mixin key-cap {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 17px;
+	height: 17px;
+	padding: 0 4px;
+	border: 1px solid $rule;
+	border-radius: 2px;
+	background-color: rgb(0 0 0 / 0.3);
+	color: get($neutrals, 'fg-light');
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+
+	@include touch {
+		display: none;
+	}
+}
+
 // A button that is only its icon: square, chromeless where it sits, and
 // growing a hairline under the pointer so it still reads as pressable without
 // drawing a box on the rail.
@@ -430,6 +454,10 @@ $breakpoint-short: 600px;
 	flex: none;
 	width: $size;
 	height: $size;
+	// The base button's own floor is the control height, which outranks the
+	// `height` above and stretches anything asked for a smaller square into a
+	// tall rectangle. Squareness is the point here, so the floor is restated.
+	min-height: $size;
 	padding: 0;
 	border: 1px solid transparent;
 	border-radius: 3px;
@@ -466,6 +494,7 @@ $breakpoint-short: 600px;
 	@include touch {
 		width: $control-height-touch;
 		height: $control-height-touch;
+		min-height: $control-height-touch;
 	}
 }
 

@@ -536,20 +536,24 @@ describe('EvTable', () => {
 			expect(mode()).toBe('Optimal action');
 		});
 
-		it('cycles from the mode label itself, which is a button', () => {
+		it('cycles from the button beside the mode label', () => {
 			const firstDataCell = renderTable();
-			const modeButton = () =>
-				document.querySelector<HTMLButtonElement>('.ev-table__mode-button')!;
+			const modeButton = document.querySelector<HTMLButtonElement>(
+				'.ev-table__mode-button'
+			)!;
+			// The reading sits outside the control, as the count does: the button
+			// says what pressing it will do, not what the cells are showing now.
+			const modeName = () => document.querySelector('.ev-table__mode-name')?.textContent;
 
-			expect(modeButton().textContent).toBe('Optimal action');
+			expect(modeName()).toBe('Optimal action');
 
-			fireEvent.click(modeButton());
-			expect(modeButton().textContent).toBe('EV %');
+			fireEvent.click(modeButton);
+			expect(modeName()).toBe('EV %');
 			expect(firstDataCell().textContent).toMatch(/^[+-]\d+\.\d$/);
 
-			fireEvent.click(modeButton());
-			fireEvent.click(modeButton());
-			expect(modeButton().textContent).toBe('Optimal action');
+			fireEvent.click(modeButton);
+			fireEvent.click(modeButton);
+			expect(modeName()).toBe('Optimal action');
 		});
 
 		it('colours the cells by action, then by heat ramp', () => {

@@ -2,12 +2,12 @@
 
 @layer screen {
 	// The whole row is the target: a rule is switched by hitting its name, not
-	// by hitting the 19px box beside it.
+	// by hitting the 16px box beside it.
 	.setting-toggle {
 		display: flex;
 		align-items: center;
-		gap: 9px;
-		min-height: $control-height;
+		gap: 8px;
+		min-height: 28px;
 		font-size: 13px;
 		color: get($neutrals, 'fg-light');
 		cursor: pointer;
@@ -22,8 +22,8 @@
 			display: grid;
 			place-items: center;
 			flex: none;
-			width: 19px;
-			height: 19px;
+			width: 16px;
+			height: 16px;
 			border: 1px solid $rule-strong;
 			border-radius: 3px;
 			background-color: rgb(0 0 0 / 0.3);
@@ -71,9 +71,9 @@
 			color: var(--rail-1);
 
 			svg {
-				width: 13px;
-				height: 13px;
-				stroke-width: 3.4;
+				width: 11px;
+				height: 11px;
+				stroke-width: 3.6;
 			}
 		}
 

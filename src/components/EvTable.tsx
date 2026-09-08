@@ -481,41 +481,42 @@ const EvTable: Component<EvTableProps> = (props) => {
 			</Show>
 
 			<Show when={!props.error()}>
+				{/*
+				 * Read as the felt reads: the figure stands on its own and the
+				 * controls beside it say what they do and which key does it, the
+				 * shape the Play view's action bar already has. The label was the
+				 * button itself once, which left the two numbers on this line
+				 * pressable in one case and not the other.
+				 */}
 				<p class="ev-table__mode" aria-live="polite">
-					{/*
-					 * The same cycle the space bar drives, given a target: the label was
-					 * already the one word for what the cells are showing, so it becomes
-					 * the control rather than growing a second one beside it.
-					 */}
+					<span class="ev-table__mode-name">{CELL_DISPLAY_MODE_LABELS[mode()]}</span>
 					<button
 						type="button"
-						class="ev-table__mode-name ev-table__mode-button"
+						class="ev-table__mode-button"
 						onClick={() => setMode(nextCellDisplayMode)}
 					>
-						{CELL_DISPLAY_MODE_LABELS[mode()]}
+						<span class="ev-table__key">space</span>Cycle view
 					</button>
-					<span class="ev-table__mode-hint">space to cycle</span>
 					<span class="ev-table__mode-divider" aria-hidden="true" />
-					<button
-						type="button"
-						class="ev-table__count-step"
-						aria-label="Lower the true count"
-						onClick={() => props.onStepCount(-1)}
-					>
-						−
-					</button>
 					<span class="ev-table__mode-name">
 						True count {formatCount(props.trueCount())}
 					</span>
 					<button
 						type="button"
 						class="ev-table__count-step"
+						aria-label="Lower the true count"
+						onClick={() => props.onStepCount(-1)}
+					>
+						<span class="ev-table__key">↓</span>Lower
+					</button>
+					<button
+						type="button"
+						class="ev-table__count-step"
 						aria-label="Raise the true count"
 						onClick={() => props.onStepCount(1)}
 					>
-						+
+						<span class="ev-table__key">↑</span>Raise
 					</button>
-					<span class="ev-table__mode-hint">↑/↓ to adjust</span>
 				</p>
 				<EvGrid
 					title="Hard totals"

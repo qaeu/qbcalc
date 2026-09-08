@@ -121,18 +121,12 @@ $action-chip-opacity: 0.95;
 			color: oklch(from get($neutrals, 'fg') l c h / 0.5);
 		}
 
-		// Icon only, so the shared button chrome would read as a stray box next
-		// to the title.
+		// Icon only, so it takes the shared icon-button chrome rather than the
+		// full button box, which would read as a stray card next to the title.
+		// Sized here rather than left at the control height: the header is one
+		// line of print, and a 34px square beside it sits taller than the title.
 		&__close {
-			display: inline-flex;
-			padding: 4px;
-			border: 0;
-			box-shadow: none;
-			color: get($neutrals, 'fg-light');
-
-			&:hover {
-				color: $foreground;
-			}
+			@include icon-button(28px);
 
 			svg {
 				width: 16px;

@@ -152,7 +152,7 @@ Formatting is enforced by Prettier (`.prettierrc`): tabs, single quotes, 90 colu
     `prefers-reduced-motion` guard: the Play view's own animation-speed setting is where
     motion is turned down, so don't add one back per component.
   - **Reusable mixins**: `container`, `card`, `info-box`, `button`, `form-control`, `tab`,
-    `icon-button`, `disabled-control`, `code-block`,
+    `icon-button`, `key-cap`, `disabled-control`, `code-block`,
     `shadow`/`shadow-short`/`shadow-inset`. The control mixins carry every state — hover,
     press, focus, disabled — and the touch floor, so a new control should take one rather
     than paint its own resting look.

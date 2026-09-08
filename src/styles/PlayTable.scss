@@ -549,27 +549,10 @@ $chip-colours: (
 		// the shared `button` mixin's floor now, so every control in the app
 		// gets it rather than only these two.
 
-		// The digit that fires the button beside it. Hidden where there are no
-		// keys to press -- the handlers stay wired, so a phone with a keyboard
-		// attached still works, it just gets no hints.
+		// The digit that fires the button beside it, in the cap the grids'
+		// mode line wears for the same job.
 		&__key {
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			min-width: 17px;
-			height: 17px;
-			padding: 0 4px;
-			border-radius: 2px;
-			background-color: rgb(0 0 0 / 0.3);
-			border: 1px solid $rule;
-			color: get($neutrals, 'fg-light');
-			font-size: 10px;
-			font-weight: 600;
-			letter-spacing: 0.04em;
-
-			@include touch {
-				display: none;
-			}
+			@include key-cap;
 		}
 
 		&__net {

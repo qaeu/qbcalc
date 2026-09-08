@@ -97,6 +97,10 @@
 
 		&__tab {
 			@include tab(13px, 0.16em);
+			// The one place the print's condensed face is dropped: these four
+			// labels are the app's own navigation rather than lettering on the
+			// table, and the bar has the room to set them at full width.
+			font-family: 'Archivo', system-ui, sans-serif;
 			padding: 0 18px;
 
 			// Even tap targets across the bar, rather than the labels bunched at
@@ -110,8 +114,11 @@
 			// Four labels rather than three, and "Bankroll" is the long one: at
 			// 360px the tracking and the side padding are what has to give, since
 			// a wrapped tab label would cost the bar a whole line.
+			// Size and tracking only, rather than the whole print: re-including
+			// it here would hand the labels the condensed face back.
 			@include phone {
-				@include print(12px, 0.1em);
+				font-size: 12px;
+				letter-spacing: 0.1em;
 				padding: 12px 4px;
 				font-weight: 600;
 				white-space: nowrap;

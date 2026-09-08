@@ -9,6 +9,12 @@ $cell-hover-duration: 0.1s;
 $deviation-ring-width: 6px;
 $cell-padding-y: 12px;
 $cell-padding-x: 10px;
+$cell-padding-x-phone: 4px;
+// What a data cell needs to show its widest contents -- a signed EV to one
+// decimal at 11px -- without ellipsising, and what the row label needs for
+// "A,T" at the header's tracked-out 11px print.
+$cell-min-width: 38px;
+$label-column-width: 46px;
 // Fixed, rather than left to each state's own font metrics, because a cell's
 // contents change under it: the numeric modes drop to 11px, and the loading
 // skeleton is a 14px block, taller than the line either size makes. Under
@@ -50,7 +56,14 @@ $action-cell-opacity: 1.5;
 
 		&__grid {
 			@include card;
-			max-width: 1000px;
+			// The auto margins below centre the card, and in doing so opt it out
+			// of a flex item's usual stretch -- which leaves it sized to its
+			// content, so the table's floor grows the card past the column and
+			// takes the page with it instead of letting the scroller inside it
+			// do its job. Stated explicitly, the width comes back.
+			width: 100%;
+			min-width: 0;
+			max-width: 800px;
 			margin-bottom: 0;
 			margin-left: auto;
 			margin-right: auto;
@@ -75,13 +88,19 @@ $action-cell-opacity: 1.5;
 			border-spacing: 0;
 			table-layout: fixed;
 			width: 100%;
+			// A floor under the whole board, so a narrow screen scrolls the grid
+			// in the wrapper above rather than shrinking eleven columns until
+			// every cell ellipsises. Below this the fixed layout was clipping
+			// single letters -- an "H" reading as "H…" -- and taking the row
+			// labels with it.
+			min-width: $label-column-width + 10 * $cell-min-width;
 			font-size: 13px;
 			user-select: none;
 		}
 
 		th,
 		td {
-			width: calc(100% / 11);
+			width: calc((100% - #{$label-column-width}) / 10);
 			padding: $cell-padding-y $cell-padding-x;
 			line-height: $cell-line-height;
 			text-align: center;
@@ -107,6 +126,14 @@ $action-cell-opacity: 1.5;
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;
+
+			// Bought back from the padding first: narrowing the gaps keeps more
+			// of the board on screen than narrowing the columns would, and the
+			// row rules still separate them.
+			@include phone {
+				padding-left: $cell-padding-x-phone;
+				padding-right: $cell-padding-x-phone;
+			}
 		}
 
 		th[scope='col'],
@@ -114,6 +141,25 @@ $action-cell-opacity: 1.5;
 			@include print(11px, 0.1em);
 			color: oklch(from get($neutrals, 'fg') l c h / 0.5);
 			font-weight: 600;
+		}
+
+		// The label column, held at a width its longest label fits in rather
+		// than left to share the ten upcards' allowance. It is the widest thing
+		// on the row -- "A,T", "8,8" -- and the one cell whose text says which
+		// hand the row is, so it is the last that should be ellipsised.
+		// Held against the near edge as well, so the hand a row is stays read
+		// off it once the board is wider than the phone it is being scrolled
+		// on. Opaque for the same reason -- the columns pass underneath it.
+		th:first-child {
+			position: sticky;
+			left: 0;
+			z-index: 1;
+			width: $label-column-width;
+			background-color: $panel;
+			// No row rules down the labels, for the same reason the column
+			// headers along the top carry none: the rules divide the board, and
+			// the headings naming its rows sit outside it.
+			background-image: none;
 		}
 
 		// On every cell, not just the coloured ones, so a cell eases between its
@@ -307,53 +353,53 @@ $action-cell-opacity: 1.5;
 		// arrow keys are what move it.
 		&__mode {
 			display: flex;
-			align-items: baseline;
+			flex-wrap: wrap;
+			align-items: center;
 			justify-content: center;
 			gap: 8px;
-			margin: -14px 0 -12px;
+			// Pulled up out of the column's 30px gap, but not the whole way:
+			// the line belongs to the grids below it rather than to the header
+			// above, so it keeps more air over it than under.
+			margin: -4px 0 -12px;
 			font-size: 13px;
 		}
 
+		// The figure itself, outside any control: what the cells are showing,
+		// and the count they are showing it at, are readings rather than
+		// buttons.
 		&__mode-name {
 			@include print(11px, 0.16em);
 			color: get($neutrals, 'fg');
 			font-weight: 600;
 		}
 
-		// The two controls on the line are laid over the caption's own lettering
-		// rather than dressed as buttons: at 11px, a full button box either
-		// swallows the line's rhythm or pushes the grids down a row. Everything
-		// but the padding, the hairline and the hover fill comes from the base
-		// button, so they still read as pressable and still take the gold focus
-		// ring.
+		// Dressed as the felt's actions are -- the key cap, then what the key
+		// does -- so the two ways to reach the same handler are one control
+		// rather than a bare glyph. Shorter than the standard box: this line
+		// sits between the caption and the first grid, and a full-height
+		// control there pushes the board down a row.
 		&__mode-button,
 		&__count-step {
-			padding: 3px 8px;
-			border-color: transparent;
-			background-color: transparent;
-			// Nothing to catch the light on a control with no box of its own;
-			// the press the shared button gained still reads, since it moves.
-			box-shadow: none;
+			@include print(10px, 0.14em);
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			min-height: 26px;
+			padding: 0 8px;
+			font-weight: 600;
+
+			@include touch {
+				min-height: $control-height-touch;
+			}
 		}
 
-		&__mode-button {
-			@include print(11px, 0.16em);
-		}
-
-		&__count-step {
-			@include print(13px, 0);
-			align-self: center;
-			min-width: 22px;
-			line-height: 1;
-		}
-
-		&__mode-hint {
-			@include print(12px, 0.01em, $caps: false);
-			color: oklch(from get($neutrals, 'fg') l c h / 0.45);
+		// The same cap the felt's actions wear, and gone on touch with them.
+		&__key {
+			@include key-cap;
 		}
 
 		// Separates the mode from the count, the two halves of the line each
-		// being a name and its key hint.
+		// being a reading and the control that moves it.
 		&__mode-divider {
 			align-self: center;
 			width: 1px;
