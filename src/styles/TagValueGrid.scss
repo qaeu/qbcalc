@@ -6,6 +6,8 @@
 		grid-template-columns: repeat(5, 1fr);
 		gap: 8px;
 
+		@include grouped-fields('.tag-value-grid__tag');
+
 		&__tag {
 			display: flex;
 			flex-direction: column;

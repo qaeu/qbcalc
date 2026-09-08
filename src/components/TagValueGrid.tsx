@@ -20,20 +20,42 @@ function rankLabel(rank: Rank): string {
 const TagValueGrid: Component<TagValueGridProps> = (props) => (
 	<div class="tag-value-grid">
 		<For each={RANKS}>
-			{(rank) => (
-				<span class="tag-value-grid__tag">
-					{rankLabel(rank)}
-					<input
-						type="number"
-						step="1"
-						aria-label={`Tag value for ${rankLabel(rank)}`}
-						value={props.tags[rank]}
-						onInput={(event) =>
-							props.onTagChange(rank, Number(event.currentTarget.value))
-						}
-					/>
-				</span>
-			)}
+			{(rank) => {
+				let field!: HTMLInputElement;
+
+				/*
+				 * A `<span>`, not a `<label>`: the grid sits inside the setting's
+				 * own label, which may not contain another. The click a real label
+				 * would handle is done here -- across the whole cell, as a label is
+				 * clickable across its box -- and the surrounding label's
+				 * activation, which would put the caret in the Ace field wherever
+				 * in the cell was clicked, is stopped first. A click that reached
+				 * the field is left alone.
+				 */
+				return (
+					<span
+						class="tag-value-grid__tag"
+						onClick={(event) => {
+							if (event.target === field) return;
+							event.preventDefault();
+							field.focus();
+							field.select();
+						}}
+					>
+						<span class="tag-value-grid__label">{rankLabel(rank)}</span>
+						<input
+							ref={field}
+							type="number"
+							step="1"
+							aria-label={`Tag value for ${rankLabel(rank)}`}
+							value={props.tags[rank]}
+							onInput={(event) =>
+								props.onTagChange(rank, Number(event.currentTarget.value))
+							}
+						/>
+					</span>
+				);
+			}}
 		</For>
 	</div>
 );

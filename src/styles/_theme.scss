@@ -371,6 +371,31 @@ $breakpoint-short: 600px;
 	}
 }
 
+// A grid of small fields under one settings caption -- the bet spread, the tag
+// values. `SettingsItem` is a `<label>`, so its first field is the one a click
+// on the caption lands in, and the browser lights that field up whenever the
+// pointer is anywhere inside the label. That is the right answer over the
+// caption itself, and the wrong one over any of the other fields: the first
+// column stayed lit while the pointer was six columns away. Once the pointer
+// is over a cell, every other cell goes back to rest -- a field marks itself,
+// not its neighbour.
+//
+// Within a cell the caption stands in for its field, the way the setting's own
+// caption stands in for the first: pointing at '+2' lights the '+2' field, and
+// clicking it puts the cursor there (the cell is a `<span>`, since a `<label>`
+// cannot nest inside the label around the whole grid -- see the components).
+// The field lighting up is the whole of that invitation: a caption keeps the
+// cursor a real label would have, since that is what it stands in for.
+@mixin grouped-fields($cell) {
+	&:has(#{$cell}:hover) #{$cell}:not(:hover) input:not(:disabled, :focus-visible) {
+		border-color: $rule-strong;
+	}
+
+	#{$cell}:hover input:not(:disabled) {
+		border-color: get($neutrals, 'sep');
+	}
+}
+
 // A label in a tab strip, marked underneath in gold while it is the live one.
 // The three strips in the app -- the header's, the Play view's and the
 // sidebar's -- each keep their own size, tracking and padding and pass them

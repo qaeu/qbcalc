@@ -27,7 +27,12 @@
 			color: get($neutrals, 'fg-light');
 		}
 
-		input[type='number'] {
+		// Scoped to this tab's own fields, as the count tab's are: the bet
+		// ramp's inputs style themselves, and are nested deeper -- unscoped,
+		// this rule matched them at equal specificity and, coming later in the
+		// bundle, won, putting a full-width field's padding inside a column
+		// 30px wide.
+		.settings-item > input[type='number'] {
 			@include form-control;
 		}
 	}
