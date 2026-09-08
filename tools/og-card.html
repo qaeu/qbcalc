@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Narrow:wght@400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			/* Values lifted from src/styles/_palette.scss and _theme.scss, so the
+			   card is the app's own materials rather than an impression of them. */
+			:root {
+				--baize-1: #0f3d2d;
+				--baize-2: #134a37;
+				--baize-11: #b7ad8b;
+				--baize-12: #ecdfb4;
+				--gold-9: #d9a441;
+				--gold-11: #e9bd6e;
+				--sand-11: #dccea4;
+				--ruby-11: #ec8b9a;
+				--sky-11: #8ec6e8;
+				--rail-2: #24140e;
+				--rail-5: #46281c;
+				--panel: #0d3326;
+
+				/* $rule / $rule-strong: cream at low alpha, never black. */
+				--rule: rgb(236 223 180 / 0.08);
+				--rule-strong: rgb(236 223 180 / 0.15);
+
+				/* A cell's fill is its colour's `a2` step at $action-cell-opacity
+				   (1.5), i.e. alpha 0.16 * 1.5. */
+				--fill-hit: rgb(244 235 205 / 0.24);
+				--fill-stand: rgb(236 139 154 / 0.24);
+				--fill-double: rgb(142 198 232 / 0.24);
+			}
+
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			body {
+				width: 1200px;
+				height: 630px;
+				overflow: hidden;
+				font-family: 'Archivo', system-ui, sans-serif;
+				color: var(--baize-12);
+				background:
+					radial-gradient(
+						120% 90% at 50% 8%,
+						rgb(236 223 180 / 0.1) 0%,
+						rgb(236 223 180 / 0) 55%
+					),
+					linear-gradient(180deg, var(--baize-2) 0%, var(--baize-1) 60%, #0b3225 100%);
+			}
+
+			/* The padded rail, as it sits above the felt in the app itself. */
+			.rail {
+				display: flex;
+				align-items: flex-end;
+				justify-content: space-between;
+				height: 104px;
+				padding: 0 56px 22px;
+				background: linear-gradient(180deg, var(--rail-5) 0%, var(--rail-2) 100%);
+				box-shadow: 0 8px 30px rgb(0 0 0 / 0.5);
+			}
+
+			/* The app's `h1`: the layout print's voice -- condensed, capitalised,
+			   tracked out -- stamped into the rail. */
+			.wordmark {
+				display: flex;
+				align-items: baseline;
+				gap: 0.34em;
+				font-family: 'Archivo Narrow', 'Archivo', system-ui, sans-serif;
+				font-size: 32px;
+				font-weight: 700;
+				letter-spacing: 0.13em;
+				text-transform: uppercase;
+				text-shadow: 0 1px 0 rgb(0 0 0 / 0.6);
+			}
+
+			.wordmark span {
+				font-weight: 400;
+				color: var(--baize-11);
+			}
+
+			.tabs {
+				display: flex;
+				gap: 30px;
+				font-size: 15px;
+				font-weight: 500;
+				letter-spacing: 0.16em;
+				text-transform: uppercase;
+				color: var(--baize-11);
+			}
+
+			.tabs i {
+				font-style: normal;
+			}
+
+			.tabs b {
+				position: relative;
+				font-weight: 600;
+				color: var(--baize-12);
+			}
+
+			.tabs b::after {
+				content: '';
+				position: absolute;
+				left: 0;
+				right: 0;
+				bottom: -22px;
+				height: 3px;
+				background: var(--gold-9);
+			}
+
+			.body {
+				display: flex;
+				align-items: center;
+				gap: 48px;
+				height: 526px;
+				padding: 0 56px;
+			}
+
+			.copy {
+				flex: 1;
+				min-width: 0;
+			}
+
+			.eyebrow {
+				font-family: 'Archivo Narrow', 'Archivo', system-ui, sans-serif;
+				font-size: 17px;
+				font-weight: 600;
+				letter-spacing: 0.22em;
+				text-transform: uppercase;
+				color: var(--gold-11);
+			}
+
+			/* Same print as the wordmark, at the size a title on the apron would
+			   be set: "BLACKJACK PAYS 3 TO 2" and this are the same material. */
+			h1 {
+				margin-top: 20px;
+				font-family: 'Archivo Narrow', 'Archivo', system-ui, sans-serif;
+				font-size: 58px;
+				font-weight: 700;
+				line-height: 1.12;
+				letter-spacing: 0.09em;
+				text-transform: uppercase;
+			}
+
+			p {
+				margin-top: 24px;
+				max-width: 19.5em;
+				font-size: 22px;
+				line-height: 1.45;
+				color: var(--baize-11);
+			}
+
+			.chips {
+				display: flex;
+				gap: 10px;
+				margin-top: 30px;
+			}
+
+			.chip {
+				padding: 8px 16px;
+				border: 1px solid var(--rule-strong);
+				border-radius: 999px;
+				font-size: 15px;
+				font-weight: 500;
+				letter-spacing: 0.04em;
+				color: var(--baize-12);
+				background: rgb(236 223 180 / 0.04);
+			}
+
+			/* A slice of the real grid card: the panel, its hairline, its 3px
+			   radius and the `h3` rule above the board. */
+			.grid-card {
+				width: 452px;
+				padding: 20px;
+				border: 1px solid var(--rule);
+				border-radius: 3px;
+				background: var(--panel);
+				box-shadow:
+					0 8px 16px rgb(0 0 0 / 0.42),
+					0 2px 4px rgb(0 0 0 / 0.3);
+			}
+
+			h3 {
+				margin-bottom: 14px;
+				padding-bottom: 10px;
+				border-bottom: 1px solid var(--rule);
+				font-family: 'Archivo Narrow', 'Archivo', system-ui, sans-serif;
+				font-size: 15px;
+				font-weight: 600;
+				letter-spacing: 0.2em;
+				text-transform: uppercase;
+				color: var(--baize-12);
+			}
+
+			table {
+				border-collapse: separate;
+				border-spacing: 0;
+				table-layout: fixed;
+				width: 100%;
+				font-size: 15px;
+			}
+
+			th,
+			td {
+				padding: 13px 10px;
+				line-height: 17px;
+				text-align: center;
+				/* The row rule as a background layer, exactly as the grid draws
+				   it, so it runs on under the coloured fills. */
+				background-image: linear-gradient(var(--rule-strong), var(--rule-strong));
+				background-repeat: no-repeat;
+				background-position: bottom;
+				background-size: 100% 1px;
+			}
+
+			th {
+				font-family: 'Archivo Narrow', 'Archivo', system-ui, sans-serif;
+				font-size: 13px;
+				font-weight: 600;
+				letter-spacing: 0.1em;
+				color: rgb(236 223 180 / 0.5);
+			}
+
+			/* The label column and the column headings sit outside the board, so
+			   they carry no rules. */
+			th:first-child {
+				width: 58px;
+				background-image: none;
+			}
+
+			thead th {
+				background-image: none;
+			}
+
+			td {
+				box-shadow: inset -1px 0 0 var(--rule);
+			}
+
+			tbody tr:last-child td {
+				background-image: none;
+			}
+
+			.h {
+				background-color: var(--fill-hit);
+				color: var(--sand-11);
+			}
+			.s {
+				background-color: var(--fill-stand);
+				color: var(--ruby-11);
+			}
+			.d {
+				background-color: var(--fill-double);
+				color: var(--sky-11);
+			}
+		</style>
+	</head>
+	<body>
+		<div class="rail">
+			<div class="wordmark">qbcalc <span>· blackjack ev</span></div>
+			<div class="tabs">
+				<b>Tables</b>
+				<i>Bankroll</i>
+				<i>Play</i>
+				<i>Sim</i>
+			</div>
+		</div>
+
+		<div class="body">
+			<div class="copy">
+				<div class="eyebrow">Card counting, solved</div>
+				<h1>Blackjack EV<br />Calculator</h1>
+				<p>Count-aware expected value, dealt practice hands, and session simulations.</p>
+				<div class="chips">
+					<div class="chip">Hi-Lo &amp; custom tags</div>
+					<div class="chip">Runs in your browser</div>
+				</div>
+			</div>
+
+			<div class="grid-card">
+				<h3>Hard totals</h3>
+				<table>
+					<thead>
+						<tr>
+							<th></th>
+							<th>4</th>
+							<th>5</th>
+							<th>6</th>
+							<th>7</th>
+							<th>9</th>
+							<th>T</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<th>16</th>
+							<td class="s">S</td>
+							<td class="s">S</td>
+							<td class="s">S</td>
+							<td class="h">H</td>
+							<td class="h">H</td>
+							<td class="h">H</td>
+						</tr>
+						<tr>
+							<th>15</th>
+							<td class="s">S</td>
+							<td class="s">S</td>
+							<td class="s">S</td>
+							<td class="h">H</td>
+							<td class="h">H</td>
+							<td class="h">H</td>
+						</tr>
+						<tr>
+							<th>12</th>
+							<td class="s">S</td>
+							<td class="s">S</td>
+							<td class="s">S</td>
+							<td class="h">H</td>
+							<td class="h">H</td>
+							<td class="h">H</td>
+						</tr>
+						<tr>
+							<th>11</th>
+							<td class="d">D</td>
+							<td class="d">D</td>
+							<td class="d">D</td>
+							<td class="d">D</td>
+							<td class="d">D</td>
+							<td class="d">D</td>
+						</tr>
+						<tr>
+							<th>10</th>
+							<td class="d">D</td>
+							<td class="d">D</td>
+							<td class="d">D</td>
+							<td class="d">D</td>
+							<td class="d">D</td>
+							<td class="h">H</td>
+						</tr>
+						<tr>
+							<th>9</th>
+							<td class="d">D</td>
+							<td class="d">D</td>
+							<td class="d">D</td>
+							<td class="d">D</td>
+							<td class="h">H</td>
+							<td class="h">H</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</body>
+</html>

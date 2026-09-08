@@ -13,6 +13,7 @@
 		"test:integration": "vitest run --project integration",
 		"test:ui": "vitest --ui",
 		"test:coverage": "vitest --coverage",
+		"og:image": "node tools/render-og-image.mjs",
 		"lint": "eslint .",
 		"format": "prettier --write ."
 	},
