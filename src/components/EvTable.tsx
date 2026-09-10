@@ -10,10 +10,11 @@ import {
 } from 'solid-js';
 
 import { RANKS, type Rank } from '#utils/ev/cards';
-import { HARD_TOTALS, PAIR_RANKS, SOFT_TOTALS, type PlayerAction } from '#utils/ev/rules';
+import { HARD_TOTALS, PAIR_RANKS, SOFT_TOTALS } from '#utils/ev/rules';
 import type { EvCellData } from '#utils/ev/tables';
 import { formatCount, formatPairLabel, formatSoftTotalLabel } from '#utils/format';
 import { ACTION_CLASS } from '#utils/actionStyle';
+import { counterSeat } from '#utils/counterSeat';
 import {
 	CELL_DISPLAY_MODE_LABELS,
 	cellDisplayText,
@@ -58,6 +59,13 @@ interface EvCellProps {
 	hand: string;
 	upcard: Rank;
 	/**
+	 * The cell's row in its grid, which is the step its counter is dealt on:
+	 * the board lands a row at a time, top to bottom. Down rather than across
+	 * because the board is read that way -- a hand is found by its total first
+	 * and its upcard second.
+	 */
+	rowIndex: number;
+	/**
 	 * EV of insurance at this count, where the table offers it. It is a property
 	 * of the upcard, so only the ace column reports it.
 	 */
@@ -71,19 +79,6 @@ interface EvCellProps {
 	 */
 	canHover: boolean;
 }
-
-/**
- * Ring colour for a cell the count has moved off basic strategy. The fill
- * carries the action to take now, so the ring carries the action it replaced —
- * both are legible at once without a second glyph.
- */
-const BASE_ACTION_CLASS: Record<PlayerAction, string> = {
-	H: 'was-hit',
-	S: 'was-stand',
-	D: 'was-double',
-	P: 'was-split',
-	R: 'was-surrender',
-};
 
 /**
  * One `<td>` that persists across the loading state rather than being swapped
@@ -104,7 +99,10 @@ const EvCell: Component<EvCellProps> = (props) => {
 		if (!row) return '';
 		switch (props.mode) {
 			case 'action':
-				return ACTION_CLASS[row.optimalAction];
+				// The basic play, not the play in force: the counter above carries
+				// what the count has moved to, and the cell keeps what the table
+				// would do without one.
+				return ACTION_CLASS[row.baseAction];
 			case 'ev':
 				return `is-numeric ${evHeatClass(row.countEvPercent, props.heat.ev)}`;
 			case 'occurrence':
@@ -115,16 +113,45 @@ const EvCell: Component<EvCellProps> = (props) => {
 		}
 	});
 
+	/**
+	 * Whether this cell's counter is standing on it. Only in the action mode: a
+	 * counter is one play covering another, and the numeric modes carry a single
+	 * figure per hand with nothing for a piece to be about. There is nothing to
+	 * cover mid-recalculation either, so a loading cell puts its piece down too.
+	 */
+	const counterLanded = createMemo(() => {
+		const row = activeRow();
+		return props.mode === 'action' && !!row && row.baseAction !== row.optimalAction;
+	});
+
 	const cellClass = createMemo(() => {
-		if (props.loading) return `is-loading ev-table__loading-phase-${props.phase}`;
+		const rowClass = `ev-table__cell--row-${props.rowIndex}`;
+		if (props.loading) {
+			return `is-loading ev-table__loading-phase-${props.phase} ${rowClass}`;
+		}
+		const row = props.row;
+		if (!row) return rowClass;
+		// `has-counter` is what fades the cell's own letter out from under the
+		// piece landing on it, rather than the letter being swapped: the two
+		// plays are two elements, so both can be on screen while one arrives.
+		return `${fillClass()} ${rowClass}${counterLanded() ? ' has-counter' : ''}`;
+	});
+
+	/**
+	 * The piece itself, held in the DOM whether or not the count has reached
+	 * this cell's index. A counter that only existed while it was in force would
+	 * mount at its resting position with nothing to animate from, so an unplayed
+	 * one waits a few pixels above the cell at zero opacity instead -- which is
+	 * the only way a transition can run in both directions, and the reason a
+	 * counter can be watched landing rather than appearing.
+	 */
+	const pieceClass = createMemo(() => {
 		const row = props.row;
 		if (!row) return '';
-		// The deviation ring only makes sense in the action mode: it marks a
-		// change in letter, which is meaningless dressing on top of the EV and
-		// occurrence heat ramps.
-		return props.mode === 'action' && row.baseAction !== row.optimalAction ?
-				`${fillClass()} ${BASE_ACTION_CLASS[row.baseAction]}`
-			:	fillClass();
+		const seat = `ev-table__piece--seat-${counterSeat(props.hand, props.upcard)}`;
+		return `ev-table__piece ${ACTION_CLASS[row.optimalAction]} ${seat} ${
+			counterLanded() ? 'is-landed' : 'is-off'
+		}`;
 	});
 
 	const [hoverOpen, setHoverOpen] = createSignal(false);
@@ -189,11 +216,38 @@ const EvCell: Component<EvCellProps> = (props) => {
 							openDialog();
 						}}
 					>
-						<Show
-							when={!props.loading}
-							fallback={<span class="ev-table__cell-skeleton" aria-hidden="true" />}
+						<span
+							class="ev-table__cell-figure"
+							// The cell keeps printing the basic play under the
+							// counter, so it is the counter's letter that should be
+							// read out while one is standing here.
+							aria-hidden={counterLanded() ? 'true' : undefined}
 						>
-							{props.row ? cellDisplayText(props.row, props.mode) : '—'}
+							<Show
+								when={!props.loading}
+								fallback={<span class="ev-table__cell-skeleton" aria-hidden="true" />}
+							>
+								{props.row ? cellDisplayText(props.row, props.mode) : '—'}
+							</Show>
+						</span>
+						<Show when={props.row}>
+							{(row) => (
+								<span
+									class={pieceClass()}
+									aria-hidden={counterLanded() ? undefined : 'true'}
+								>
+									{/*
+									 * Two slices of rim under one face, dropped down the
+									 * screen rather than cast as a shadow: a shadow is
+									 * offset in the element's own coordinates, so on a
+									 * turned counter it turns with the face and stays
+									 * glued square to it instead of hanging below it.
+									 */}
+									<span class="ev-table__piece-rim" />
+									<span class="ev-table__piece-rim" />
+									<span class="ev-table__piece-face">{row().optimalAction}</span>
+								</span>
+							)}
 						</Show>
 					</td>
 				)}
@@ -303,6 +357,7 @@ const EvGrid: Component<EvGridProps> = (props) => (
 												:	String(total)
 											}
 											upcard={upcard}
+											rowIndex={rowIndex()}
 											insuranceEvPercent={props.insuranceEvPercent}
 											canHover={props.canHover}
 										/>
@@ -365,6 +420,7 @@ const SplitEvGrid: Component<SplitEvGridProps> = (props) => (
 											heat={props.heat}
 											hand={formatPairLabel(pairRank)}
 											upcard={upcard}
+											rowIndex={rowIndex()}
 											insuranceEvPercent={props.insuranceEvPercent}
 											canHover={props.canHover}
 										/>

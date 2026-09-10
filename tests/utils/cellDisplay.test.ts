@@ -54,12 +54,15 @@ describe('cellDisplay', () => {
 
 	describe('cellDisplayText', () => {
 		const row = cell({
-			optimalAction: 'D',
+			baseAction: 'D',
+			optimalAction: 'S',
 			countEvPercent: 12.3456,
 			occurrencePercent: 0.0432,
 		});
 
-		it('shows the action letter, unadorned, in action mode', () => {
+		// The basic play, not the play in force: the counter standing on the cell
+		// is what carries the play the count has moved to.
+		it('shows the basic action letter, unadorned, in action mode', () => {
 			expect(cellDisplayText(row, 'action')).toBe('D');
 		});
 

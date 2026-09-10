@@ -61,11 +61,19 @@ export function nextCellDisplayMode(mode: CellDisplayMode): CellDisplayMode {
 	return CELL_DISPLAY_MODES[(index + 1) % CELL_DISPLAY_MODES.length];
 }
 
-/** What one cell reads in the given mode. */
+/**
+ * What one cell reads in the given mode.
+ *
+ * In the action mode that is the *basic* play, not the optimal one: the cell
+ * holds the play the table would make with no count at all, and the counter
+ * standing on it -- see `EvTable` -- carries the play the count has moved to.
+ * Splitting them that way is what lets the count change without repainting the
+ * board underneath it.
+ */
 export function cellDisplayText(row: EvCellData, mode: CellDisplayMode): string {
 	switch (mode) {
 		case 'action':
-			return row.optimalAction;
+			return row.baseAction;
 		case 'ev':
 			return formatCellEvPercent(row.countEvPercent);
 		case 'occurrence':

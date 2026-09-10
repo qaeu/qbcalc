@@ -19,7 +19,7 @@ const SAMPLE_RESULT: EvWorkerResult = {
 };
 
 // A count high enough to move some hard totals off basic strategy, which is
-// what the deviation ring marks. At +1 the hard grid has a single deviation;
+// what puts a counter on a cell. At +1 the hard grid has a single deviation;
 // this one has several, in more than one direction.
 const DEVIATION_RESULT: EvWorkerResult = {
 	...computeAllEvTables(DEFAULT_RULE_SET, 2.5),
@@ -35,6 +35,23 @@ function popoverFor(trigger: Element): HTMLElement {
 	const content = document.getElementById(contentId);
 	if (!content) throw new Error(`No popover content found for trigger #${trigger.id}`);
 	return content;
+}
+
+/** What a cell itself prints -- the basic play, under any counter on it. */
+function cellText(cell: Element): string {
+	return cell.querySelector('.ev-table__cell-figure')?.textContent ?? '';
+}
+
+/**
+ * The play a counter standing on this cell carries, or null where no piece is
+ * on the board. Every cell holds a piece whether or not the count has called
+ * for it -- an unplayed one waits above the cell so its landing can be
+ * animated in both directions -- so it is `is-landed` that says a cell has
+ * been moved off basic strategy, not the piece's presence.
+ */
+function counterText(cell: Element): string | null {
+	const piece = cell.querySelector('.ev-table__piece.is-landed');
+	return piece ? (piece.textContent ?? '') : null;
 }
 
 /**
@@ -239,7 +256,7 @@ describe('EvTable', () => {
 				.querySelectorAll('td')[0];
 
 		const before = firstDataCell();
-		expect(before.textContent).toMatch(/^[HSD]$/);
+		expect(cellText(before)).toMatch(/^[HSD]$/);
 
 		setIsComputing(true);
 		setResult(null);
@@ -254,10 +271,10 @@ describe('EvTable', () => {
 			expect(firstDataCell().classList.contains('is-loading')).toBe(false);
 		});
 		expect(firstDataCell()).toBe(before);
-		expect(before.textContent).toMatch(/^[HSD]$/);
+		expect(cellText(before)).toMatch(/^[HSD]$/);
 	});
 
-	it('rings only the cells whose action the count has moved, in the baseline action colour', () => {
+	it('stands a counter on the cells whose action the count has moved', () => {
 		render(() => (
 			<EvTable
 				result={() => DEVIATION_RESULT}
@@ -267,14 +284,6 @@ describe('EvTable', () => {
 				onStepCount={() => {}}
 			/>
 		));
-
-		const baseActionClass: Record<string, string> = {
-			H: 'was-hit',
-			S: 'was-stand',
-			D: 'was-double',
-			P: 'was-split',
-			R: 'was-surrender',
-		};
 
 		const rows = within(screen.getAllByRole('table')[0]).getAllByRole('row').slice(1);
 		const upcards = DEVIATION_RESULT.hard.upcards;
@@ -286,13 +295,15 @@ describe('EvTable', () => {
 				const row = DEVIATION_RESULT.hard.rows.find(
 					(candidate) => candidate.total === total && candidate.upcard === upcard
 				)!;
-				const classes = [...cells[colIndex].classList].filter((name) =>
-					name.startsWith('was-')
-				);
+				const cell = cells[colIndex];
+				// The cell keeps the basic play whatever the count does -- that is
+				// what lets a count step land and lift pieces without repainting
+				// the board underneath them.
+				expect(cellText(cell)).toBe(row.baseAction);
 				if (row.baseAction === row.optimalAction) {
-					expect(classes).toEqual([]);
+					expect(counterText(cell)).toBeNull();
 				} else {
-					expect(classes).toEqual([baseActionClass[row.baseAction]]);
+					expect(counterText(cell)).toBe(row.optimalAction);
 					deviations += 1;
 				}
 			});
@@ -316,7 +327,7 @@ describe('EvTable', () => {
 		const firstDataCell = () =>
 			within(tables[0]).getAllByRole('row')[1].querySelectorAll('td')[0];
 
-		expect(firstDataCell().textContent).toMatch(/^[HSD]$/);
+		expect(cellText(firstDataCell())).toMatch(/^[HSD]$/);
 
 		fireEvent.pointerEnter(firstDataCell());
 
@@ -519,20 +530,20 @@ describe('EvTable', () => {
 			const firstDataCell = renderTable();
 			const mode = () => document.querySelector('.ev-table__mode-name')?.textContent;
 
-			expect(firstDataCell().textContent).toMatch(/^[HSDPR]$/);
+			expect(cellText(firstDataCell())).toMatch(/^[HSDPR]$/);
 			expect(mode()).toBe('Optimal action');
 
 			cycle();
 			// Signed, to one decimal -- three would not fit the cell.
-			expect(firstDataCell().textContent).toMatch(/^[+-]\d+\.\d$/);
+			expect(cellText(firstDataCell())).toMatch(/^[+-]\d+\.\d$/);
 			expect(mode()).toBe('EV %');
 
 			cycle();
-			expect(firstDataCell().textContent).toMatch(/^\d+\.\d\d$/);
+			expect(cellText(firstDataCell())).toMatch(/^\d+\.\d\d$/);
 			expect(mode()).toBe('Occurrence %');
 
 			cycle();
-			expect(firstDataCell().textContent).toMatch(/^[HSDPR]$/);
+			expect(cellText(firstDataCell())).toMatch(/^[HSDPR]$/);
 			expect(mode()).toBe('Optimal action');
 		});
 
@@ -549,7 +560,7 @@ describe('EvTable', () => {
 
 			fireEvent.click(modeButton);
 			expect(modeName()).toBe('EV %');
-			expect(firstDataCell().textContent).toMatch(/^[+-]\d+\.\d$/);
+			expect(cellText(firstDataCell())).toMatch(/^[+-]\d+\.\d$/);
 
 			fireEvent.click(modeButton);
 			fireEvent.click(modeButton);
@@ -574,27 +585,25 @@ describe('EvTable', () => {
 			).toBe(true);
 		});
 
-		// The ring is an inset shadow rather than a fill, so it survives the heat
-		// colours -- and which cells the count has moved is worth as much while
-		// reading their numbers as while reading their letters.
-		// The ring marks a change of letter, which is dressing with no meaning on
-		// top of the EV and occurrence heat ramps -- so it belongs to the action
-		// mode alone.
-		it('drops the deviation ring outside the action mode', () => {
+		// A counter is one play standing on another, and the numeric modes carry a
+		// single figure per hand with nothing for a piece to be about. So the
+		// pieces leave the table when the view does, on the same lift they use
+		// when the count drops below an index.
+		it('lifts the counters off the board outside the action mode', () => {
 			renderTable();
 
-			const ringed = () => document.querySelectorAll('td[class*="was-"]').length;
-			const inActionMode = ringed();
+			const landed = () => document.querySelectorAll('.ev-table__piece.is-landed').length;
+			const inActionMode = landed();
 			expect(inActionMode).toBeGreaterThan(0);
 
 			cycle();
-			expect(ringed()).toBe(0);
+			expect(landed()).toBe(0);
 			cycle();
-			expect(ringed()).toBe(0);
+			expect(landed()).toBe(0);
 
-			// And comes back on the way round, rather than being spent once.
+			// And they come back on the way round, rather than being spent once.
 			cycle();
-			expect(ringed()).toBe(inActionMode);
+			expect(landed()).toBe(inActionMode);
 		});
 
 		// Space is the select's own key for opening its list, and the Calculate
@@ -605,14 +614,14 @@ describe('EvTable', () => {
 			const button = document.createElement('button');
 			document.body.append(button);
 			fireEvent.keyDown(button, { key: ' ' });
-			expect(firstDataCell().textContent).toMatch(/^[HSDPR]$/);
+			expect(cellText(firstDataCell())).toMatch(/^[HSDPR]$/);
 			button.remove();
 
 			const combobox = document.createElement('div');
 			combobox.setAttribute('role', 'combobox');
 			document.body.append(combobox);
 			fireEvent.keyDown(combobox, { key: ' ' });
-			expect(firstDataCell().textContent).toMatch(/^[HSDPR]$/);
+			expect(cellText(firstDataCell())).toMatch(/^[HSDPR]$/);
 			combobox.remove();
 		});
 
@@ -622,7 +631,7 @@ describe('EvTable', () => {
 			const firstDataCell = renderTable();
 
 			fireEvent.keyDown(firstDataCell(), { key: ' ' });
-			expect(firstDataCell().textContent).toMatch(/^[+-]\d+\.\d$/);
+			expect(cellText(firstDataCell())).toMatch(/^[+-]\d+\.\d$/);
 			expect(screen.queryByRole('dialog')).toBeNull();
 
 			fireEvent.keyDown(firstDataCell(), { key: 'Enter' });
@@ -634,14 +643,14 @@ describe('EvTable', () => {
 			localStorage.setItem('qbcalc:cell-display-mode', 'occurrence');
 			const firstDataCell = renderTable();
 
-			expect(firstDataCell().textContent).toMatch(/^\d+\.\d\d$/);
+			expect(cellText(firstDataCell())).toMatch(/^\d+\.\d\d$/);
 		});
 
 		it('ignores a stored mode it does not recognise', () => {
 			localStorage.setItem('qbcalc:cell-display-mode', 'nonsense');
 			const firstDataCell = renderTable();
 
-			expect(firstDataCell().textContent).toMatch(/^[HSDPR]$/);
+			expect(cellText(firstDataCell())).toMatch(/^[HSDPR]$/);
 		});
 	});
 
