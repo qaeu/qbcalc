@@ -72,7 +72,11 @@ $split-fill-strength: 38%;
 // through afterwards, and it is a separate knob from strength because the two
 // say different things -- strength picks the colour, opacity says how firmly
 // the board asserts it.
-$action-fill-opacity: 85%;
+$action-fill-opacity: 75%;
+// Pointing at a cell firms the wash as well as lifting the tint. The tint lift
+// alone is a small move at this opacity, and the hover feedback should be the
+// one place the board asserts a fill fully.
+$action-fill-hover-opacity: 85%;
 // The numeric views ramp opacity as well as the tint, and that is what brings
 // their range back. Ramping the tint alone moved the negative cells over eleven
 // steps of lightness and almost no chroma at all -- 0.09 to 0.12 across the
@@ -275,7 +279,8 @@ $popover-fill-strength: 20%;
 			$colourset,
 			$strength: $action-fill-strength,
 			$tint: 'fg-light',
-			$opacity: $action-fill-opacity
+			$opacity: $action-fill-opacity,
+			$hover-opacity: $action-fill-hover-opacity
 		) {
 			color: get($colourset, 'fg-light');
 			background-color: wash(
@@ -294,7 +299,7 @@ $popover-fill-strength: 20%;
 						get($colourset, $tint) $strength + $fill-hover-lift,
 						get($colourset, 'bg-light')
 					),
-					$opacity
+					$hover-opacity
 				);
 			}
 		}
@@ -431,7 +436,7 @@ $popover-fill-strength: 20%;
 						get($colourset, $tint) $strength + $fill-hover-lift,
 						get($colourset, 'bg-light')
 					),
-					$action-fill-opacity
+					$action-fill-hover-opacity
 				);
 			}
 		}
