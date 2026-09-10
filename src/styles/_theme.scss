@@ -1,5 +1,6 @@
 @forward 'sass:map';
 @use 'sass:map' as *;
+@use 'sass:list';
 
 @use 'palette';
 
@@ -23,6 +24,7 @@
 		'sep-light': var(--#{$colour-name}-6),
 		'highlight-dark': var(--#{$colour-name}-5),
 		'highlight': var(--#{$colour-name}-4),
+		'bg-light': var(--#{$colour-name}-3),
 		'bg-dark': var(--#{$colour-name}-2),
 		'bg': var(--#{$colour-name}-1),
 		'fade-less': var(--#{$colour-name}-a3),
@@ -40,6 +42,17 @@ $neutrals: _colourset('baize');
 $foreground: get($neutrals, 'fg');
 $background: get($neutrals, 'bg');
 
+// Cream at reduced alpha, in three steps. Fifteen stylesheets were each
+// deriving their own -- nine landing on 0.45 and eleven on 0.5 for the same
+// job, which are not tellable apart on screen. Named once here, with the rule
+// that decides between them: a figure is full ink, the label naming it is
+// muted, and faint is for text that qualifies something else rather than
+// saying it -- a placeholder, a house rule under the layout print, a footnote
+// to a figure that is already on the page.
+$ink: $foreground;
+$ink-muted: oklch(from $foreground l c h / 0.5);
+$ink-faint: oklch(from $foreground l c h / 0.35);
+
 // Greys - container surfaces, borders and separators
 $greys: $neutrals;
 
@@ -49,9 +62,10 @@ $warnings: _colourset('gold');
 $errors: _colourset('ruby');
 $infos: _colourset('sky');
 
-// The printed ink, and the fill a Hit cell carries. Held apart from the
-// neutrals so a Hit and a Surrender are not the same colour: both are quiet
-// next to Stand and Double, but they are different actions.
+// The printed ink, and the fill a Surrender cell carries. Sand is the palette's
+// cream: the warmest scale with almost no chroma to it, which is what suits the
+// one cell on the EV board that is not a way of playing the hand. Held apart
+// from the neutrals because baize has a real green in it and this does not.
 $sands: _colourset('sand');
 
 $white: var(--white-a12);
@@ -65,6 +79,14 @@ $stock-shade: var(--stock-shade);
 $stock-ink: var(--stock-ink);
 $stock-ink-red: var(--stock-ink-red);
 
+// The felt's own ramp, lit centre to the unlit far end. Held as named steps rather
+// than reached for by scale number, because the baize gradient is the one place
+// the scale is read as a *material* -- a table lit from above -- rather than as
+// a set of surface and ink slots.
+$felt-lit: var(--baize-5);
+$felt: var(--baize-4);
+$felt-deep: var(--baize-2);
+
 $panel: var(--panel);
 $rail: var(--rail-4);
 $rail-lit: var(--rail-6);
@@ -75,19 +97,57 @@ $rail-deep: var(--rail-2);
 $rule: var(--baize-a2);
 $rule-strong: var(--baize-a3);
 
+// Black over baize: the app's second material, and the one that had no name.
+// A cut is how far into the table a surface is sunk, and sixteen alphas were
+// in use for it -- every stylesheet choosing again, and choosing differently.
+// Six steps rather than four, because four cannot be drawn without one of them
+// spanning 0.28 to 0.46, and that is a jump you can see.
+//
+// $scrim is the odd one out and is kept here anyway: it is not a cut but the
+// darkness *behind* a lifted object, so it belongs with the shadow mixins
+// below. It sits at the end of this ramp because it is made of the same thing.
+$cut-trace: rgb(0 0 0 / 0.12); // barely sunk: the Play felt, a disabled fill
+$cut-light: rgb(0 0 0 / 0.22); // a button at rest, the tab in play
+$cut: rgb(0 0 0 / 0.3); // a field or a key cap -- somewhere you write
+$cut-deep: rgb(0 0 0 / 0.35); // genuinely hollow: a discard rack, a focused field
+$cut-pressed: rgb(0 0 0 / 0.45); // the bottom of a press, and nothing else
+$scrim: rgb(0 0 0 / 0.55); // behind a dialog or the drawer
+
+// Radius says what a thing is made of, and follows the same three relationships
+// the shadows below do: 2px for something cut into the felt, because a cut edge
+// is nearly sharp; 3px for a panel laid on it; 6px for a lifted object, which
+// has a real edge catching real light. Left as literals rather than tokens --
+// a radius reads perfectly well as a number, and naming it would buy nothing.
+//
+// Two objects sit outside the rule on purpose, both because they are only a few
+// pixels tall and a radius from the ladder would round them into lozenges: the
+// Sim trajectory's 3px legend swatch, and the Play view's card backs at phone
+// size. Anything with room for the rule should follow it.
+
 // The baize itself: a woven nap over a lit centre falling away to the rail.
 // The two repeating gradients are the weave; the radial is the pit light.
+//
+// The light is fixed to the viewport; the cloth is not. A pit light hangs over
+// the table rather than over the page, and left scrolling the lit spot
+// stretched to whatever height the content happened to be and slid off the top
+// entirely on a long Sim run, so the ground under a panel depended on how far
+// down the page it was. The nap is the opposite case: it is the material
+// itself, and a weave that holds still while the page moves over it reads as a
+// texture printed on the glass rather than as cloth. So the two repeating
+// gradients scroll with the document and only the radial is pinned.
+//
+// Pinning it compresses the whole ramp into one screen, which would make the
+// light harsher than it was, so the fall-off is softened to compensate: the
+// radial is wider and stops at $felt-deep rather than running down to
+// --baize-1. That roughly halves the lightness spread visible at once, which
+// is what the EV grid's fills are composited over.
 @mixin baize {
-	background-color: get($neutrals, 'bg');
+	background-color: $felt;
+	background-attachment: scroll, scroll, fixed;
 	background-image:
 		repeating-linear-gradient(45deg, rgb(255 255 255 / 0.014) 0 1px, transparent 1px 3px),
 		repeating-linear-gradient(-45deg, rgb(0 0 0 / 0.035) 0 1px, transparent 1px 3px),
-		radial-gradient(
-			120% 80% at 50% 0%,
-			get($neutrals, 'bg-dark') 0%,
-			get($neutrals, 'bg') 55%,
-			oklch(from get($neutrals, 'bg') calc(l * 0.72) c h) 100%
-		);
+		radial-gradient(150% 90% at 50% 0%, $felt-lit 0%, $felt 45%, $felt-deep 100%);
 }
 
 // The padded rail bounding the table, carrying the header and the footer.
@@ -135,10 +195,36 @@ $shadow-light: $black;
 		0 2px 6px oklch(from $colour l c h / 0.2);
 }
 
-@mixin shadow($colour: $shadow-base) {
+// Which way the light is blocked. Almost everything lifted off the table casts
+// downward, and the two objects that do not lie on it were the two rolling
+// their own box-shadow: the rail overhangs the felt, and the settings drawer
+// slides in from the side. A direction was all either of them wanted.
+$_shadow-directions: (
+	'down': (
+		0,
+		1,
+	),
+	'up': (
+		0,
+		-1,
+	),
+	'right': (
+		1,
+		0,
+	),
+	'left': (
+		-1,
+		0,
+	),
+);
+
+@mixin shadow($colour: $shadow-base, $direction: 'down') {
+	$vector: get($_shadow-directions, $direction);
+	$x: list.nth($vector, 1);
+	$y: list.nth($vector, 2);
 	box-shadow:
-		0 2px 4px oklch(from $colour l c h / 0.28),
-		0 8px 20px oklch(from $colour l c h / 0.3);
+		($x * 2px) ($y * 2px) 4px oklch(from $colour l c h / 0.28),
+		($x * 8px) ($y * 8px) 20px oklch(from $colour l c h / 0.3);
 }
 
 @mixin shadow-inset($colour: $shadow-base) {
@@ -146,6 +232,19 @@ $shadow-light: $black;
 		inset 0 1px 3px oklch(from $colour l c h / 0.35),
 		inset 0 4px 12px oklch(from $colour l c h / 0.25);
 }
+
+// Two kinds of local box-shadow stay hand-written on purpose, and neither is a
+// lapse from the three above.
+//
+// A cut only a few pixels deep -- a toggle's slot, the discard rack, a field --
+// carries its own `inset 0 1px 2px` shading. That is the shape of the cut
+// rather than an elevation, and `shadow-inset` at 12px of blur would fill a
+// 7px track solid.
+//
+// A chip is the other: it sits at three heights, lifting under the pointer and
+// sinking under a press, and it carries a lit top edge that is a bevel rather
+// than a shadow. An object that moves needs more elevations than the one
+// `shadow()` describes, so it keeps its own.
 
 /* - MOTION - */
 
@@ -207,10 +306,18 @@ $breakpoint-short: 600px;
 // A panel on the felt. Not a card lifted off a light page -- there is no light
 // page here -- but a slightly deeper patch of table, bounded by a printed
 // hairline. Nothing in the data views floats.
+//
+// Held just short of opaque so the lit felt reads through it. $panel is a fixed
+// colour and the felt under it is not, so an opaque panel is a fixed distance
+// below the table at the top of the page and a much smaller one at the bottom;
+// letting a little of the ground through keeps the panel the same depth of
+// table wherever it sits. Only panels drawn straight onto the felt get this --
+// the select menu, the drawer and the figure bands' tiles each have something
+// other than felt behind them, and stay opaque.
 @mixin card($bg-colour: null) {
 	padding: 20px;
 	margin-bottom: 30px;
-	background-color: $bg-colour or $panel;
+	background-color: $bg-colour or oklch(from $panel l c h / 0.65);
 	border: 1px solid $rule;
 	border-radius: 3px;
 	contain: layout;
@@ -249,7 +356,7 @@ $breakpoint-short: 600px;
 	border: 1px solid $rule-strong;
 	border-radius: 3px;
 	color: get($neutrals, 'fg');
-	background-color: rgb(0 0 0 / 0.22);
+	background-color: $cut-light;
 	cursor: pointer;
 	font-weight: 600;
 	// The lit top edge of a key cut into the felt; the press below sinks it.
@@ -263,7 +370,7 @@ $breakpoint-short: 600px;
 
 	&:hover:not(:disabled, .active) {
 		border-color: get($colourset, 'sep-dark');
-		background-color: rgb(0 0 0 / 0.34);
+		background-color: $cut-deep;
 		color: get($colourset, 'fg');
 	}
 
@@ -272,7 +379,7 @@ $breakpoint-short: 600px;
 	// only being known once its result arrives.
 	&:active:not(:disabled) {
 		transform: translateY(1px);
-		background-color: rgb(0 0 0 / 0.46);
+		background-color: $cut-pressed;
 		box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.45);
 		transition-duration: $dur-fast;
 	}
@@ -297,7 +404,7 @@ $breakpoint-short: 600px;
 	}
 
 	&:disabled {
-		background-color: rgb(0 0 0 / 0.1);
+		background-color: $cut-trace;
 		border-color: $rule;
 		color: get($neutrals, 'sep-dark');
 		box-shadow: none;
@@ -320,7 +427,7 @@ $breakpoint-short: 600px;
 	padding: 7px 9px;
 	border: 1px solid $rule-strong;
 	border-radius: 2px;
-	background-color: rgb(0 0 0 / 0.3);
+	background-color: $cut;
 	color: $foreground;
 	box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.25);
 	transition:
@@ -338,7 +445,7 @@ $breakpoint-short: 600px;
 	&:focus-visible {
 		outline: none;
 		border-color: $primary;
-		background-color: rgb(0 0 0 / 0.4);
+		background-color: $cut-deep;
 		box-shadow:
 			inset 0 1px 2px rgb(0 0 0 / 0.25),
 			0 0 0 1px $primary;
@@ -350,7 +457,7 @@ $breakpoint-short: 600px;
 	}
 
 	&::placeholder {
-		color: oklch(from $foreground l c h / 0.3);
+		color: $ink-faint;
 	}
 
 	// Every field wearing this is typed into rather than nudged, and the two
@@ -426,7 +533,7 @@ $breakpoint-short: 600px;
 	}
 
 	&:active:not(:disabled) {
-		background-color: rgb(0 0 0 / 0.2);
+		background-color: $cut-light;
 		box-shadow: none;
 		transform: none;
 	}
@@ -459,7 +566,7 @@ $breakpoint-short: 600px;
 	padding: 0 4px;
 	border: 1px solid $rule;
 	border-radius: 2px;
-	background-color: rgb(0 0 0 / 0.3);
+	background-color: $cut;
 	color: get($neutrals, 'fg-light');
 	font-size: 10px;
 	font-weight: 600;
@@ -502,7 +609,7 @@ $breakpoint-short: 600px;
 	}
 
 	&:active:not(:disabled) {
-		background-color: rgb(0 0 0 / 0.28);
+		background-color: $cut;
 		box-shadow: none;
 		transform: none;
 	}
@@ -549,17 +656,4 @@ $breakpoint-short: 600px;
 		width: 12px;
 		height: 12px;
 	}
-}
-
-// Pre/code block styling
-@mixin code-block($bg: rgb(0 0 0 / 0.3)) {
-	background-color: $bg;
-	padding: 15px;
-	border-radius: 2px;
-	white-space: pre-wrap;
-	word-wrap: break-word;
-	border: 1px solid $rule-strong;
-	font-family: 'Fira Mono', monospace;
-	font-size: 12px;
-	line-height: 1.5;
 }

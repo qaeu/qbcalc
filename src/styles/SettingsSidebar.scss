@@ -40,7 +40,7 @@
 			margin: -20px -20px 4px;
 			padding: 0 8px;
 			border-bottom: 1px solid $rule;
-			background-color: rgb(0 0 0 / 0.22);
+			background-color: $cut-light;
 		}
 
 		// Marked underneath in the cut card's gold, the same as the header's
@@ -88,7 +88,7 @@
 
 		&__calc-time {
 			@include print(12px, 0.01em, $caps: false);
-			color: oklch(from get($neutrals, 'fg') l c h / 0.45);
+			color: $ink-muted;
 		}
 
 		&__precision {

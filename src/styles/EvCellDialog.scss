@@ -3,7 +3,27 @@
 // Above the cell hover card's z-index of 20, so a card left open under the
 // pointer at the moment of the click cannot show through the backdrop.
 $dialog-z-index: 40;
-$action-chip-opacity: 0.95;
+// The one dialog in the app set on card stock rather than on the table. It is
+// the drill-down for a specific hand against a specific upcard, so the material
+// and the subject agree: a card is what it is about.
+//
+// That inverts the ground, and every ink and hairline elsewhere in the app is
+// cream on baize. These are their counterparts -- the same three-step ink rule
+// as `$ink` / `$ink-muted` / `$ink-faint`, read the other way up.
+$stock-ink-muted: oklch(from $stock-ink l c h / 0.62);
+$stock-ink-faint: oklch(from $stock-ink l c h / 0.42);
+$stock-rule: oklch(from $stock-ink l c h / 0.14);
+
+// Chips mix the saturated step into the stock rather than the light step into
+// the panel: over cream it is the dark end of a scale that reads as a tint.
+// Stronger than the grid's fills because they are washes on a dark ground and
+// these are washes on a light one, where the same percentage disappears.
+$action-chip-strength: 34%;
+// Surrender is held light here for the same reason it is on the board -- it is
+// not a way of playing the hand. Sand has almost no chroma to begin with, so on
+// cream this is the faintest chip of the five, which is the right amount of
+// voice for it.
+$surrender-chip-strength: 14%;
 
 @layer screen {
 	// Out here rather than beside the rules that use them: Sass leaves a nested
@@ -56,12 +76,17 @@ $action-chip-opacity: 0.95;
 	}
 
 	.ev-cell-dialog {
-		@include card;
-		@include shadow;
+		// No `shadow` on top: `card-stock` carries its own, and a bevelled lit top
+		// edge is part of the same `box-shadow` property, so a second include
+		// replaces the bevel rather than adding to the drop.
+		@include card-stock;
 		width: 100%;
 		max-width: 480px;
-		margin-bottom: 0;
-		border: 1px solid $rule-strong;
+		padding: 20px;
+		// A lifted object, and the only one here with a real edge catching real
+		// light -- so it takes the top of the radius ladder rather than the
+		// panel's 3px.
+		border-radius: 6px;
 
 		// Ark holds the dialog mounted while `data-state="closed"` plays out, so
 		// the close animation is what delays the unmount.
@@ -77,7 +102,7 @@ $action-chip-opacity: 0.95;
 			position: fixed;
 			inset: 0;
 			z-index: $dialog-z-index;
-			background-color: oklch(from $black l c h / 0.55);
+			background-color: $scrim;
 			backdrop-filter: blur(2px);
 
 			&[data-state='open'] {
@@ -112,13 +137,13 @@ $action-chip-opacity: 0.95;
 			@include print(16px, 0.18em);
 			margin: 0;
 			font-weight: 600;
-			color: get($neutrals, 'fg');
+			color: $stock-ink;
 		}
 
 		&__subtitle {
 			@include print(12px, 0.01em, $caps: false);
 			margin: 5px 0 0;
-			color: oklch(from get($neutrals, 'fg') l c h / 0.5);
+			color: $stock-ink-muted;
 		}
 
 		// Icon only, so it takes the shared icon-button chrome rather than the
@@ -127,6 +152,19 @@ $action-chip-opacity: 0.95;
 		// line of print, and a 34px square beside it sits taller than the title.
 		&__close {
 			@include icon-button(28px);
+			// The shared chrome is cream-on-baize: its ink, its hover wash and its
+			// hairline all vanish on stock, so each is restated the other way up.
+			color: $stock-ink-faint;
+
+			&:hover:not(:disabled) {
+				color: $stock-ink;
+				background-color: oklch(from $stock-ink l c h / 0.07);
+				border-color: $stock-rule;
+			}
+
+			&:active:not(:disabled) {
+				background-color: oklch(from $stock-ink l c h / 0.13);
+			}
 
 			svg {
 				width: 16px;
@@ -143,14 +181,14 @@ $action-chip-opacity: 0.95;
 			td {
 				padding: 8px 6px;
 				text-align: right;
-				border-bottom: 1px solid $rule;
+				border-bottom: 1px solid $stock-rule;
 				white-space: nowrap;
 			}
 
 			th[scope='col'] {
 				@include print(10px, 0.12em);
 				font-weight: 600;
-				color: oklch(from get($neutrals, 'fg') l c h / 0.5);
+				color: $stock-ink-muted;
 			}
 
 			th[scope='row'],
@@ -167,7 +205,7 @@ $action-chip-opacity: 0.95;
 				padding-left: 0;
 				padding-right: 0;
 				text-align: center;
-				color: get($neutrals, 'fg-light');
+				color: $stock-ink-faint;
 			}
 
 			.ev-cell-dialog__deviation-col {
@@ -178,7 +216,7 @@ $action-chip-opacity: 0.95;
 				padding-right: 0;
 				text-align: left;
 				vertical-align: middle;
-				color: get($neutrals, 'fg-light');
+				color: $stock-ink-faint;
 			}
 
 			// `display: block` already takes the icon off the text baseline; the
@@ -200,7 +238,7 @@ $action-chip-opacity: 0.95;
 
 			td {
 				font-variant-numeric: tabular-nums;
-				color: get($neutrals, 'fg-light');
+				color: $stock-ink-muted;
 			}
 
 			tbody tr:last-child th,
@@ -213,15 +251,19 @@ $action-chip-opacity: 0.95;
 			// column is already coloured by sign, and overriding that on one row
 			// would make the most important number the odd one out.
 			tr.is-optimal {
-				background-color: get($primaries, 'fade-light');
+				background-color: color-mix(in oklab, get($primaries, 'base') 22%, $stock);
 			}
 
+			// A card is printed in two inks, and this one is set on card stock, so
+			// the sign is carried the way a suit is: black for a hand that makes
+			// money, the red reserved for one that loses it. The app's mint and
+			// ruby are tuned to be read off baize and both go muddy on cream.
 			.is-positive {
-				color: get($successes, 'fg-light');
+				color: $stock-ink;
 			}
 
 			.is-negative {
-				color: get($errors, 'fg-light');
+				color: $stock-ink-red;
 			}
 		}
 
@@ -231,19 +273,17 @@ $action-chip-opacity: 0.95;
 			display: inline-block;
 			min-width: 68px;
 			padding: 3px 8px;
-			border-radius: 4px;
+			border-radius: 3px;
 			font-weight: 400;
 			text-align: center;
 
-			@mixin chip-colour($colourset) {
-				color: get($colourset, 'fg-light');
-				background-color: oklch(
-					from get($colourset, 'fade') l c h / calc(alpha * #{$action-chip-opacity})
-				);
+			@mixin chip-colour($colourset, $strength: $action-chip-strength) {
+				color: $stock-ink;
+				background-color: color-mix(in oklab, get($colourset, 'base') $strength, $stock);
 			}
 
 			&.is-hit {
-				@include chip-colour($sands);
+				@include chip-colour($successes);
 			}
 
 			&.is-stand {
@@ -259,7 +299,7 @@ $action-chip-opacity: 0.95;
 			}
 
 			&.is-surrender {
-				@include chip-colour($neutrals);
+				@include chip-colour($sands, $surrender-chip-strength);
 			}
 		}
 
@@ -267,7 +307,7 @@ $action-chip-opacity: 0.95;
 			@include print(11px, 0.01em, $caps: false);
 			margin: 14px 0 0;
 			line-height: 1.5;
-			color: oklch(from get($neutrals, 'fg') l c h / 0.45);
+			color: $stock-ink-faint;
 		}
 	}
 }

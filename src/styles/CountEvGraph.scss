@@ -96,7 +96,7 @@ $skeleton-pulse-duration: 1.4s;
 		// Axis text wears text colours rather than the line's, so it stays legible
 		// whatever the fill does.
 		&__tick {
-			fill: oklch(from get($neutrals, 'fg') l c h / 0.5);
+			fill: $ink-muted;
 			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
 			font-size: 13px;
 			font-variant-numeric: tabular-nums;

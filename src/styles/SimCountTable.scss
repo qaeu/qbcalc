@@ -31,7 +31,7 @@
 
 			thead th {
 				@include print(10px, 0.14em);
-				color: oklch(from get($neutrals, 'fg') l c h / 0.5);
+				color: $ink-muted;
 				border-bottom-color: $rule-strong;
 			}
 
@@ -50,7 +50,7 @@
 			// bet nothing by the ramp. The rounds happened, so the row stays,
 			// but none of the money columns describe anything.
 			tr.is-sat-out {
-				color: oklch(from get($neutrals, 'fg') l c h / 0.35);
+				color: $ink-faint;
 
 				th,
 				td {

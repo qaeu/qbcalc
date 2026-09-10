@@ -44,7 +44,7 @@ $skeleton-pulse-duration: 1.4s;
 
 		&__label {
 			@include print(10px, 0.16em);
-			color: oklch(from get($neutrals, 'fg') l c h / 0.5);
+			color: $ink-muted;
 		}
 
 		&__value {
@@ -80,7 +80,7 @@ $skeleton-pulse-duration: 1.4s;
 			font-size: 13px;
 			font-weight: 500;
 			letter-spacing: 0.04em;
-			color: oklch(from get($neutrals, 'fg') l c h / 0.5);
+			color: $ink-muted;
 		}
 
 		// The box itself matches &__value's line box (same font-size and

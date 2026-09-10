@@ -34,7 +34,7 @@ $drawer-z-index: 40;
 		position: relative;
 		border-right: 1px solid $rule-strong;
 		background-color: $panel;
-		box-shadow: 6px 0 24px rgb(0 0 0 / 0.5);
+		@include shadow($direction: 'right');
 		// Taken back from the positioner above, which disowns them for the whole
 		// viewport it covers.
 		pointer-events: auto;
@@ -43,7 +43,7 @@ $drawer-z-index: 40;
 			position: fixed;
 			inset: 0;
 			z-index: $drawer-z-index;
-			background-color: oklch(from $black l c h / 0.5);
+			background-color: $scrim;
 			backdrop-filter: blur(2px);
 		}
 

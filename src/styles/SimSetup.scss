@@ -1,13 +1,18 @@
 @use 'base' as *;
 
 @layer screen {
+	// No panel. A panel grounds a bounded object -- a plot, a scrollable table,
+	// a grid with its own coordinate space -- because those need a surface that
+	// is demonstrably not the felt. This is a heading over a row of readings, and
+	// the heading and its rule already say where the section starts; a border
+	// around it was the view's fourth box in a column, saying "separate thing"
+	// three more times than the reader needed.
 	.sim-setup {
-		@include card;
-		margin-bottom: 0;
-
 		&__title {
 			@include panel-title;
 			margin-bottom: 12px;
+			padding-bottom: 10px;
+			border-bottom: 1px solid $rule;
 		}
 
 		// The rules as they would be printed on the felt's own layout line: a row
@@ -27,7 +32,7 @@
 			padding: 5px 9px;
 			border: 1px solid $rule-strong;
 			border-radius: 2px;
-			background-color: rgb(0 0 0 / 0.2);
+			background-color: $cut-light;
 			color: get($neutrals, 'fg');
 
 			// The precision reading, marked the same way the sidebar marks a full
@@ -41,7 +46,7 @@
 		&__hint {
 			@include print(11px, 0.01em, $caps: false);
 			margin: 12px 0 0;
-			color: oklch(from get($neutrals, 'fg') l c h / 0.45);
+			color: $ink-muted;
 		}
 	}
 }

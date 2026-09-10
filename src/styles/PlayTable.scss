@@ -69,8 +69,8 @@ $chip-colours: (
 		// Cut into the felt, not laid on it: a discard rack is a hole in a table.
 		&__shoe-track {
 			height: 7px;
-			border-radius: 1px;
-			background-color: rgb(0 0 0 / 0.32);
+			border-radius: 2px;
+			background-color: $cut-deep;
 			box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.4);
 			overflow: hidden;
 		}
@@ -120,10 +120,10 @@ $chip-colours: (
 			gap: 12px;
 			padding: 20px 16px 24px;
 			border: 1px solid $rule;
-			border-radius: 4px;
+			border-radius: 2px;
 			background:
 				radial-gradient(100% 70% at 50% 0%, rgb(255 255 255 / 0.05) 0%, transparent 70%),
-				rgb(0 0 0 / 0.14);
+				$cut-trace;
 		}
 
 		// The lettering stencilled across the table, above the dealer's spot.
@@ -139,7 +139,7 @@ $chip-colours: (
 		&__pays {
 			@include print(15px, 0.3em);
 			font-weight: 600;
-			color: oklch(from get($neutrals, 'fg') l c h / 0.6);
+			color: $ink-muted;
 			text-shadow: 0 1px 0 rgb(0 0 0 / 0.35);
 
 			@include phone {
@@ -150,7 +150,7 @@ $chip-colours: (
 
 		&__house-rule {
 			@include print(10px, 0.18em);
-			color: oklch(from get($neutrals, 'fg') l c h / 0.36);
+			color: $ink-faint;
 
 			@include phone {
 				letter-spacing: 0.12em;
@@ -167,7 +167,7 @@ $chip-colours: (
 			align-items: center;
 			gap: 7px;
 			padding: 8px 14px;
-			border-radius: 4px;
+			border-radius: 3px;
 			border: 1px solid transparent;
 
 			// The hand the buttons are about, when a split has made that a question.
@@ -179,7 +179,7 @@ $chip-colours: (
 
 		&__seat-label {
 			@include print(10px, 0.22em);
-			color: oklch(from get($neutrals, 'fg') l c h / 0.45);
+			color: $ink-muted;
 		}
 
 		&__hand-index {
@@ -518,8 +518,8 @@ $chip-colours: (
 			// against `EvTable.scss` before -- Hit wore the Stand colour and
 			// vice versa, despite the comment here claiming they matched.
 			&.is-hit {
-				border-color: oklch(from get($sands, 'base') l c h / 0.55);
-				color: get($sands, 'fg');
+				border-color: oklch(from get($successes, 'base') l c h / 0.55);
+				color: get($successes, 'fg-light');
 			}
 
 			&.is-stand {

@@ -11,7 +11,7 @@
 		// Above the felt's own stacking, so the rail's shadow falls on the table.
 		z-index: 3;
 		width: 100%;
-		box-shadow: 0 6px 22px rgb(0 0 0 / 0.45);
+		@include shadow($direction: 'down');
 
 		&__inner {
 			display: flex;
@@ -79,7 +79,7 @@
 			// close it keeps a hairline and a recess at rest -- the rail has no
 			// other object on it to read the button against.
 			border-color: $rule-strong;
-			background-color: rgb(0 0 0 / 0.2);
+			background-color: $cut-light;
 
 			// The shared hover draws its hairline onto a chromeless box; this one
 			// already has a stronger hairline than that, so it keeps it.

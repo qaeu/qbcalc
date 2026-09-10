@@ -32,14 +32,65 @@ $deviation-padding-x: $cell-padding-x - $deviation-ring-width;
 $deviation-padding-bottom: $deviation-padding-y - $cell-separator-width;
 // Keep in sync with HEAT_STEPS in src/utils/cellDisplay.ts.
 $heat-steps: 8;
-// Alpha the top step of a heat ramp reaches. Held well short of opaque so the
-// cell's text keeps its contrast at both ends of the scale, in either theme.
-$heat-max-alpha: 45%;
-$heat-hover-alpha: 12%;
-$popover-action-opacity: 0.95;
-// The grid cells read the action colour at a glance across the whole board,
-// so they lean on a stronger fill than the popover's single-row chip.
-$action-cell-opacity: 1.5;
+// The ends of a heat ramp. The floor is what the old scale lacked: at
+// `step / 8 * 45%` the first step landed at 5.6% and three of the eight were
+// indistinguishable from an unfilled cell, so half the ramp was spent before
+// anything was visible -- which is where the board read as too muted. Raising
+// the ceiling instead would have cost the strong cells their text contrast, so
+// the floor moved and the ceiling barely did. Still well short of opaque, so
+// the cell's text keeps its contrast at both ends of the scale, in either theme.
+$heat-min-alpha: 12%;
+$heat-max-alpha: 50%;
+// One lift for both fill systems, so pointing at a cell means the same amount
+// wherever the board is and whichever mode it is in.
+$fill-hover-lift: 8%;
+// One strength for the four playable actions. They were at three different
+// strengths -- 0.12, 0.195 and 0.24 -- not by choice but because each was its
+// colourset's `fade` alpha times a multiplier, and those alphas were never
+// aligned with each other: baize is 0.08, gold 0.13, and sand, ruby and sky are
+// 0.16. Nothing was being encoded by the difference.
+$action-fill-strength: 32%;
+// Surrender is the exception. It began as a forced one -- mixed into the green
+// panel there were only four tints that read as a fill at all, so Surrender had
+// to share Hit's cream and be told apart by weight. Grounding each fill in its
+// own scale ends that, and Hit moving to mint leaves the cream free: Surrender
+// has it to itself now. The weight stays anyway, because it says something
+// worth saying: this is the one cell on the board that is not a way of playing
+// the hand.
+$surrender-fill-strength: 16%;
+// Split is the exception in the other direction, and the reason is what brown
+// is: a dark yellow. Gold's step 11 mixed down to the strength the others take
+// lands near L48, and at that lightness the hue reads as brown rather than as
+// gold however much chroma it carries -- more chroma only makes it a stronger
+// brown. So Split is drawn from the top of its scale instead, where the tint is
+// lighter and much less saturated, and carried further up. It ends the lightest
+// cell on the board, which the accent colour can afford to be.
+$split-tint: 'fg';
+$split-fill-strength: 38%;
+// A cell is a wash on the card, not a surface of its own. The colours above are
+// mixed opaque so each one holds its hue; this is what lets the card back
+// through afterwards, and it is a separate knob from strength because the two
+// say different things -- strength picks the colour, opacity says how firmly
+// the board asserts it.
+$action-fill-opacity: 85%;
+// The numeric views ramp opacity as well as the tint, and that is what brings
+// their range back. Ramping the tint alone moved the negative cells over eleven
+// steps of lightness and almost no chroma at all -- 0.09 to 0.12 across the
+// whole scale, which is why differences between them stopped being readable.
+// Fading the low end into the card instead takes chroma from 0.01 to 0.12, so a
+// weak cell is weak in both of the ways the eye measures rather than only one.
+//
+// The floor is low because of what sits either side of it: a cell one step into
+// the positive and a cell one step into the negative are next to nothing apart
+// in value, and the ramp should say so. At a half-strength floor they were
+// still legibly green and legibly red, which overstates the difference between
+// two hands that are both very close to break-even.
+$heat-min-opacity: 20%;
+$heat-max-opacity: 100%;
+// The popover carries one row rather than a whole board, so it does not need
+// the strength that reading a hundred cells at a glance does. Its chips sit on
+// the popover rather than on the card, so they stay opaque.
+$popover-fill-strength: 20%;
 
 @layer screen {
 	.ev-table {
@@ -88,6 +139,11 @@ $action-cell-opacity: 1.5;
 			border-spacing: 0;
 			table-layout: fixed;
 			width: 100%;
+			// No ground of its own: the card it sits in is the surface, and a
+			// second one painted inside it only shows up as a rectangle a shade
+			// off the card's own. What the fills needed from an opaque ground
+			// they now get from their own colour scales -- see `action-colour`
+			// below -- so the board can be drawn straight onto the card.
 			// A floor under the whole board, so a narrow screen scrolls the grid
 			// in the wrapper above rather than shrinking eleven columns until
 			// every cell ellipsises. Below this the fixed layout was clipping
@@ -139,23 +195,19 @@ $action-cell-opacity: 1.5;
 		th[scope='col'],
 		th[scope='row'] {
 			@include print(11px, 0.1em);
-			color: oklch(from get($neutrals, 'fg') l c h / 0.5);
+			color: $ink-muted;
 			font-weight: 600;
 		}
 
 		// The label column, held at a width its longest label fits in rather
 		// than left to share the ten upcards' allowance. It is the widest thing
 		// on the row -- "A,T", "8,8" -- and the one cell whose text says which
-		// hand the row is, so it is the last that should be ellipsised.
-		// Held against the near edge as well, so the hand a row is stays read
-		// off it once the board is wider than the phone it is being scrolled
-		// on. Opaque for the same reason -- the columns pass underneath it.
+		// hand the row is, so it is the last that should be ellipsised. It
+		// scrolls away with the rest of the board: pinning it needs an opaque
+		// backing for the columns to pass under, and the only thing left to
+		// paint it with is a fixed colour on a card that is not one.
 		th:first-child {
-			position: sticky;
-			left: 0;
-			z-index: 1;
 			width: $label-column-width;
-			background-color: $panel;
 			// No row rules down the labels, for the same reason the column
 			// headers along the top carry none: the rules divide the board, and
 			// the headings naming its rows sit outside it.
@@ -198,37 +250,73 @@ $action-cell-opacity: 1.5;
 			outline-offset: -2px;
 		}
 
-		@mixin action-colour($colourset, $opacity: 1) {
+		// Opacity applied after the fact, so the colour above is chosen at full
+		// strength and only then let down onto the card. Mixing towards
+		// `transparent` rather than restating the colour with an alpha keeps it
+		// working on a `color-mix` result, which has no channels to rewrite.
+		@function wash($colour, $opacity) {
+			@if $opacity >= 100% {
+				@return $colour;
+			}
+
+			@return color-mix(in oklab, $colour $opacity, transparent);
+		}
+
+		// A fill is its own colour mixed down into that colour's dark end, not
+		// laid over the table at an alpha and not mixed into the panel. Both of
+		// those put a green under it, and in oklab a warm tint blended into a
+		// green ground travels through the neutral axis on the way: a Hit came
+		// out at hue 141 and a Split at 122, which is to say both were still
+		// green, at less chroma than the felt they sat on. That is the mud. Sunk
+		// into their own scale's step 3 instead, they hold their hue all the way
+		// down -- sand and gold at 82, ruby at 12, sky at 237 -- and the strength
+		// only decides how far up the scale the cell has come.
+		@mixin action-colour(
+			$colourset,
+			$strength: $action-fill-strength,
+			$tint: 'fg-light',
+			$opacity: $action-fill-opacity
+		) {
 			color: get($colourset, 'fg-light');
-			background-color: oklch(
-				from get($colourset, 'fade') l c h / calc(alpha * #{$opacity})
+			background-color: wash(
+				color-mix(
+					in oklab,
+					get($colourset, $tint) $strength,
+					get($colourset, 'bg-light')
+				),
+				$opacity
 			);
 
 			&:hover {
-				background-color: oklch(
-					from get($colourset, 'fade-less') l c h / calc(alpha * #{$opacity})
+				background-color: wash(
+					color-mix(
+						in oklab,
+						get($colourset, $tint) $strength + $fill-hover-lift,
+						get($colourset, 'bg-light')
+					),
+					$opacity
 				);
 			}
 		}
 
 		td.is-hit {
-			@include action-colour($sands, $action-cell-opacity);
+			@include action-colour($successes);
 		}
 
 		td.is-stand {
-			@include action-colour($errors, $action-cell-opacity);
+			@include action-colour($errors);
 		}
 
 		td.is-double {
-			@include action-colour($infos, $action-cell-opacity);
+			@include action-colour($infos);
 		}
 
 		td.is-split {
-			@include action-colour($warnings, $action-cell-opacity);
+			@include action-colour($warnings, $split-fill-strength, $split-tint);
 		}
 
 		td.is-surrender {
-			@include action-colour($neutrals, $action-cell-opacity);
+			@include action-colour($sands, $surrender-fill-strength);
 		}
 
 		// One class per step rather than a gradient over the real value: a
@@ -236,15 +324,39 @@ $action-cell-opacity: 1.5;
 		// read by comparing cells to each other rather than by decoding an exact
 		// shade, so discrete steps lose nothing.
 		@mixin heat-colour($colourset, $step) {
-			$alpha: math.div($step, $heat-steps) * $heat-max-alpha;
+			// Step 0 belongs to the frequency ramp alone, which is sequential and
+			// has no meaningful zero fill -- it stays the bare cell, but it still
+			// lifts under the pointer the way its neighbours do.
+			$alpha: 0%;
+			$opacity: $heat-min-opacity;
+
+			@if $step > 0 {
+				$ratio: math.div($step, $heat-steps);
+				$alpha: $heat-min-alpha + $ratio * ($heat-max-alpha - $heat-min-alpha);
+				$opacity: $heat-min-opacity + $ratio * ($heat-max-opacity - $heat-min-opacity);
+			}
+
 			color: get($colourset, 'fg');
-			background-color: color-mix(in oklab, get($colourset, 'base') $alpha, transparent);
+
+			@if $alpha > 0% {
+				background-color: wash(
+					color-mix(
+						in oklab,
+						get($colourset, 'base') $alpha,
+						get($colourset, 'bg-light')
+					),
+					$opacity
+				);
+			}
 
 			&:hover {
-				background-color: color-mix(
-					in oklab,
-					get($colourset, 'base') $alpha + $heat-hover-alpha,
-					transparent
+				background-color: wash(
+					color-mix(
+						in oklab,
+						get($colourset, 'base') $alpha + $fill-hover-lift,
+						get($colourset, 'bg-light')
+					),
+					$opacity
 				);
 			}
 		}
@@ -288,10 +400,21 @@ $action-cell-opacity: 1.5;
 		// replaced. The ring is a real border with the fill clipped to the padding
 		// box, so it sits on the bare table background at exactly the colour that
 		// action's cells carry, rather than compositing over the fill underneath.
-		@mixin deviation-ring($colourset, $opacity: $action-cell-opacity) {
+		@mixin deviation-ring(
+			$colourset,
+			$strength: $action-fill-strength,
+			$tint: 'fg-light'
+		) {
 			padding: $deviation-padding-y $deviation-padding-x $deviation-padding-bottom;
 			border: $deviation-ring-width solid
-				oklch(from get($colourset, 'fade') l c h / calc(alpha * #{$opacity}));
+				wash(
+					color-mix(
+						in oklab,
+						get($colourset, $tint) $strength,
+						get($colourset, 'bg-light')
+					),
+					$action-fill-opacity
+				);
 			// The bottom edge carries the row's rule as well as the ring, so it takes
 			// the width of both; the rule itself is already painted over that last
 			// pixel by the shared cell rule above.
@@ -302,14 +425,19 @@ $action-cell-opacity: 1.5;
 			// Tracks the fill's own hover lift, so the ring and the cells it is
 			// quoting stay the same colour under the pointer too.
 			&:hover {
-				border-color: oklch(
-					from get($colourset, 'fade-less') l c h / calc(alpha * #{$opacity})
+				border-color: wash(
+					color-mix(
+						in oklab,
+						get($colourset, $tint) $strength + $fill-hover-lift,
+						get($colourset, 'bg-light')
+					),
+					$action-fill-opacity
 				);
 			}
 		}
 
 		td.was-hit {
-			@include deviation-ring($sands);
+			@include deviation-ring($successes);
 		}
 
 		td.was-stand {
@@ -321,11 +449,11 @@ $action-cell-opacity: 1.5;
 		}
 
 		td.was-split {
-			@include deviation-ring($warnings);
+			@include deviation-ring($warnings, $split-fill-strength, $split-tint);
 		}
 
 		td.was-surrender {
-			@include deviation-ring($neutrals);
+			@include deviation-ring($sands, $surrender-fill-strength);
 		}
 
 		td.is-loading {
@@ -475,23 +603,28 @@ $action-cell-opacity: 1.5;
 			text-align: center;
 
 			&.is-hit {
-				@include action-colour($sands, $popover-action-opacity);
+				@include action-colour($successes, $popover-fill-strength, $opacity: 100%);
 			}
 
 			&.is-stand {
-				@include action-colour($errors, $popover-action-opacity);
+				@include action-colour($errors, $popover-fill-strength, $opacity: 100%);
 			}
 
 			&.is-double {
-				@include action-colour($infos, $popover-action-opacity);
+				@include action-colour($infos, $popover-fill-strength, $opacity: 100%);
 			}
 
 			&.is-split {
-				@include action-colour($warnings, $popover-action-opacity);
+				@include action-colour(
+					$warnings,
+					$popover-fill-strength,
+					$split-tint,
+					$opacity: 100%
+				);
 			}
 
 			&.is-surrender {
-				@include action-colour($neutrals, $popover-action-opacity);
+				@include action-colour($sands, $popover-fill-strength, $opacity: 100%);
 			}
 		}
 

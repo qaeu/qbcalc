@@ -1,13 +1,14 @@
 @use 'base' as *;
 
 @layer screen {
+	// Bare for the same reason `.sim-setup` is: a run of controls under a
+	// heading is a section, not a bounded object needing a ground of its own.
 	.sim-config {
-		@include card;
-		margin-bottom: 0;
-
 		&__title {
 			@include panel-title;
 			margin-bottom: 14px;
+			padding-bottom: 10px;
+			border-bottom: 1px solid $rule;
 		}
 
 		// The same field width the sidebar's own form settles on, wrapped rather
@@ -71,7 +72,7 @@
 		&__bar {
 			height: 6px;
 			border-radius: 3px;
-			background-color: rgb(0 0 0 / 0.3);
+			background-color: $cut;
 			border: 1px solid $rule-strong;
 			overflow: hidden;
 		}
@@ -84,7 +85,7 @@
 
 		&__status {
 			@include print(11px, 0.02em, $caps: false);
-			color: oklch(from get($neutrals, 'fg') l c h / 0.5);
+			color: $ink-muted;
 			font-variant-numeric: tabular-nums;
 		}
 	}

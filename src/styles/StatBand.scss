@@ -36,7 +36,7 @@
 
 		&__label {
 			@include print(10px, 0.16em);
-			color: oklch(from get($neutrals, 'fg') l c h / 0.5);
+			color: $ink-muted;
 		}
 
 		&__value {
@@ -70,14 +70,14 @@
 			font-size: 13px;
 			font-weight: 500;
 			letter-spacing: 0.04em;
-			color: oklch(from get($neutrals, 'fg') l c h / 0.5);
+			color: $ink-muted;
 		}
 
 		// The second reading, under the figure: small, sentence-cased, and in the
 		// label's own muted ink so it reads as a footnote rather than a rival.
 		&__note {
 			@include print(10px, 0.02em, $caps: false);
-			color: oklch(from get($neutrals, 'fg') l c h / 0.45);
+			color: $ink-muted;
 			font-variant-numeric: tabular-nums;
 		}
 	}
