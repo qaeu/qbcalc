@@ -346,6 +346,31 @@ $chip-colours: (
 			}
 		}
 
+		// One shelf for every phase's controls, stacked in a single grid cell.
+		// The hidden panels still size the grid, so the shelf is always as tall
+		// as the tallest phase and nothing on the felt moves as the round turns
+		// from betting to acting to settled -- the same reservation `__info`
+		// makes for the result line, over a taller and more variable thing.
+		&__controls {
+			display: grid;
+		}
+
+		&__panel {
+			grid-area: 1 / 1;
+			display: flex;
+			flex-direction: column;
+			gap: 14px;
+			width: 100%;
+			// Not `display: none`: a panel out of the flow would stop reserving
+			// the height it is here for. Hidden this way it is also out of the
+			// tab order and untouchable, so only the live phase can be operated.
+			visibility: hidden;
+
+			&.is-shown {
+				visibility: visible;
+			}
+		}
+
 		&__rail {
 			display: flex;
 			flex-wrap: wrap;

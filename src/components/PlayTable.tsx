@@ -1,7 +1,8 @@
 /**
- * The felt: the shoe's state, the cards on the table, and the one row of
- * buttons that is live in the current phase. Presentational -- every decision
- * belongs to `PlayView`, which owns the game and the coach.
+ * The felt: the shoe's state, the cards on the table, and every phase's
+ * controls on one shelf, of which only the live phase's are shown.
+ * Presentational -- every decision belongs to `PlayView`, which owns the game
+ * and the coach.
  */
 
 import { Progress } from '@ark-ui/solid/progress';
@@ -638,142 +639,160 @@ const PlayTable: Component<PlayTableProps> = (props) => {
 				</Show>
 			</div>
 
-			<Show when={settled()}>
-				<div class="play-table__pause">
-					<div class="play-table__slot">
-						<span class="play-table__key">Space</span>
-						<button
-							type="button"
-							class="play-table__control highlight"
-							onClick={() => props.onNextHand()}
-						>
-							Next hand
-						</button>
-					</div>
-					<div class="play-table__slot">
-						<span class="play-table__key">R</span>
-						<button
-							type="button"
-							class="play-table__control"
-							disabled={!canDeal()}
-							onClick={() => props.onDeal()}
-						>
-							Redeal same bet
-						</button>
+			{/* One shelf for all of them: every phase's controls stay mounted, and
+			    the hidden panels still size the grid, so the felt keeps its height
+			    as the round turns from betting to acting to settled instead of
+			    growing and shrinking under the page. */}
+			<div class="play-table__controls">
+				<div
+					class={`play-table__panel ${settled() ? 'is-shown' : ''}`}
+					aria-hidden={!settled()}
+				>
+					<div class="play-table__pause">
+						<div class="play-table__slot">
+							<span class="play-table__key">Space</span>
+							<button
+								type="button"
+								class="play-table__control highlight"
+								onClick={() => props.onNextHand()}
+							>
+								Next hand
+							</button>
+						</div>
+						<div class="play-table__slot">
+							<span class="play-table__key">R</span>
+							<button
+								type="button"
+								class="play-table__control"
+								disabled={!canDeal()}
+								onClick={() => props.onDeal()}
+							>
+								Redeal same bet
+							</button>
+						</div>
 					</div>
 				</div>
-			</Show>
 
-			<Show when={phase() === 'bet'}>
-				<div class="play-table__rail">
-					<div class="play-table__slot">
-						<span class="play-table__key">0</span>
-						<button
-							type="button"
-							class="play-table__control"
-							onClick={() => props.onClear()}
-						>
-							Clear
-						</button>
-					</div>
-					<For each={CHIP_DENOMINATIONS}>
-						{(chip, index) => (
-							<div class="play-table__slot">
-								<span class="play-table__key">{index() + 1}</span>
-								<button
-									type="button"
-									class={`play-table__chip play-table__chip--${chip}`}
-									disabled={props.bet + chip > props.stack}
-									onClick={() => props.onChip(chip)}
-								>
-									{/* Wrapped so it can be lifted above the chip's inlay ring,
+				<div
+					class={`play-table__panel ${phase() === 'bet' ? 'is-shown' : ''}`}
+					aria-hidden={phase() !== 'bet'}
+				>
+					<div class="play-table__rail">
+						<div class="play-table__slot">
+							<span class="play-table__key">0</span>
+							<button
+								type="button"
+								class="play-table__control"
+								onClick={() => props.onClear()}
+							>
+								Clear
+							</button>
+						</div>
+						<For each={CHIP_DENOMINATIONS}>
+							{(chip, index) => (
+								<div class="play-table__slot">
+									<span class="play-table__key">{index() + 1}</span>
+									<button
+										type="button"
+										class={`play-table__chip play-table__chip--${chip}`}
+										disabled={props.bet + chip > props.stack}
+										onClick={() => props.onChip(chip)}
+									>
+										{/* Wrapped so it can be lifted above the chip's inlay ring,
 									    which is drawn as an ::after over the button's own content. */}
-									<span class="play-table__chip-value">{chip}</span>
-								</button>
-							</div>
-						)}
-					</For>
-				</div>
-				<div class="play-table__rail-controls">
-					{/* A shuffle-up is the shoe's business rather than the bet's, but
+										<span class="play-table__chip-value">{chip}</span>
+									</button>
+								</div>
+							)}
+						</For>
+					</div>
+					<div class="play-table__rail-controls">
+						{/* A shuffle-up is the shoe's business rather than the bet's, but
 					    between rounds is the only moment it can be asked for, so it
 					    sits with the other things the player does while betting. */}
-					<div class="play-table__slot">
-						<span class="play-table__key">N</span>
-						<button
-							type="button"
-							class="play-table__control"
-							onClick={() => props.onNewShoe()}
-						>
-							New shoe
-						</button>
-					</div>
-					<div class="play-table__slot">
-						<span class="play-table__key">R</span>
-						<button
-							type="button"
-							class="play-table__control"
-							onClick={() => props.onRepeat()}
-						>
-							Repeat
-						</button>
-					</div>
-					<div class="play-table__slot">
-						<span class="play-table__key">Space</span>
-						<button
-							type="button"
-							class="play-table__control highlight"
-							disabled={!canDeal()}
-							onClick={() => props.onDeal()}
-						>
-							Deal
-						</button>
+						<div class="play-table__slot">
+							<span class="play-table__key">N</span>
+							<button
+								type="button"
+								class="play-table__control"
+								onClick={() => props.onNewShoe()}
+							>
+								New shoe
+							</button>
+						</div>
+						<div class="play-table__slot">
+							<span class="play-table__key">R</span>
+							<button
+								type="button"
+								class="play-table__control"
+								onClick={() => props.onRepeat()}
+							>
+								Repeat
+							</button>
+						</div>
+						<div class="play-table__slot">
+							<span class="play-table__key">Space</span>
+							<button
+								type="button"
+								class="play-table__control highlight"
+								disabled={!canDeal()}
+								onClick={() => props.onDeal()}
+							>
+								Deal
+							</button>
+						</div>
 					</div>
 				</div>
-			</Show>
 
-			<Show when={phase() === 'insurance'}>
-				<div class="play-table__actions">
-					<button
-						type="button"
-						class="play-table__action"
-						onClick={() => props.onInsurance(true)}
-					>
-						<span class="play-table__key">1</span>Insurance
-					</button>
-					<button
-						type="button"
-						class="play-table__action"
-						onClick={() => props.onInsurance(false)}
-					>
-						<span class="play-table__key">2</span>No insurance
-					</button>
+				<div
+					class={`play-table__panel ${phase() === 'insurance' ? 'is-shown' : ''}`}
+					aria-hidden={phase() !== 'insurance'}
+				>
+					<div class="play-table__actions">
+						<button
+							type="button"
+							class="play-table__action"
+							onClick={() => props.onInsurance(true)}
+						>
+							<span class="play-table__key">1</span>Insurance
+						</button>
+						<button
+							type="button"
+							class="play-table__action"
+							onClick={() => props.onInsurance(false)}
+						>
+							<span class="play-table__key">2</span>No insurance
+						</button>
+					</div>
 				</div>
-			</Show>
 
-			<Show when={phase() === 'act'}>
-				<div class="play-table__actions">
-					<For each={offered()}>
-						{(action, index) => (
-							// Only the actions this hand can actually take are drawn -- no
-							// split on a hard 16, no double once it has hit. The key each
-							// one answers to is still its slot on the table's bar rather
-							// than its position in the row, so a digit means the same
-							// action every hand however few buttons are showing.
-							<Show when={legal().includes(action)}>
-								<button
-									type="button"
-									class={`play-table__action ${ACTION_CLASS[action]}`}
-									onClick={() => props.onAction(action)}
-								>
-									<span class="play-table__key">{index() + 1}</span>
-									{formatActionLabel(action)}
-								</button>
-							</Show>
-						)}
-					</For>
+				<div
+					class={`play-table__panel ${phase() === 'act' ? 'is-shown' : ''}`}
+					aria-hidden={phase() !== 'act'}
+				>
+					<div class="play-table__actions">
+						<For each={offered()}>
+							{(action, index) => (
+								// Only the actions this hand can actually take are drawn -- no
+								// split on a hard 16, no double once it has hit. The key each
+								// one answers to is still its slot on the table's bar rather
+								// than its position in the row, so a digit means the same
+								// action every hand however few buttons are showing.
+								<Show when={legal().includes(action)}>
+									<button
+										type="button"
+										class={`play-table__action ${ACTION_CLASS[action]}`}
+										onClick={() => props.onAction(action)}
+									>
+										<span class="play-table__key">{index() + 1}</span>
+										{formatActionLabel(action)}
+									</button>
+								</Show>
+							)}
+						</For>
+					</div>
 				</div>
-			</Show>
+			</div>
 
 			<Show when={correction()}>
 				{(shown) => (

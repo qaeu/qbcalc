@@ -35,6 +35,16 @@ function dealtState(
 	return startRound(game, 25);
 }
 
+/**
+ * Whether the control matched by `selector` is on the live panel. Every phase's
+ * controls stay mounted so the felt holds its height, so being in the document
+ * is no longer the same as being on the table.
+ */
+function onLivePanel(selector: string): boolean {
+	const control = document.querySelector(selector);
+	return control?.closest('.play-table__panel')?.classList.contains('is-shown') === true;
+}
+
 /** Hard 16 against a nine: hit, stand and double are live; split and surrender are not. */
 const HARD_16 = ['T', '9', '6', '5'] as const;
 
@@ -95,7 +105,7 @@ describe('PlayTable', () => {
 
 			renderTable({ state: settled, bet: 0 });
 
-			expect(document.querySelector('.play-table__chip--25')).toBeNull();
+			expect(onLivePanel('.play-table__chip--25')).toBe(false);
 			expect(screen.getByRole('button', { name: 'Next hand' })).toBeDefined();
 			expect(screen.getByRole('button', { name: 'Redeal same bet' })).toBeDefined();
 		});
@@ -141,7 +151,7 @@ describe('PlayTable', () => {
 			expect(screen.getByText('Lose')).toBeDefined();
 			fireEvent.click(screen.getByRole('button', { name: 'Next hand' }));
 
-			expect(document.querySelector('.play-table__chip--25')).not.toBeNull();
+			expect(onLivePanel('.play-table__chip--25')).toBe(true);
 			expect(screen.getByRole('button', { name: 'Repeat' })).toBeDefined();
 			expect(screen.queryByText('Lose')).toBeNull();
 			expect(document.querySelector('.play-table__card')).toBeNull();
@@ -155,7 +165,7 @@ describe('PlayTable', () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Redeal same bet' }));
 
 			expect(onDeal).toHaveBeenCalledOnce();
-			expect(document.querySelector('.play-table__chip--25')).toBeNull();
+			expect(onLivePanel('.play-table__chip--25')).toBe(false);
 		});
 
 		it('answers 0, r and space for Clear, Repeat and Deal', () => {
