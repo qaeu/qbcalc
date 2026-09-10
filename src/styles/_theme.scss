@@ -50,7 +50,7 @@ $background: get($neutrals, 'bg');
 // saying it -- a placeholder, a house rule under the layout print, a footnote
 // to a figure that is already on the page.
 $ink: $foreground;
-$ink-muted: oklch(from $foreground l c h / 0.5);
+$ink-muted: oklch(from $foreground l c h / 0.6);
 $ink-faint: oklch(from $foreground l c h / 0.35);
 
 // Greys - container surfaces, borders and separators
@@ -83,8 +83,8 @@ $stock-ink-red: var(--stock-ink-red);
 // than reached for by scale number, because the baize gradient is the one place
 // the scale is read as a *material* -- a table lit from above -- rather than as
 // a set of surface and ink slots.
-$felt-lit: var(--baize-5);
-$felt: var(--baize-4);
+$felt-lit: var(--baize-4);
+$felt: var(--baize-3);
 $felt-deep: var(--baize-2);
 
 $panel: var(--panel);
@@ -94,8 +94,8 @@ $rail-deep: var(--rail-2);
 
 // Hairlines printed on the felt. The rules that structure the data views are
 // ink, not borders in a lighter grey -- there is no lighter grey here.
-$rule: var(--baize-a2);
-$rule-strong: var(--baize-a3);
+$rule: var(--baize-a3);
+$rule-strong: var(--baize-a4);
 
 // Black over baize: the app's second material, and the one that had no name.
 // A cut is how far into the table a surface is sunk, and sixteen alphas were
@@ -317,7 +317,7 @@ $breakpoint-short: 600px;
 @mixin card($bg-colour: null) {
 	padding: 20px;
 	margin-bottom: 30px;
-	background-color: $bg-colour or oklch(from $panel l c h / 0.65);
+	background-color: $bg-colour or oklch(from $panel l c h / 0.5);
 	border: 1px solid $rule;
 	border-radius: 3px;
 	contain: layout;
