@@ -8,6 +8,7 @@ import {
 	formatRounds,
 } from '#utils/format';
 import { signClass } from '#utils/actionStyle';
+import { createBalancedLastLine } from '#utils/gridBalance';
 import { loadingPhase } from '#utils/loadingPhase';
 
 import '#styles/EvSummary';
@@ -74,73 +75,83 @@ interface EvSummaryProps {
  * Every card is derived from the result rather than computed from one, so they
  * all follow a spread edit without a recalculation.
  */
-const EvSummary: Component<EvSummaryProps> = (props) => (
-	<div class="ev-summary">
-		<SummaryCard
-			label="Player Edge"
-			value={
-				props.bankroll === undefined ?
-					undefined
-				:	formatEvPercent(props.bankroll.edgePercent)
-			}
-			unit="%"
-			sign={props.bankroll?.edgePercent}
-			loading={props.loading}
-			phase={loadingPhase(props.seed, 0, 0)}
-		/>
-		<SummaryCard
-			label="Win Rate"
-			value={
-				props.bankroll === undefined ?
-					undefined
-				:	formatCurrency(props.bankroll.winRatePerHour)
-			}
-			unit=" /hr"
-			sign={props.bankroll?.winRatePerHour}
-			loading={props.loading}
-			phase={loadingPhase(props.seed, 0, 1)}
-		/>
-		<SummaryCard
-			label="Average Bet"
-			value={
-				props.bankroll === undefined ?
-					undefined
-				:	formatCurrency(props.bankroll.averageBetCurrency).replace('+', '')
-			}
-			loading={props.loading}
-			phase={loadingPhase(props.seed, 0, 2)}
-		/>
-		<SummaryCard
-			label="Std Dev"
-			value={
-				props.bankroll === undefined ?
-					undefined
-				:	formatCurrency(props.bankroll.sdPerHour).replace('+', '')
-			}
-			unit=" /hr"
-			loading={props.loading}
-			phase={loadingPhase(props.seed, 0, 3)}
-		/>
-		<SummaryCard
-			label="N0"
-			value={
-				props.bankroll === undefined ? undefined : formatRounds(props.bankroll.n0Rounds)
-			}
-			unit=" rounds"
-			loading={props.loading}
-			phase={loadingPhase(props.seed, 0, 4)}
-		/>
-		<SummaryCard
-			label="Risk of Ruin"
-			value={
-				props.bankroll === undefined ?
-					undefined
-				:	formatProbabilityPercent(props.bankroll.riskOfRuin)
-			}
-			loading={props.loading}
-			phase={loadingPhase(props.seed, 0, 5)}
-		/>
-	</div>
-);
+const EvSummary: Component<EvSummaryProps> = (props) => {
+	let band: HTMLDivElement | undefined;
+	// The card count is fixed here, so only a resize can change where the last
+	// line starts.
+	createBalancedLastLine(
+		() => band,
+		() => 0
+	);
+
+	return (
+		<div class="ev-summary" ref={band}>
+			<SummaryCard
+				label="Player Edge"
+				value={
+					props.bankroll === undefined ?
+						undefined
+					:	formatEvPercent(props.bankroll.edgePercent)
+				}
+				unit="%"
+				sign={props.bankroll?.edgePercent}
+				loading={props.loading}
+				phase={loadingPhase(props.seed, 0, 0)}
+			/>
+			<SummaryCard
+				label="Win Rate"
+				value={
+					props.bankroll === undefined ?
+						undefined
+					:	formatCurrency(props.bankroll.winRatePerHour)
+				}
+				unit=" /hr"
+				sign={props.bankroll?.winRatePerHour}
+				loading={props.loading}
+				phase={loadingPhase(props.seed, 0, 1)}
+			/>
+			<SummaryCard
+				label="Average Bet"
+				value={
+					props.bankroll === undefined ?
+						undefined
+					:	formatCurrency(props.bankroll.averageBetCurrency).replace('+', '')
+				}
+				loading={props.loading}
+				phase={loadingPhase(props.seed, 0, 2)}
+			/>
+			<SummaryCard
+				label="Std Dev"
+				value={
+					props.bankroll === undefined ?
+						undefined
+					:	formatCurrency(props.bankroll.sdPerHour).replace('+', '')
+				}
+				unit=" /hr"
+				loading={props.loading}
+				phase={loadingPhase(props.seed, 0, 3)}
+			/>
+			<SummaryCard
+				label="N0"
+				value={
+					props.bankroll === undefined ? undefined : formatRounds(props.bankroll.n0Rounds)
+				}
+				unit=" rounds"
+				loading={props.loading}
+				phase={loadingPhase(props.seed, 0, 4)}
+			/>
+			<SummaryCard
+				label="Risk of Ruin"
+				value={
+					props.bankroll === undefined ?
+						undefined
+					:	formatProbabilityPercent(props.bankroll.riskOfRuin)
+				}
+				loading={props.loading}
+				phase={loadingPhase(props.seed, 0, 5)}
+			/>
+		</div>
+	);
+};
 
 export default EvSummary;

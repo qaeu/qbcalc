@@ -2,32 +2,51 @@
 
 @layer screen {
 	// The printed band the Bankroll figures are set in, lifted out of PlayStats
-	// so the Sim stats read the same way. The dividing hairlines are the grid's
-	// own 1px gaps showing the container through, which is what keeps them
-	// correct however many figures there are and wherever the row wraps -- a
-	// per-cell border cannot know which cell starts a line. See EvSummary.scss,
-	// which still carries its own copy of this for its loading skeletons.
+	// so the Sim stats read the same way. The figures sit straight on the page:
+	// no fill, and rules above and below only, so the band reads as a line of type
+	// rather than as a tray. See EvSummary.scss, which still carries its own
+	// copy of this for its loading skeletons.
 	.stat-band {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-		gap: 1px;
-		background-color: $rule-strong;
-		border: 1px solid $rule-strong;
-		border-radius: 3px;
+		border-block: 1px solid $rule-strong;
 		overflow: hidden;
 
 		@include phone {
 			grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
 		}
 
-		// Opaque on purpose: the hairlines are the container showing through the
-		// gaps, so a translucent figure would tint itself with them.
+		// The dividing hairlines are the cells' own borders, pulled back over the
+		// neighbour by a negative margin, so the ones that would fall on the
+		// band's own edges land outside the padding box and are clipped away --
+		// which a plain per-cell border cannot arrange for itself, since it
+		// cannot know where the row wraps. The row rule is drawn under each cell
+		// rather than over it, so a wrapped last line that doesn't fill its
+		// columns still leaves a complete rule under the line above it.
 		&__card {
-			display: flex;
-			flex-direction: column;
+			// A subgrid of the band's own rows rather than a stack of its own, so
+			// the label, the figure and the note each sit in a row shared with
+			// every other cell on the line: a label that wraps to a second line
+			// makes room for itself across the whole line, and the figures stay
+			// level instead of one dropping below its neighbours. The row gap is
+			// set here, overriding the band's, so it applies between a cell's
+			// three rows and not between wrapped lines.
+			display: grid;
+			grid-template-rows: subgrid;
+			grid-row: span 3;
 			gap: 5px;
 			padding: 15px 18px 16px;
-			background-color: $panel;
+			border-bottom: 1px solid $rule-strong;
+			border-left: 1px solid $rule-strong;
+			margin: 0 0 -1px -1px;
+
+			// The figure a balanced last line starts on sits a column or two into
+			// the band rather than against its edge, so there is no edge to clip
+			// its rule away -- see `#utils/gridBalance`. Transparent rather than
+			// removed, so the cell keeps the width its border gives it.
+			&.is-line-start {
+				border-left-color: transparent;
+			}
 
 			@include phone {
 				padding: 12px 13px 13px;
@@ -36,6 +55,10 @@
 
 		&__label {
 			@include print(10px, 0.16em);
+			// Sat on the foot of the shared label row, so a one-line label stays
+			// next to its own figure rather than floating a line above it when a
+			// neighbour's label wraps.
+			align-self: end;
 			color: $ink-muted;
 		}
 

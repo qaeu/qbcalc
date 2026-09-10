@@ -11,6 +11,7 @@
 import { For, Show, type Component } from 'solid-js';
 
 import { signClass } from '#utils/actionStyle';
+import { createBalancedLastLine } from '#utils/gridBalance';
 
 import '#styles/StatBand';
 
@@ -36,29 +37,37 @@ interface StatBandProps {
 	figures: readonly StatFigure[];
 }
 
-const StatBand: Component<StatBandProps> = (props) => (
-	<div class="stat-band">
-		<For each={props.figures}>
-			{(figure) => (
-				<div class="stat-band__card">
-					<span class="stat-band__label">{figure.label}</span>
-					<span
-						class={`stat-band__value ${
-							figure.sign === undefined ? '' : (signClass(figure.sign) ?? '')
-						}`}
-					>
-						{figure.value}
-						<Show when={figure.unit}>
-							<span class="stat-band__unit">{figure.unit}</span>
+const StatBand: Component<StatBandProps> = (props) => {
+	let band: HTMLDivElement | undefined;
+	createBalancedLastLine(
+		() => band,
+		() => props.figures.length
+	);
+
+	return (
+		<div class="stat-band" ref={band}>
+			<For each={props.figures}>
+				{(figure) => (
+					<div class="stat-band__card">
+						<span class="stat-band__label">{figure.label}</span>
+						<span
+							class={`stat-band__value ${
+								figure.sign === undefined ? '' : (signClass(figure.sign) ?? '')
+							}`}
+						>
+							{figure.value}
+							<Show when={figure.unit}>
+								<span class="stat-band__unit">{figure.unit}</span>
+							</Show>
+						</span>
+						<Show when={figure.note}>
+							<span class="stat-band__note">{figure.note}</span>
 						</Show>
-					</span>
-					<Show when={figure.note}>
-						<span class="stat-band__note">{figure.note}</span>
-					</Show>
-				</div>
-			)}
-		</For>
-	</div>
-);
+					</div>
+				)}
+			</For>
+		</div>
+	);
+};
 
 export default StatBand;
