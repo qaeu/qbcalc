@@ -5,6 +5,12 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
+		// The figures are the payoff of the run above them, so a rule and a wide
+		// gap set them apart from the setup panel. The view's own 24px gap sits
+		// above the rule, so the margin doubles that side to match the padding.
+		margin-top: 24px;
+		padding-top: 48px;
+		border-top: 1px solid $rule-strong;
 
 		&__title {
 			@include panel-title;
