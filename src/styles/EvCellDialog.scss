@@ -102,7 +102,12 @@ $surrender-chip-strength: 14%;
 			position: fixed;
 			inset: 0;
 			z-index: $dialog-z-index;
-			background-color: $scrim;
+			// Lighter than the shared $scrim the drawer uses. The drawer covers
+			// the app with another panel of controls; this one drills into a
+			// single cell, so the board it came from stays readable behind it.
+			// Cast in the card's own warm near-black rather than pure black, to
+			// match the stock the panel above it is printed on.
+			background-color: oklch(from $stock-ink l c h / 0.2);
 			backdrop-filter: blur(2px);
 
 			&[data-state='open'] {
