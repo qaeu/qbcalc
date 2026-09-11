@@ -113,7 +113,7 @@ Gold is the cut card — the one bright object on a real table — so it is the
 accent, and everything that is _the one in play_ is marked in it: focus rings,
 the live tab's underline, a checked toggle, the trajectory's money line.
 
-The actions have fixed colours, and `EvTable`, `EvCellDialog` and `PlayTable`
+The actions have fixed colours, and `EvTable`, `EvCellDialog` and `Felt`
 must agree: Hit `$successes`, Stand `$errors`, Double `$infos`, Split
 `$warnings`, Surrender `$sands`. They were crossed over once, and a Stand on the
 felt reading as a Hit in the grid is a real bug.
@@ -272,8 +272,10 @@ The recurring devices:
   moves between readings.
 - **Shelve, don't swap.** The Play felt stacks every phase's controls in one
   grid cell and hides the inactive ones with `visibility`, not `display`, so the
-  shelf is always as tall as the tallest phase. Buttons that take turns in a slot
-  share the wider one's width.
+  shelf is always as tall as the tallest phase. A Train drill does the same with
+  its action bar, count field and hint, and a felt notice (a checkpoint, a
+  shuffle) quiets the seats with `visibility` so the table keeps its height.
+  Buttons that take turns in a slot share the wider one's width.
 - **Bands are subgrids.** `StatBand` and `EvSummary` make each cell a subgrid of
   the band's rows, so a label that wraps makes room across the whole line and
   the figures stay level. Their dividing hairlines are the cells' own borders

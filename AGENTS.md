@@ -2,7 +2,7 @@
 
 qbcalc is a client-side blackjack expected value (EV) calculator. It's a single-page static app built with **SolidJS** and **Vite**, performing all EV computation locally in the browser.
 
-> **Status**: early scaffold. `src/App.tsx` renders four views off a hash route — the EV grids (`EvTable`, backed by `src/utils/ev/`), the Bankroll cards and graph, the Play felt, and the Sim view, which deals a simulated session through the play stack and reports it against what the Bankroll view predicted.
+> **Status**: early scaffold. `src/App.tsx` renders five views off a hash route — the EV grids (`EvTable`, backed by `src/utils/ev/`), the Bankroll cards and graph, the Play felt, the Train view's graded drills on that same felt, and the Sim view, which deals a simulated session through the play stack and reports it against what the Bankroll view predicted.
 
 ### Key Architectural Principles
 
@@ -58,8 +58,15 @@ src/
     │   ├── shoe.ts              # A shoe dealt card by card, counted as it is seen
     │   ├── game.ts              # The round state machine, every table rule in it
     │   ├── coach.ts             # Grading a decision against the engine's prices
+    │   ├── reveal.ts            # The reveal queue's arithmetic, shared by both felts
     │   ├── session.ts           # The shoe and round on the felt, stored and read back
     │   └── stats.ts             # The lifetime training record
+    ├── train/
+    │   ├── drills.ts            # The three drills, their modes and seeded question pools
+    │   ├── grade.ts             # Pricing a question, grading answers and checkpoints
+    │   ├── run.ts               # A finished drill, and the words its verdicts use
+    │   ├── scores.ts            # Highscore boards: keys, ranking, validation
+    │   └── clock.ts             # The answer clock, and a Test's time limit
     ├── sim/
     │   ├── config.ts            # What a run is set to, and the options the form offers
     │   ├── indices.ts           # The Illustrious 18 as data, on the Hi-Lo count axis
@@ -164,7 +171,7 @@ Formatting is enforced by Prettier (`.prettierrc`): tabs, single quotes, 90 colu
   `$caps: false` for anything that is a sentence rather than a label — capitals are how a
   felt is lettered, not how prose is read.
 - **Action colours**: Hit is `$sands`, Stand `$errors`, Double `$infos`, Split `$warnings`,
-  Surrender `$neutrals`. `EvTable`, `EvCellDialog` and `PlayTable` must agree — they were
+  Surrender `$neutrals`. `EvTable`, `EvCellDialog` and `Felt` must agree — they were
   crossed over once, and a Stand on the felt reading as a Hit in the grid is a real bug.
 - **Dark mode**: Colours are CSS custom properties; toggling `.dark-theme` on `<body>`
   deepens the felt (the same table further from the pit light). Nothing sets it yet.
@@ -182,7 +189,7 @@ Formatting is enforced by Prettier (`.prettierrc`): tabs, single quotes, 90 colu
 
 ### EV Engine Guidelines
 
-- **Read the model doc first**: [docs/ev-model.md](./docs/ev-model.md) records the method, the simplifications the numbers rest on, and why the engine is shaped the way it is. Reasoning belongs there; the modules under `src/utils/ev/` keep short comments that point at it. [docs/bankroll-model.md](./docs/bankroll-model.md) does the same for `src/utils/bankroll.ts`, the bet-sizing and risk layer above it, [docs/count-rounds-model.md](./docs/count-rounds-model.md) for `src/utils/countRounds.ts`, the shoe simulation behind the weighted-EV graph card, [docs/play-model.md](./docs/play-model.md) for `src/utils/play/`, the dealt game, its coach and its training stats, and [docs/sim-model.md](./docs/sim-model.md) for `src/utils/sim/`, the simulated session the Sim view runs through that same stack.
+- **Read the model doc first**: [docs/ev-model.md](./docs/ev-model.md) records the method, the simplifications the numbers rest on, and why the engine is shaped the way it is. Reasoning belongs there; the modules under `src/utils/ev/` keep short comments that point at it. [docs/bankroll-model.md](./docs/bankroll-model.md) does the same for `src/utils/bankroll.ts`, the bet-sizing and risk layer above it, [docs/count-rounds-model.md](./docs/count-rounds-model.md) for `src/utils/countRounds.ts`, the shoe simulation behind the weighted-EV graph card, [docs/play-model.md](./docs/play-model.md) for `src/utils/play/`, the dealt game, its coach and its training stats, [docs/train-model.md](./docs/train-model.md) for `src/utils/train/`, the Train view's drills, how they are priced and graded, and how they are scored, and [docs/sim-model.md](./docs/sim-model.md) for `src/utils/sim/`, the simulated session the Sim view runs through that same stack.
 - **Pure functions**: EV calculation must be side-effect free and independent of SolidJS so it is directly unit testable.
 - **Rules as data**: Table variations (deck count, dealer hits soft 17, blackjack payout, DAS, surrender) belong in a `RuleSet` object passed in — never hardcoded.
 - **Exact over sampled**: Prefer exact combinatorial computation; if simulation is ever used, seed it so tests are deterministic.

@@ -4,6 +4,7 @@ import {
 	analyzeBankroll,
 	hiLoCountScale,
 	trueCountFrequencies,
+	wholeCountFrequencies,
 	RAMP_TRUE_COUNTS,
 	type BankrollInputs,
 } from '#utils/bankroll';
@@ -360,5 +361,33 @@ describe('analyzeBankroll', () => {
 		const result = analyse({ ramp: [1, 1, 2, 4, 8, 12, 12], unit: 0 });
 		expect(Number.isFinite(result.riskOfRuin)).toBe(true);
 		expect(result.riskOfRuin).toBe(1);
+	});
+});
+
+describe('wholeCountFrequencies', () => {
+	const wide = Array.from({ length: 61 }, (_, index) => index - 30);
+
+	it('is a distribution over the whole counts, peaked at zero', () => {
+		const shares = wholeCountFrequencies(SIX_DECK, HI_LO, wide);
+		expect(shares.reduce((sum, share) => sum + share, 0)).toBeCloseTo(1, 6);
+		const zero = shares[wide.indexOf(0)];
+		expect(Math.max(...shares)).toBe(zero);
+		expect(shares[wide.indexOf(2)]).toBeCloseTo(shares[wide.indexOf(-2)], 12);
+	});
+
+	it('spreads in the system’s own units, so a doubled system spreads twice as far', () => {
+		const at = (tags: TagValues, count: number) =>
+			wholeCountFrequencies(SIX_DECK, tags, [count])[0];
+		// Hi-Lo's share at zero is a doubled Hi-Lo's share at -1, 0 and +1 between them.
+		const doubled = scaleTags(HI_LO, 2);
+		expect(at(doubled, 0)).toBeLessThan(at(HI_LO, 0));
+		expect(at(doubled, -1) + at(doubled, 0) + at(doubled, 1)).toBeGreaterThan(
+			at(HI_LO, 0)
+		);
+	});
+
+	it('puts everything at zero for tags that tell no rank from another', () => {
+		const shares = wholeCountFrequencies(SIX_DECK, scaleTags(HI_LO, 0), [-1, 0, 1]);
+		expect(shares).toEqual([0, 1, 0]);
 	});
 });

@@ -1,9 +1,9 @@
 @use 'sass:map';
 @use 'base' as *;
 
-// The felt: the layout print, the seats, the card stock and the chip rail. Its
-// materials and the reservations that keep it from moving as a round turns are in
-// docs/design-language.md.
+// The Play view around the shared felt (Felt.scss): the shoe's HUD, the result
+// line, and the chip rail. The reservations that keep it from moving as a round
+// turns are in docs/design-language.md.
 
 // The chip colours a casino rail actually runs, keyed by denomination so the
 // value is readable before the number is.
@@ -17,34 +17,10 @@ $chip-colours: (
 );
 
 @layer screen {
-	// Top level of the layer, not nested: Sass leaves a nested @keyframes nested in
-	// the compiled CSS, where it is silently dropped.
-	//
-	// The deal gesture itself: in from the shoe's corner, squared up as it lands.
-	@keyframes play-table-deal {
-		from {
-			opacity: 0;
-			transform: translate(34px, -42px) rotate(8deg);
-		}
-
-		to {
-			opacity: 1;
-			transform: none;
-		}
-	}
-
 	.play-table {
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
-		// As variables, so the seat's reserved height below follows the card size.
-		--play-card-width: 68px;
-		--play-card-height: 96px;
-
-		@include phone {
-			--play-card-width: 46px;
-			--play-card-height: 64px;
-		}
 
 		/* ── The shoe, read across the top of the table ──────────── */
 
@@ -108,184 +84,6 @@ $chip-colours: (
 				letter-spacing: 0.02em;
 				color: get($neutrals, 'fg');
 			}
-		}
-
-		/* ── The felt ────────────────────────────────────────────── */
-
-		// The table surface proper: sunk into the page's own baize and lit from
-		// above, so the seats read as sitting *on* something.
-		&__felt {
-			@include shadow-inset;
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			gap: 12px;
-			padding: 20px 16px 24px;
-			border: 1px solid $rule;
-			border-radius: 2px;
-			background:
-				radial-gradient(100% 70% at 50% 0%, rgb(255 255 255 / 0.05) 0%, transparent 70%),
-				$cut-trace;
-		}
-
-		// The lettering stencilled across the table, above the dealer's spot.
-		&__layout-print {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			gap: 4px;
-			text-align: center;
-			text-wrap: balance;
-		}
-
-		&__pays {
-			@include print(15px, 0.3em);
-			font-weight: 600;
-			color: $ink-muted;
-			text-shadow: 0 1px 0 rgb(0 0 0 / 0.35);
-
-			@include phone {
-				font-size: 12px;
-				letter-spacing: 0.22em;
-			}
-		}
-
-		&__house-rule {
-			@include print(10px, 0.18em);
-			color: $ink-faint;
-
-			@include phone {
-				letter-spacing: 0.12em;
-			}
-		}
-
-		/* ── Seats ───────────────────────────────────────────────── */
-
-		// Stacked and centred: a betting spot is a place on the table, not a row
-		// in a list, so the label sits above its cards rather than beside them.
-		&__seat {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			gap: 7px;
-			padding: 8px 14px;
-			border-radius: 3px;
-			border: 1px solid transparent;
-
-			// The hand the buttons are about, when a split has made that a question.
-			&.is-active {
-				border-color: oklch(from get($primaries, 'base') l c h / 0.45);
-				background-color: get($primaries, 'fade-light');
-			}
-		}
-
-		&__seat-label {
-			@include print(10px, 0.22em);
-			color: $ink-muted;
-		}
-
-		&__hand-index {
-			color: get($primaries, 'fg-light');
-		}
-
-		&__cards {
-			display: flex;
-			justify-content: center;
-			// Wrapping rather than squashing: a five-hand split has more cards than a
-			// narrow felt holds in one line.
-			flex-wrap: wrap;
-			gap: 7px;
-			// Reserved, so a seat holds its place before its first card lands.
-			min-height: var(--play-card-height);
-		}
-
-		/* ── Card stock ──────────────────────────────────────────── */
-
-		&__card {
-			@include card-stock;
-			display: grid;
-			grid-template-rows: auto 1fr;
-			width: var(--play-card-width);
-			height: var(--play-card-height);
-			padding: 6px 7px;
-			border-radius: 6px;
-			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
-			font-weight: 700;
-			line-height: 1;
-			// Each card is inserted as the reveal queue reaches it, so the gesture comes
-			// for free: the animation runs on mount and never again. Turning it down is
-			// the sidebar's animation-speed setting, whose `instant` skips the queue.
-			animation: play-table-deal 380ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
-
-			&.is-red {
-				color: $stock-ink-red;
-			}
-
-			// The hole card: a back, not a rank. A printed lattice rather than a
-			// flat block, so it reads as face-down at a glance.
-			&--back {
-				background:
-					repeating-linear-gradient(
-						45deg,
-						rgb(255 255 255 / 0.09) 0 3px,
-						transparent 3px 6px
-					),
-					repeating-linear-gradient(
-						-45deg,
-						rgb(255 255 255 / 0.09) 0 3px,
-						transparent 3px 6px
-					),
-					linear-gradient(160deg, #8f2732 0%, #6d1c25 100%);
-				border: 3px solid $stock;
-			}
-
-			@include phone {
-				border-radius: 4px;
-				padding: 4px 5px;
-			}
-		}
-
-		// Rank at the top-left corner, the way a real card is indexed --
-		// paired with a small pip so the corner reads on its own.
-		&__card-rank {
-			font-size: 20px;
-			line-height: 1;
-			letter-spacing: -0.02em;
-
-			@include phone {
-				font-size: 13px;
-			}
-		}
-
-		&__card-pip {
-			margin-left: 1px;
-			font-size: 16px;
-			font-weight: 400;
-
-			@include phone {
-				font-size: 11px;
-			}
-		}
-
-		// The big suit, centred in the card the way the pattern sits on a
-		// real pip card rather than crowding the corner index.
-		&__card-suit {
-			place-self: center;
-			font-size: 32px;
-			font-weight: 400;
-			opacity: 0.9;
-
-			@include phone {
-				font-size: 20px;
-			}
-		}
-
-		&__total {
-			@include print(11px, 0.14em);
-			color: get($neutrals, 'fg');
-			// Reserved even with nothing to say yet, so the label filling in doesn't
-			// nudge the seat below it down.
-			min-height: 1.2em;
 		}
 
 		/* ── Bet, result, and the rail ───────────────────────────── */
@@ -488,8 +286,7 @@ $chip-colours: (
 
 		/* ── Controls ────────────────────────────────────────────── */
 
-		&__rail-controls,
-		&__actions {
+		&__rail-controls {
 			display: flex;
 			flex-wrap: wrap;
 			align-items: center;
@@ -506,49 +303,6 @@ $chip-colours: (
 			@include compact {
 				width: 100%;
 				min-width: 0;
-			}
-		}
-
-		&__action {
-			@include button;
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			gap: 8px;
-			min-width: 150px;
-
-			@include compact {
-				flex: 1 1 calc(50% - 4px);
-				min-width: 0;
-			}
-
-			// The action colours the grids use, so a Stand on the felt and a Stand in a
-			// cell are the same colour. Check against `EvTable.scss` when changing
-			// either -- they have been crossed over before.
-			&.is-hit {
-				border-color: oklch(from get($successes, 'base') l c h / 0.55);
-				color: get($successes, 'fg-light');
-			}
-
-			&.is-stand {
-				border-color: oklch(from get($errors, 'base') l c h / 0.55);
-				color: get($errors, 'fg-light');
-			}
-
-			&.is-double {
-				border-color: oklch(from get($infos, 'base') l c h / 0.55);
-				color: get($infos, 'fg-light');
-			}
-
-			&.is-split {
-				border-color: oklch(from get($primaries, 'base') l c h / 0.55);
-				color: get($primaries, 'fg-light');
-			}
-
-			// Neutral, as in the grids: the one action that declines to play.
-			&.is-surrender {
-				border-color: $rule-strong;
-				color: get($neutrals, 'fg-light');
 			}
 		}
 
@@ -571,27 +325,6 @@ $chip-colours: (
 			&.is-negative {
 				color: get($errors, 'fg-light');
 			}
-		}
-
-		&__hint {
-			@include print(13px, 0.01em, $caps: false);
-			margin: 0;
-			text-align: center;
-		}
-
-		// The coach's verdict on the play just made, marked in gold rather than red: a
-		// wrong play is information, and the felt spends red on losing money.
-		&__correction {
-			@include info-box(get($primaries, 'fade'), get($primaries, 'base'));
-			margin-bottom: 0;
-			font-size: 14px;
-			color: get($neutrals, 'fg');
-		}
-
-		&__correction-mark {
-			margin-right: 8px;
-			font-weight: 700;
-			color: get($primaries, 'fg-light');
 		}
 	}
 }

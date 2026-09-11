@@ -119,7 +119,7 @@ describe('PlayTable', () => {
 			expect(outcome?.textContent).toContain('Lose');
 			expect(outcome?.textContent).toContain('£25');
 			// No longer sat inline on the hand itself.
-			expect(document.querySelector('.play-table__seat .play-table__result')).toBeNull();
+			expect(document.querySelector('.felt__seat .play-table__result')).toBeNull();
 		});
 
 		it('clears the felt and offers the chip rail once Next hand is chosen', () => {
@@ -154,7 +154,7 @@ describe('PlayTable', () => {
 			expect(onLivePanel('.play-table__chip--25')).toBe(true);
 			expect(screen.getByRole('button', { name: 'Repeat' })).toBeDefined();
 			expect(screen.queryByText('Lose')).toBeNull();
-			expect(document.querySelector('.play-table__card')).toBeNull();
+			expect(document.querySelector('.felt__card')).toBeNull();
 		});
 
 		it('redeals immediately at the same bet without visiting the rail', () => {
@@ -362,7 +362,7 @@ describe('PlayTable', () => {
 
 			// The dealer's up card plus both of the player's -- the default rule
 			// set is ENHC, so the hole card is not dealt at all until settling.
-			expect(document.querySelectorAll('.play-table__card').length).toBe(3);
+			expect(document.querySelectorAll('.felt__card').length).toBe(3);
 		});
 
 		it('reveals one card at a time, 800ms apart at 1x', () => {
@@ -371,23 +371,23 @@ describe('PlayTable', () => {
 				config: { ...DEFAULT_PLAY_CONFIG, animationSpeed: '1x' },
 			});
 
-			expect(document.querySelectorAll('.play-table__card').length).toBe(0);
+			expect(document.querySelectorAll('.felt__card').length).toBe(0);
 
 			// Round the table as a dealer deals it: player's first card...
 			vi.advanceTimersByTime(800);
-			expect(document.querySelectorAll('.play-table__card').length).toBe(1);
+			expect(document.querySelectorAll('.felt__card').length).toBe(1);
 
 			// ...the up card...
 			vi.advanceTimersByTime(800);
-			expect(document.querySelectorAll('.play-table__card').length).toBe(2);
+			expect(document.querySelectorAll('.felt__card').length).toBe(2);
 
 			// ...the player's second...
 			vi.advanceTimersByTime(800);
-			expect(document.querySelectorAll('.play-table__card').length).toBe(3);
+			expect(document.querySelectorAll('.felt__card').length).toBe(3);
 
 			// ...and the hole card, which an ENHC table has nothing to draw for.
 			vi.advanceTimersByTime(800);
-			expect(document.querySelectorAll('.play-table__card').length).toBe(3);
+			expect(document.querySelectorAll('.felt__card').length).toBe(3);
 		});
 
 		it('reveals a card every 200ms at 4x', () => {
@@ -397,7 +397,7 @@ describe('PlayTable', () => {
 			});
 
 			vi.advanceTimersByTime(200);
-			expect(document.querySelectorAll('.play-table__card').length).toBe(1);
+			expect(document.querySelectorAll('.felt__card').length).toBe(1);
 		});
 
 		it("shows a hand's total as its own cards land, not the final total up front", () => {
@@ -409,7 +409,7 @@ describe('PlayTable', () => {
 			});
 
 			const totals = () =>
-				Array.from(document.querySelectorAll('.play-table__total')).map(
+				Array.from(document.querySelectorAll('.felt__total')).map(
 					(node) => node.textContent
 				);
 
@@ -436,7 +436,7 @@ describe('PlayTable', () => {
 			});
 
 			const dealerTotal = () =>
-				document.querySelector('.play-table__seat .play-table__total')?.textContent;
+				document.querySelector('.felt__seat .felt__total')?.textContent;
 
 			// The player's own two cards go down first, the up card between them.
 			vi.advanceTimersByTime(800);
@@ -474,7 +474,7 @@ describe('PlayTable', () => {
 			});
 
 			const totals = () =>
-				Array.from(document.querySelectorAll('.play-table__total')).map(
+				Array.from(document.querySelectorAll('.felt__total')).map(
 					(node) => node.textContent
 				);
 
@@ -557,9 +557,7 @@ describe('PlayTable', () => {
 
 			const playerCards = () =>
 				Array.from(
-					document
-						.querySelectorAll('.play-table__seat')[1]
-						.querySelectorAll('.play-table__card')
+					document.querySelectorAll('.felt__seat')[1].querySelectorAll('.felt__card')
 				);
 
 			const before = playerCards();
@@ -601,9 +599,9 @@ describe('PlayTable', () => {
 			// cards) as the one just cleared off the felt.
 			setState(dealtState(HARD_16, {}, 20));
 
-			expect(document.querySelectorAll('.play-table__card').length).toBe(0);
+			expect(document.querySelectorAll('.felt__card').length).toBe(0);
 			vi.advanceTimersByTime(800);
-			expect(document.querySelectorAll('.play-table__card').length).toBe(1);
+			expect(document.querySelectorAll('.felt__card').length).toBe(1);
 		});
 	});
 });

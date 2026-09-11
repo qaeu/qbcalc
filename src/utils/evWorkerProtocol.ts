@@ -44,10 +44,11 @@ export interface EvWorkerRequest {
 	 * cell, for the Tables view. 'summary' skips that walk entirely and returns
 	 * only the aggregate figures the Bankroll view reads -- see `EvSummaryResult`.
 	 * 'play' walks widened grids and returns each cell's priced actions alone, for
-	 * the Play view's coach -- see `PlayGrids`. Omitted requests behave as
-	 * 'tables', which is every pre-existing caller.
+	 * the Play view's coach -- see `PlayGrids`. 'train' prices the same grids at
+	 * every count in `trueCounts` at once, for a Train drill -- see `TrainGrids`.
+	 * Omitted requests behave as 'tables', which is every pre-existing caller.
 	 */
-	scope?: 'tables' | 'summary' | 'play';
+	scope?: 'tables' | 'summary' | 'play' | 'train';
 	/**
 	 * How accurately to price it. 'fast' is what every ordinary recalculation
 	 * asks for; 'full' is the deliberate, seconds-long run behind the sidebar's
@@ -58,6 +59,11 @@ export interface EvWorkerRequest {
 	precision?: PrecisionId;
 	ruleSet: RuleSet;
 	trueCount: number;
+	/**
+	 * 'train' only: every whole count a drill needs grids at, answered together.
+	 * `trueCount` alone where omitted.
+	 */
+	trueCounts?: readonly number[];
 	/** The counting system's per-rank point values the count was kept with. */
 	tags: TagValues;
 }
@@ -101,6 +107,14 @@ export {
 } from './ev/playGrids';
 
 /**
+ * A Train drill's grids: the Play grids at each whole count it asked for, keyed
+ * by that count. Every set is paired with the same unadjusted grids, so the
+ * basic-strategy answer is read off any of them alike. See docs/train-model.md
+ * §Pricing a drill.
+ */
+export type TrainGrids = ReadonlyMap<number, PlayGrids>;
+
+/**
  * `precision` is echoed rather than assumed: the UI labels the figures it applies
  * with the precision they were actually priced at, and a response can land after
  * the request that superseded it has changed that.
@@ -126,6 +140,13 @@ export type EvWorkerResponse =
 			scope: 'play';
 			precision: PrecisionId;
 			result: PlayGrids;
+	  }
+	| {
+			requestId: number;
+			status: 'success';
+			scope: 'train';
+			precision: PrecisionId;
+			result: TrainGrids;
 	  }
 	| { requestId: number; status: 'error'; message: string };
 
@@ -385,6 +406,25 @@ export function computeEvWorkerResponse(request: EvWorkerRequest): EvWorkerRespo
 				precision,
 				result: pairPlayGrids(baseGrids, countGrids),
 			};
+		}
+
+		if (scope === 'train') {
+			// Priced straight through rather than via the count LRU above: a drill
+			// asks for more counts than it holds, and filling it would only evict the
+			// Play view's own entries on the way -- see docs/train-model.md.
+			const baseGrids = playBaseGridsFor(ruleSet, precision);
+			const result = new Map<number, PlayGrids>();
+			for (const count of request.trueCounts ?? [trueCount]) {
+				const rounded = Math.round(count);
+				if (result.has(rounded)) continue;
+				const countComp = applyTrueCountToComposition(base, tags, rounded);
+				const countGrids =
+					countComp.every((halfCards, index) => halfCards === base[index]) ? baseGrids : (
+						playGridsFor(ruleSet, countComp, precision)
+					);
+				result.set(rounded, pairPlayGrids(baseGrids, countGrids));
+			}
+			return { requestId, status: 'success', scope: 'train', precision, result };
 		}
 
 		if (scope === 'summary') {

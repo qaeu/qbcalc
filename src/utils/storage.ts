@@ -28,6 +28,8 @@ import {
 	WONG_OUT_COUNTS,
 	type SimConfig,
 } from './sim/config';
+import { DRILL_IDS, DRILL_MODES, type DrillId, type DrillMode } from './train/drills';
+import { isScoreBoards, type ScoreBoards } from './train/scores';
 
 /**
  * Everything the sidebar owns: the engine's calculator params plus the
@@ -186,6 +188,27 @@ const PLAY_SESSION_VERSION = 1;
 const SIM_CONFIG_KEY = 'qbcalc:sim-config';
 const SIM_CONFIG_VERSION = 2;
 
+/**
+ * The Train view's highscores, and which drill and mode it was left on. A drill
+ * in progress is not stored: a reload mid-drill is as good as quitting it -- see
+ * docs/train-model.md §Scoring. The boards validate themselves in `train/scores.ts`.
+ */
+const TRAIN_SCORES_KEY = 'qbcalc:train-scores';
+const TRAIN_CONFIG_KEY = 'qbcalc:train-config';
+const TRAIN_SCORES_VERSION = 1;
+const TRAIN_CONFIG_VERSION = 1;
+
+/** The drill the picker was left on, and the mode each drill was last run at. */
+export interface TrainConfig {
+	drill: DrillId;
+	modes: Readonly<Record<DrillId, DrillMode>>;
+}
+
+export const DEFAULT_TRAIN_CONFIG: TrainConfig = {
+	drill: 'basic',
+	modes: { basic: 'easy', counting: 'easy', deviation: 'easy' },
+};
+
 interface StoredConfig extends CalculatorConfig {
 	version: number;
 }
@@ -292,6 +315,25 @@ function isStoredSimConfig(value: unknown): value is StoredSimConfig {
 		&& isSimOption(OTHER_SPOTS, config.otherSpots)
 		&& Number.isFinite(config.seed)
 		&& typeof config.reseedEachRun === 'boolean'
+	);
+}
+
+interface StoredTrainConfig extends TrainConfig {
+	version: number;
+}
+
+function isStoredTrainConfig(value: unknown): value is StoredTrainConfig {
+	if (typeof value !== 'object' || value === null) return false;
+	const config = value as Record<string, unknown>;
+	const modes = config.modes as Record<string, unknown> | null;
+	return (
+		config.version === TRAIN_CONFIG_VERSION
+		&& (DRILL_IDS as readonly unknown[]).includes(config.drill)
+		&& typeof modes === 'object'
+		&& modes !== null
+		&& DRILL_IDS.every((drill) =>
+			(DRILL_MODES as readonly unknown[]).includes(modes[drill])
+		)
 	);
 }
 
@@ -669,6 +711,54 @@ export function saveSimConfig(config: SimConfig): void {
 	try {
 		const stored: StoredSimConfig = { version: SIM_CONFIG_VERSION, ...config };
 		localStorage.setItem(SIM_CONFIG_KEY, JSON.stringify(stored));
+	} catch {
+		// As above.
+	}
+}
+
+export function loadTrainConfig(): TrainConfig | null {
+	try {
+		const raw = localStorage.getItem(TRAIN_CONFIG_KEY);
+		if (!raw) return null;
+		const parsed: unknown = JSON.parse(raw);
+		if (!isStoredTrainConfig(parsed)) return null;
+		const { basic, counting, deviation } = parsed.modes;
+		return { drill: parsed.drill, modes: { basic, counting, deviation } };
+	} catch {
+		return null;
+	}
+}
+
+export function saveTrainConfig(config: TrainConfig): void {
+	try {
+		const stored: StoredTrainConfig = { version: TRAIN_CONFIG_VERSION, ...config };
+		localStorage.setItem(TRAIN_CONFIG_KEY, JSON.stringify(stored));
+	} catch {
+		// As above.
+	}
+}
+
+export function loadTrainScores(): ScoreBoards | null {
+	try {
+		const raw = localStorage.getItem(TRAIN_SCORES_KEY);
+		if (!raw) return null;
+		const parsed: unknown = JSON.parse(raw);
+		if (typeof parsed !== 'object' || parsed === null) return null;
+		const record = parsed as Record<string, unknown>;
+		return record.version === TRAIN_SCORES_VERSION && isScoreBoards(record.boards) ?
+				record.boards
+			:	null;
+	} catch {
+		return null;
+	}
+}
+
+export function saveTrainScores(boards: ScoreBoards): void {
+	try {
+		localStorage.setItem(
+			TRAIN_SCORES_KEY,
+			JSON.stringify({ version: TRAIN_SCORES_VERSION, boards })
+		);
 	} catch {
 		// As above.
 	}

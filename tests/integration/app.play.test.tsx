@@ -23,7 +23,7 @@ describe('App', () => {
 
 				const header = document.querySelector<HTMLElement>('.app-header');
 				if (!header) throw new Error('App header not found');
-				expect(within(header).getAllByRole('tab')).toHaveLength(4);
+				expect(within(header).getAllByRole('tab')).toHaveLength(5);
 
 				goToPlay();
 				await waitFor(() => expect(document.querySelector('.play-table')).not.toBeNull());

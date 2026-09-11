@@ -46,6 +46,26 @@ export function isKeyConsumingTarget(
 }
 
 /**
+ * Layers that answer Escape themselves: a dialog, and a select's trigger or its
+ * open list. Escape pressed in one of them is closing it, not leaving the view.
+ */
+const ESCAPE_CONSUMING_SELECTOR = [
+	'[role="dialog"]',
+	'[role="combobox"]',
+	'[role="listbox"]',
+	'[role="menu"]',
+].join(',');
+
+/** Whether an Escape press belongs to a layer that closes on it -- see above. */
+export function isEscapeConsumingTarget(event: KeyboardEvent): boolean {
+	if (event.defaultPrevented) return true;
+	return (
+		event.target instanceof Element
+		&& event.target.closest(ESCAPE_CONSUMING_SELECTOR) !== null
+	);
+}
+
+/**
  * One document-level keydown listener, torn down with the owning component.
  * Shared rather than hand-rolled per shortcut so the handlers stay in one
  * place as more of them arrive.

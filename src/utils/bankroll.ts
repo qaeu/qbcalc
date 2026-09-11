@@ -277,21 +277,16 @@ export function hiLoCountScale(comp: Composition, tags: TagValues): number {
 }
 
 /**
- * How often each ramp bucket comes up over a shoe dealt to `penetrationPercent`.
+ * The true count's spread at the midpoint of each of `DEPTH_SLICES` equal slices
+ * of the dealt portion, in Hi-Lo-equivalent units.
  *
  * The running count after `n` of `N` cards is a sum drawn without replacement, so
  * `Var(RC) = n·σ_t²·(N−n)/(N−1)`; dividing by the `(N−n)/52` decks left gives the
- * true count's spread at that depth. Depth is then averaged uniformly over the
- * dealt portion. See docs/bankroll-model.md §How often a count comes up.
- *
- * The buckets are Hi-Lo-equivalent, so the spread is converted through
- * `hiLoCountScale` before it is bucketed -- which leaves this distribution the
- * same for every system, a function of the shoe and the penetration alone.
+ * true count's spread at that depth. Converted through `hiLoCountScale`, which
+ * leaves it the same for every system -- a function of the shoe and the
+ * penetration alone.
  */
-export function trueCountFrequencies(
-	ruleSet: RuleSet,
-	tags: TagValues
-): CountFrequency[] {
+function depthSpreads(ruleSet: RuleSet, tags: TagValues): number[] {
 	const comp = baseComposition(ruleSet);
 	const totalCards = ruleSet.decks * CARDS_PER_DECK;
 	// `tagSpread` is N·σ_t² over the full shoe, centred on the system's own pivot
@@ -301,18 +296,34 @@ export function trueCountFrequencies(
 		scale > 0 ? Math.sqrt(Math.max(0, tagSpread(comp, tags)) / totalCards) / scale : 0;
 	const dealtCards = totalCards * (ruleSet.penetrationPercent / 100);
 
-	const weights = new Array<number>(RAMP_TRUE_COUNTS.length).fill(0);
-	const moments = new Array<number>(RAMP_TRUE_COUNTS.length).fill(0);
-	const squares = new Array<number>(RAMP_TRUE_COUNTS.length).fill(0);
-	const sliceWeight = 1 / DEPTH_SLICES;
-	for (let slice = 0; slice < DEPTH_SLICES; slice += 1) {
+	return Array.from({ length: DEPTH_SLICES }, (_, slice) => {
 		// Slice midpoints, so neither an undealt shoe nor an exhausted one -- where
 		// the decks-remaining divisor goes to zero -- is ever evaluated.
 		const seen = ((slice + 0.5) / DEPTH_SLICES) * dealtCards;
 		const remaining = totalCards - seen;
-		const sd =
-			(CARDS_PER_DECK * tagSd * Math.sqrt(seen))
-			/ Math.sqrt((totalCards - 1) * remaining);
+		return (
+			(CARDS_PER_DECK * tagSd * Math.sqrt(seen)) / Math.sqrt((totalCards - 1) * remaining)
+		);
+	});
+}
+
+/**
+ * How often each ramp bucket comes up over a shoe dealt to `penetrationPercent`.
+ * Depth is averaged uniformly over the dealt portion -- see `depthSpreads` and
+ * docs/bankroll-model.md §How often a count comes up.
+ *
+ * The buckets are Hi-Lo-equivalent, which leaves this distribution the same for
+ * every system.
+ */
+export function trueCountFrequencies(
+	ruleSet: RuleSet,
+	tags: TagValues
+): CountFrequency[] {
+	const weights = new Array<number>(RAMP_TRUE_COUNTS.length).fill(0);
+	const moments = new Array<number>(RAMP_TRUE_COUNTS.length).fill(0);
+	const squares = new Array<number>(RAMP_TRUE_COUNTS.length).fill(0);
+	const sliceWeight = 1 / DEPTH_SLICES;
+	for (const sd of depthSpreads(ruleSet, tags)) {
 		accumulateBuckets(sd, sliceWeight, weights, moments, squares);
 	}
 
@@ -323,6 +334,34 @@ export function trueCountFrequencies(
 		meanSquaredTrueCount:
 			weights[index] > 0 ? squares[index] / weights[index] : trueCount * trueCount,
 	}));
+}
+
+/**
+ * The share of rounds played at each of `counts`, as whole true counts in the
+ * system's **own** units -- the count a player at the table rounds to, and the
+ * one the Train view's deviation questions are set at. The same depth-averaged
+ * distribution `trueCountFrequencies` buckets, taken over the unit interval about
+ * each count instead of the ramp's open-ended buckets.
+ */
+export function wholeCountFrequencies(
+	ruleSet: RuleSet,
+	tags: TagValues,
+	counts: readonly number[]
+): number[] {
+	const scale = hiLoCountScale(baseComposition(ruleSet), tags);
+	const spreads = depthSpreads(ruleSet, tags).map((sd) => sd * scale);
+	return counts.map((count) => {
+		let total = 0;
+		for (const sd of spreads) {
+			// A shoe barely dealt into cannot have moved: all of it sits at zero.
+			if (sd <= 0) {
+				total += count === 0 ? 1 : 0;
+				continue;
+			}
+			total += normalCdf((count + 0.5) / sd) - normalCdf((count - 0.5) / sd);
+		}
+		return total / spreads.length;
+	});
 }
 
 export function analyzeBankroll(

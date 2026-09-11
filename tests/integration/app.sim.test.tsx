@@ -44,13 +44,13 @@ describe('App', () => {
 
 	describe('the Sim view', () => {
 		it(
-			'offers a fourth tab carrying the run form',
+			'offers a tab of its own, last, carrying the run form',
 			async () => {
 				render(() => <App />);
 
 				const header = document.querySelector<HTMLElement>('.app-header');
 				if (!header) throw new Error('App header not found');
-				expect(within(header).getAllByRole('tab')).toHaveLength(4);
+				expect(within(header).getAllByRole('tab').at(-1)?.textContent).toBe('Sim');
 
 				goToSim();
 				await waitFor(() => expect(document.querySelector('.sim-view')).not.toBeNull());

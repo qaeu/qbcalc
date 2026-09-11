@@ -42,6 +42,11 @@ export function goToPlay(): void {
 }
 
 /** As `goToBankroll`, for the fourth view. */
+export function goToTrain(): void {
+	fireEvent.click(within(appHeader()).getByRole('tab', { name: /Train/ }));
+}
+
+/** As `goToBankroll`, for the fifth view. */
 export function goToSim(): void {
 	fireEvent.click(within(appHeader()).getByRole('tab', { name: /Sim/ }));
 }

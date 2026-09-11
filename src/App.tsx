@@ -4,6 +4,7 @@ import {
 	createSignal,
 	onCleanup,
 	Show,
+	untrack,
 	type Component,
 } from 'solid-js';
 
@@ -11,7 +12,7 @@ import { analyzeBankroll, hiLoCountScale, type BankrollAnalysis } from '#utils/b
 import { labelForSystem } from '#utils/countingSystems';
 import { baseComposition } from '#utils/ev/composition';
 import { simulateRoundFrequency, type RoundFrequency } from '#utils/countRounds';
-import { createHashRoute } from '#utils/hashRoute';
+import { createHashRoute, type AppTab } from '#utils/hashRoute';
 import { COMPACT_LAYOUT_QUERY, createMediaQuery } from '#utils/media';
 import {
 	calculatorSettingsEqual,
@@ -41,6 +42,7 @@ import type {
 	EvWorkerResponse,
 	EvWorkerResult,
 	PlayGrids,
+	TrainGrids,
 } from '#utils/evWorkerProtocol';
 
 import { createGlobalKeydown, isKeyConsumingTarget } from '#utils/keyboard';
@@ -54,6 +56,7 @@ import PlayView from '#c/PlayView';
 import SettingsDrawer from '#c/SettingsDrawer';
 import SettingsSidebar from '#c/SettingsSidebar';
 import SimView from '#c/SimView';
+import TrainView from '#c/TrainView';
 
 import '#styles/App';
 
@@ -163,6 +166,35 @@ const App: Component = () => {
 	// What a cached entry belongs to: the grids are priced under the rules and
 	// the tags as much as the count, so a settings change empties the cache.
 	let playGridBasis = '';
+
+	/**
+	 * The grids a Train drill is graded against, at every count it asked for, with
+	 * the settings they were priced under. Kept apart from the Play cache: a drill
+	 * asks for a spread of counts at once, and a settings change abandons it rather
+	 * than repricing it -- see `trainGrids` below.
+	 */
+	const [trainGridStore, setTrainGridStore] = createSignal<{
+		basis: string;
+		grids: TrainGrids;
+	} | null>(null);
+	/** The store's grids while they still describe the live settings, else null. */
+	const trainGrids = createMemo<TrainGrids | null>(() => {
+		const store = trainGridStore();
+		return store !== null && store.basis === JSON.stringify(liveSettings()) ?
+				store.grids
+			:	null;
+	});
+	/**
+	 * The counts the drill on screen is waiting on, until they land or it stops
+	 * waiting. Kept so that a calculation which supersedes the request -- a
+	 * settings edit, say -- can be followed by it again once the worker is free.
+	 */
+	let wantedTrainCounts: number[] | null = null;
+	/**
+	 * The Train view's say over a tab switch, while it is mounted: a drill with
+	 * answers in it asks for the tab twice before it is thrown away.
+	 */
+	let trainLeaveGuard: ((to: string) => boolean) | null = null;
 
 	const updateBankroll = <K extends keyof BankrollConfig>(
 		key: K,
@@ -292,7 +324,7 @@ const App: Component = () => {
 	// asked the worker for. 'summary' skips the full grid walk entirely, so a
 	// settings edit made while Bankroll is on screen leaves `result` pointing
 	// at whatever the grid last showed -- see the Tables catch-up effect below.
-	let latestRequestScope: 'tables' | 'summary' | 'play' = 'tables';
+	let latestRequestScope: 'tables' | 'summary' | 'play' | 'train' = 'tables';
 	let holdTimer: number | undefined;
 	/**
 	 * Whether a request the grids or the cards are waiting on is still out. The
@@ -339,6 +371,21 @@ const App: Component = () => {
 						setPlayGrids(response.result);
 						return;
 					}
+					if (response.status === 'success' && response.scope === 'train') {
+						awaitingNonPlayResponse = false;
+						setLatestRequestPrecision('fast');
+						// Keyed off the same signal `trainGrids` reads, so the two can
+						// never disagree on what the same settings serialise to.
+						const basis = JSON.stringify(untrack(liveSettings));
+						const store = trainGridStore();
+						const grids = new Map(store?.basis === basis ? store.grids : []);
+						for (const [count, countGrids] of response.result) {
+							grids.set(count, countGrids);
+						}
+						setTrainGridStore({ basis, grids });
+						flushPending();
+						return;
+					}
 					awaitingNonPlayResponse = false;
 					setIsComputing(false);
 					setIsSummaryComputing(false);
@@ -362,14 +409,10 @@ const App: Component = () => {
 					} else {
 						setCalcTimeMs(null);
 						setError(response.message);
+						// Not retried: the same request would fail the same way.
+						if (latestRequestScope === 'train') wantedTrainCounts = null;
 					}
-					// Whatever the felt asked for while this was running, now that
-					// the worker is free to answer it.
-					if (pendingPlayCount !== null) {
-						const count = pendingPlayCount;
-						pendingPlayCount = null;
-						requestPlayGrids(count);
-					}
+					flushPending();
 				};
 
 				const hold = artificialLoadingMs() - elapsed;
@@ -389,13 +432,30 @@ const App: Component = () => {
 		worker?.terminate();
 	});
 
+	/**
+	 * Whatever the drill or the felt asked for while a response was out, now that
+	 * the worker is free to answer it. The drill first: its request holds the
+	 * worker, so a felt request made behind it waits for it rather than
+	 * superseding it.
+	 */
+	const flushPending = () => {
+		if (wantedTrainCounts !== null) requestTrainGrids(wantedTrainCounts);
+		if (pendingPlayCount !== null) {
+			const count = pendingPlayCount;
+			pendingPlayCount = null;
+			requestPlayGrids(count);
+		}
+	};
+
 	const runCalculation = (
 		nextConfig: CalculatorConfig,
-		scope: 'tables' | 'summary' | 'play',
+		scope: 'tables' | 'summary' | 'play' | 'train',
 		// Defaulted rather than passed by each caller, which is what makes the full
 		// calculation a one-shot: the next settings edit, count step or Tables
 		// catch-up goes back to fast without having to be told to.
-		precision: PrecisionId = 'fast'
+		precision: PrecisionId = 'fast',
+		// 'train' only: every count the drill needs, priced in one request.
+		trueCounts?: readonly number[]
 	) => {
 		const w = getWorker();
 		clearTimeout(holdTimer);
@@ -416,15 +476,18 @@ const App: Component = () => {
 		// A count-only recalculation is not something the cards are waiting for:
 		// they keep their figures rather than dropping to skeletons. A full run is,
 		// since it is going to move every one of them. A play request is neither --
-		// it computes nothing either the grids or the cards are showing.
-		if (scope !== 'play' && !summaryBasisMatches(nextConfig, precision)) {
+		// it computes nothing either the grids or the cards are showing, and nor
+		// is a drill's.
+		const feedsSummary = scope === 'tables' || scope === 'summary';
+		if (feedsSummary && !summaryBasisMatches(nextConfig, precision)) {
 			setIsSummaryComputing(true);
 		}
 		setError(null);
 		// Saved here rather than in the form, since the count reaches a
 		// calculation without passing through it at all. Not for a play request:
 		// its count is the felt's shoe, not the count the user left the grids on.
-		if (scope !== 'play') saveCalculatorConfig(nextConfig);
+		// Nor for a drill's, which has no count of its own at all.
+		if (feedsSummary) saveCalculatorConfig(nextConfig);
 
 		const request: EvWorkerRequest = {
 			requestId: latestRequestId,
@@ -432,6 +495,7 @@ const App: Component = () => {
 			precision,
 			ruleSet: ruleSetFromConfig(nextConfig),
 			trueCount: nextConfig.trueCount,
+			trueCounts,
 			tags: nextConfig.tags,
 		};
 		w.postMessage(request);
@@ -540,6 +604,34 @@ const App: Component = () => {
 		runCalculation({ ...latestRequestConfig, trueCount: count }, 'play');
 	};
 
+	/**
+	 * Prices the grids a Train drill needs at each of `counts`, unless the store
+	 * already holds them all under the live settings. Like a felt request, held
+	 * while the grids or the cards are waiting on the worker -- but unlike one, it
+	 * then holds the worker itself: a drill cannot start without its grids, so a
+	 * felt request must not supersede it.
+	 */
+	const requestTrainGrids = (counts: readonly number[]) => {
+		// Untracked: the drill asks from inside its own effects.
+		const store = untrack(trainGridStore);
+		const basis = JSON.stringify(untrack(liveSettings));
+		const held = store?.basis === basis ? store.grids : undefined;
+		const missing = counts.filter((count) => !held?.has(count));
+		if (missing.length === 0) {
+			wantedTrainCounts = null;
+			return;
+		}
+		wantedTrainCounts = [...counts];
+		if (awaitingNonPlayResponse) return;
+		runCalculation({ ...latestRequestConfig, trueCount: 0 }, 'train', 'fast', missing);
+	};
+
+	const changeTab = (next: AppTab) => {
+		const name = next[0].toUpperCase() + next.slice(1);
+		if (next !== tab() && trainLeaveGuard !== null && !trainLeaveGuard(name)) return;
+		setTab(next);
+	};
+
 	// A settings edit made while parked on Bankroll only refreshes the summary
 	// figures (`requestCalculation` above asks for nothing more), so the
 	// Tables grid can be left showing stale settings. Caught up here, once,
@@ -589,7 +681,7 @@ const App: Component = () => {
 		<>
 			<AppHeader
 				tab={tab()}
-				onTabChange={setTab}
+				onTabChange={changeTab}
 				onOpenSettings={compact() ? () => setSettingsOpen(true) : undefined}
 			/>
 			<Show when={compact()}>
@@ -626,6 +718,23 @@ const App: Component = () => {
 							unit={bankroll().unit}
 							grids={playGrids()}
 							onCountChange={requestPlayGrids}
+						/>
+					</Show>
+					<Show when={tab() === 'train'}>
+						<TrainView
+							ruleSet={playRuleSet()}
+							tags={liveSettings().tags}
+							system={liveSettings().system}
+							animationSpeed={play().animationSpeed}
+							grids={trainGrids()}
+							onRequestGrids={requestTrainGrids}
+							onCancelGrids={() => {
+								wantedTrainCounts = null;
+							}}
+							onLeaveGuard={(guard) => {
+								trainLeaveGuard = guard;
+							}}
+							error={error()}
 						/>
 					</Show>
 					<Show when={tab() === 'sim'}>

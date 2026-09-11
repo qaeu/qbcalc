@@ -18,6 +18,11 @@ import {
 	savePlayStats,
 	loadSimConfig,
 	saveSimConfig,
+	DEFAULT_TRAIN_CONFIG,
+	loadTrainConfig,
+	loadTrainScores,
+	saveTrainConfig,
+	saveTrainScores,
 	type BankrollConfig,
 	type CalculatorConfig,
 	type PlayConfig,
@@ -31,6 +36,8 @@ const BANKROLL_KEY = 'qbcalc:bankroll';
 const PLAY_CONFIG_KEY = 'qbcalc:play-config';
 const PLAY_STATS_KEY = 'qbcalc:play-stats';
 const SIM_CONFIG_KEY = 'qbcalc:sim-config';
+const TRAIN_CONFIG_KEY = 'qbcalc:train-config';
+const TRAIN_SCORES_KEY = 'qbcalc:train-scores';
 /** Mirrors the module's own constant: the schema `saveCalculatorConfig` writes. */
 const STORAGE_VERSION = 5;
 
@@ -495,5 +502,75 @@ describe('sim config', () => {
 
 		localStorage.setItem(SIM_CONFIG_KEY, JSON.stringify({ version: 2 }));
 		expect(loadSimConfig()).toBeNull();
+	});
+});
+
+describe('train config', () => {
+	it('round-trips the drill and every mode', () => {
+		const config = {
+			drill: 'deviation' as const,
+			modes: {
+				basic: 'hard' as const,
+				counting: 'test' as const,
+				deviation: 'easy' as const,
+			},
+		};
+		saveTrainConfig(config);
+		expect(loadTrainConfig()).toEqual(config);
+	});
+
+	it('returns null when nothing has been saved', () => {
+		expect(loadTrainConfig()).toBeNull();
+	});
+
+	it('drops a record naming a drill or mode this build does not offer', () => {
+		localStorage.setItem(
+			TRAIN_CONFIG_KEY,
+			JSON.stringify({ version: 1, ...DEFAULT_TRAIN_CONFIG, drill: 'poker' })
+		);
+		expect(loadTrainConfig()).toBeNull();
+		localStorage.setItem(
+			TRAIN_CONFIG_KEY,
+			JSON.stringify({
+				version: 1,
+				...DEFAULT_TRAIN_CONFIG,
+				modes: { ...DEFAULT_TRAIN_CONFIG.modes, basic: 'expert' },
+			})
+		);
+		expect(loadTrainConfig()).toBeNull();
+	});
+});
+
+describe('train scores', () => {
+	const boards = {
+		'basic:easy:6|0|0|1|4|0|1|none': [
+			{
+				correct: 9,
+				total: 10,
+				timeMs: 31_000,
+				date: '2026-09-11T00:00:00.000Z',
+				seed: 12,
+				rules: '6 decks · S17',
+			},
+		],
+	};
+
+	it('round-trips every board', () => {
+		saveTrainScores(boards);
+		expect(loadTrainScores()).toEqual(boards);
+	});
+
+	it('returns null when nothing has been saved', () => {
+		expect(loadTrainScores()).toBeNull();
+	});
+
+	it('drops a record from another schema version, or a malformed one', () => {
+		localStorage.setItem(TRAIN_SCORES_KEY, JSON.stringify({ version: 99, boards }));
+		expect(loadTrainScores()).toBeNull();
+		localStorage.setItem(
+			TRAIN_SCORES_KEY,
+			JSON.stringify({ version: 1, boards: { 'basic:easy:x': [{ correct: 'nine' }] } })
+		);
+		expect(loadTrainScores()).toBeNull();
 	});
 });

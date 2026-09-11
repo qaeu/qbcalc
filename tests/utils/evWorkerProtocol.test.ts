@@ -23,10 +23,12 @@ function respondTo(request: EvWorkerRequest) {
 	return response;
 }
 
-/** Narrows away the 'play' scope, which carries none of these figures. */
+/** Narrows away the 'play' and 'train' scopes, which carry none of these figures. */
 function figuresFrom(request: EvWorkerRequest) {
 	const response = respondTo(request);
-	if (response.scope === 'play') throw new Error('expected a tables or summary response');
+	if (response.scope === 'play' || response.scope === 'train') {
+		throw new Error('expected a tables or summary response');
+	}
 	return response;
 }
 
@@ -200,5 +202,47 @@ describe('the play scope', () => {
 		// A count the play cache has already been asked for, so this costs nothing.
 		playAt(6);
 		expect(curveAt(0).edgeSlopePointsPerTrueCount).toBe(before);
+	});
+});
+
+describe('the train scope', () => {
+	const trainAt = (trueCounts: readonly number[]) => {
+		const response = respondTo({
+			requestId: 1,
+			scope: 'train',
+			ruleSet: RULE_SET,
+			trueCount: 0,
+			trueCounts,
+			tags: HI_LO,
+		});
+		if (response.scope !== 'train') throw new Error('expected train grids');
+		return response.result;
+	};
+
+	it('answers every whole count asked for at once, once each', () => {
+		const grids = trainAt([-2, 0, 3, 3.2]);
+		expect([...grids.keys()].sort((a, b) => a - b)).toEqual([-2, 0, 3]);
+	});
+
+	it('prices each count exactly as the play scope would', () => {
+		const train = trainAt([6]).get(6)!.hard.get(gridKey(16, 'T'))!;
+		const play = respondTo({
+			requestId: 1,
+			scope: 'play',
+			ruleSet: RULE_SET,
+			trueCount: 6,
+			tags: HI_LO,
+		});
+		if (play.scope !== 'play') throw new Error('expected play grids');
+		const cell = play.result.hard.get(gridKey(16, 'T'))!;
+		expect(train.actions).toEqual(cell.actions);
+		expect(train.baseActions).toEqual(cell.baseActions);
+	});
+
+	it('pairs every count with the same unadjusted grids', () => {
+		const grids = trainAt([-3, 5]);
+		expect(grids.get(-3)!.hard.get(gridKey(12, '3'))!.baseActions).toEqual(
+			grids.get(5)!.hard.get(gridKey(12, '3'))!.baseActions
+		);
 	});
 });

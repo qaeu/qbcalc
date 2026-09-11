@@ -1,0 +1,277 @@
+@use 'base' as *;
+
+@layer screen {
+	// The end of a drill: the band of figures, the board and the review side by
+	// side, and the two ways on.
+	.train-results {
+		display: flex;
+		flex-direction: column;
+		gap: 22px;
+
+		&__head {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+		}
+
+		&__eyebrow {
+			@include print(11px, 0.16em);
+			margin: 0 0 6px;
+			color: get($primaries, 'fg-light');
+		}
+
+		&__title {
+			@include print(16px, 0.22em);
+			margin: 0;
+			font-weight: 600;
+			color: $ink;
+		}
+
+		// Marked as `.highlight` marks the button to press: a gold hairline, no fill.
+		&__best {
+			@include print(12px, 0.16em);
+			display: inline-flex;
+			align-items: center;
+			gap: 7px;
+			padding: 6px 12px;
+			border: 1px solid get($primaries, 'base-dark');
+			border-radius: 3px;
+			font-weight: 600;
+			color: get($primaries, 'fg');
+			box-shadow: inset 0 1px 0 oklch(from get($primaries, 'base') l c h / 0.18);
+		}
+
+		&__cols {
+			display: grid;
+			grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+			gap: 16px;
+
+			@include compact {
+				grid-template-columns: 1fr;
+			}
+		}
+
+		&__panel {
+			@include card;
+			margin-bottom: 0;
+			padding: 18px 20px;
+		}
+
+		&__panel-title {
+			@include panel-title;
+			margin-bottom: 4px;
+			color: $ink;
+		}
+
+		&__sub {
+			@include print(11px, 0.04em, $caps: false);
+			margin: 0 0 12px;
+			color: $ink-faint;
+		}
+
+		&__board {
+			width: 100%;
+			border-collapse: collapse;
+			font-variant-numeric: tabular-nums;
+
+			td {
+				padding: 8px 6px;
+				border-top: 1px solid $rule;
+				font-family: 'Archivo Narrow', 'Archivo', sans-serif;
+				font-size: 15px;
+				font-weight: 600;
+			}
+
+			td:first-child {
+				width: 2em;
+				font-size: 11px;
+				color: $ink-faint;
+			}
+
+			// This run's row, lit as the live seat is.
+			tr.is-you td {
+				background: get($primaries, 'fade-light');
+				color: get($primaries, 'fg');
+			}
+
+			tr.is-you td:first-child {
+				box-shadow: inset 2px 0 0 get($primaries, 'base');
+				color: get($primaries, 'fg-light');
+			}
+		}
+
+		&__dim {
+			text-align: right;
+
+			.train-results__board & {
+				font-size: 12px;
+				font-weight: 500;
+				color: $ink-muted;
+			}
+		}
+
+		&__misses {
+			display: flex;
+			flex-direction: column;
+			margin: 0;
+			padding: 0;
+			list-style: none;
+		}
+
+		&__miss {
+			display: grid;
+			grid-template-columns: auto minmax(0, 1fr) auto;
+			align-items: center;
+			gap: 8px 14px;
+			padding: 10px 0;
+			border-top: 1px solid $rule;
+		}
+
+		&__lead {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+
+			@include phone {
+				grid-column: 1 / -1;
+			}
+		}
+
+		&__hand {
+			display: flex;
+			align-items: center;
+			gap: 4px;
+		}
+
+		&__v {
+			@include print(11px, 0.12em);
+			margin: 0 4px;
+			color: $ink-faint;
+		}
+
+		// The count the question was asked at, as a counter small enough for a line.
+		&__tc {
+			display: inline-grid;
+			place-items: center;
+			min-width: 30px;
+			height: 30px;
+			padding: 0 5px;
+			margin-left: 4px;
+			border-radius: 50%;
+			background: radial-gradient(
+				circle at 50% 30%,
+				get($primaries, 'base-dark'),
+				get($primaries, 'sep-dark')
+			);
+			color: var(--rail-1);
+			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
+			font-size: 12px;
+			font-weight: 700;
+			box-shadow:
+				inset 0 1px 0 rgb(255 255 255 / 0.5),
+				0 2px 0 get($primaries, 'sep-light');
+		}
+
+		&__calls {
+			@include print(13px, 0.02em, $caps: false);
+			display: flex;
+			flex-direction: column;
+			gap: 3px;
+			color: $ink;
+
+			> span {
+				color: $ink-muted;
+			}
+
+			b,
+			s {
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+			}
+
+			b {
+				font-weight: 700;
+			}
+
+			s {
+				font-weight: 600;
+				text-decoration-thickness: 1px;
+				opacity: 0.8;
+			}
+
+			// Each play in the ink the action bar prints it in.
+			.is-hit {
+				color: get($successes, 'fg-light');
+			}
+
+			.is-stand {
+				color: get($errors, 'fg-light');
+			}
+
+			.is-double {
+				color: get($infos, 'fg-light');
+			}
+
+			.is-split {
+				color: get($primaries, 'fg-light');
+			}
+
+			.is-surrender {
+				color: get($neutrals, 'fg-light');
+			}
+		}
+
+		&__index {
+			color: $ink-faint;
+		}
+
+		&__cost {
+			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
+			font-variant-numeric: tabular-nums;
+			font-size: 15px;
+			font-weight: 700;
+			color: get($errors, 'fg-light');
+
+			// A miscount costs no money, so it is marked as a miss is: in gold.
+			&.is-count {
+				color: get($primaries, 'fg-light');
+			}
+		}
+
+		&__empty {
+			@include print(13px, 0.02em, $caps: false);
+			margin: 0;
+			padding: 14px 0 4px;
+			color: $ink-muted;
+		}
+
+		&__actions {
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: center;
+			gap: 8px;
+
+			button {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				min-width: 170px;
+
+				@include phone {
+					flex: 1 1 calc(50% - 4px);
+					min-width: 0;
+					padding-inline: 8px;
+					letter-spacing: 0.08em;
+					white-space: nowrap;
+				}
+			}
+		}
+
+		&__key {
+			@include key-cap;
+			margin-right: 8px;
+		}
+	}
+}

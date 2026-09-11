@@ -31,7 +31,7 @@ function renderView(seed = 1234): void {
 
 /** The ranks currently on the felt, dealer's seat first. */
 function felt(): string[] {
-	return [...document.querySelectorAll('.play-table__card-rank')].map(
+	return [...document.querySelectorAll('.felt__card-rank')].map(
 		(card) => card.textContent ?? ''
 	);
 }
