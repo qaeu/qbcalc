@@ -9,21 +9,17 @@ $drawer-z-index: 40;
 	.settings-drawer {
 		box-sizing: border-box;
 		display: flex;
-		// The panel is kept mounted across a close (`unmountOnExit={false}`, so
-		// the form inside holds its state), and Ark marks it closed with the
-		// `hidden` attribute alone -- which the `display: flex` above would
-		// otherwise override, leaving a visible panel that ignores every click
-		// because Zag has taken the pointer events off its positioner. Same trap
-		// as the sidebar's own tab panels.
+		// The panel stays mounted across a close (`unmountOnExit={false}`, so the form
+		// holds its state) and Ark marks it closed with the `hidden` attribute alone,
+		// which the `display: flex` above would override.
 		&[hidden] {
 			display: none;
 		}
 
 		flex-direction: column;
 		gap: 12px;
-		// Held to the viewport rather than the content: scrolling *inside* the
-		// panel is what makes it usable in landscape, where the settings card is
-		// several times the height of the screen.
+		// Held to the viewport rather than the content: scrolling inside the panel is
+		// what makes it usable in landscape.
 		height: 100dvh;
 		width: min(320px, 88vw);
 		padding: 16px 12px;
@@ -35,8 +31,7 @@ $drawer-z-index: 40;
 		border-right: 1px solid $rule-strong;
 		background-color: $panel;
 		@include shadow($direction: 'right');
-		// Taken back from the positioner above, which disowns them for the whole
-		// viewport it covers.
+		// Taken back from the positioner, which disowns them viewport-wide.
 		pointer-events: auto;
 
 		&__backdrop {
@@ -47,28 +42,24 @@ $drawer-z-index: 40;
 			backdrop-filter: blur(2px);
 		}
 
-		// Pinned to the inline-start edge, full height, rather than centred like
-		// the cell dialog -- it is a panel the page slides out from, not a card
-		// laid over it.
+		// Pinned to the inline-start edge, full height: a panel the page slides out
+		// from, not a card laid over it.
 		&__positioner {
 			position: fixed;
 			inset: 0;
 			z-index: $drawer-z-index;
 			display: flex;
 			justify-content: flex-start;
-			// Unlike the backdrop and the panel, the positioner is never marked
-			// `hidden` -- once the drawer has been opened it stays in the page as
-			// a viewport-sized layer for good. It must therefore never be the
-			// thing a click lands on; only the panel inside it takes pointers.
-			// Dismissing by tapping outside still works, since that is handled by
-			// a document-level listener rather than by hit-testing this element.
+			// The positioner is never marked `hidden`: once opened it stays in the page
+			// as a viewport-sized layer for good, so it must never be the thing a click
+			// lands on. Dismissing by tapping outside still works -- that is a
+			// document-level listener, not hit-testing this element.
 			pointer-events: none;
 		}
 
-		// Hosts the menus portalled out of the form -- inside the panel, so that
-		// the dialog's dismissable layer counts a click on one as a click within
-		// itself rather than a reason to close. Taken out of flow so that it
-		// claims neither a row of the panel's column nor one of its gaps.
+		// Hosts the menus portalled out of the form, inside the panel so the dialog's
+		// dismissable layer counts a click on one as within itself rather than a
+		// reason to close. Out of flow, so it claims no row of the panel's column.
 		&__layer {
 			position: absolute;
 			top: 0;

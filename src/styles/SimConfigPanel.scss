@@ -1,8 +1,8 @@
 @use 'base' as *;
 
 @layer screen {
-	// Bare for the same reason `.sim-setup` is: a run of controls under a
-	// heading is a section, not a bounded object needing a ground of its own.
+	// Bare, as `.sim-setup` is: a run of controls under a heading is a section, not
+	// a bounded object needing a ground of its own.
 	.sim-config {
 		&__title {
 			@include panel-title;
@@ -11,8 +11,8 @@
 			border-bottom: 1px solid $rule;
 		}
 
-		// The same field width the sidebar's own form settles on, wrapped rather
-		// than columned, so the panel reads the same at any width it is given.
+		// The sidebar's own field width, wrapped rather than columned, so the panel
+		// reads the same at any width it is given.
 		&__grid {
 			display: grid;
 			grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -37,9 +37,8 @@
 			}
 		}
 
-		// The one thing on the panel that starts something, so it wears the
-		// cut card's gold -- which is the shared button's own `.highlight`
-		// now, the same mark the felt's Deal and Next hand carry.
+		// The one thing on the panel that starts something, so it wears the shared
+		// button's `.highlight` gold, as the felt's Deal and Next hand do.
 		&__run {
 			@include button;
 		}
@@ -56,8 +55,8 @@
 			min-width: 0;
 		}
 
-		// The label names the bar for a screen reader; the status line under it is
-		// what a sighted reader actually reads, so the label itself is not drawn.
+		// Names the bar for a screen reader; the status line under it is what a sighted
+		// reader reads, so this is not drawn.
 		&__progress-label {
 			position: absolute;
 			width: 1px;

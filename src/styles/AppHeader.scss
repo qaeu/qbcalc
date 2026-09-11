@@ -1,14 +1,13 @@
 @use 'base' as *;
 
 @layer screen {
-	// The padded rail bounding the table: the one surface in the app that is
-	// not felt, so the felt below it reads as a table rather than as a page
-	// colour. Full viewport width, independent of `.app`'s own centred
-	// container -- only its contents line up with the page below it.
+	// The padded rail bounding the table: the one surface in the app that is not
+	// felt. Full viewport width, independent of `.app`'s centred container -- only
+	// its contents line up with the page below it.
 	.app-header {
 		@include rail;
 		position: relative;
-		// Above the felt's own stacking, so the rail's shadow falls on the table.
+		// Above the felt, so the rail's shadow falls on the table.
 		z-index: 3;
 		width: 100%;
 		@include shadow($direction: 'down');
@@ -32,9 +31,8 @@
 			}
 		}
 
-		// The title and, where there is one, the button that opens the settings
-		// drawer beside it -- one row, so the drawer stays reachable without
-		// costing the tab strip any of its width.
+		// The title and, where there is one, the drawer button beside it: one row, so
+		// the drawer stays reachable without costing the tab strip any width.
 		&__title-row {
 			display: flex;
 			align-items: center;
@@ -43,13 +41,12 @@
 			min-width: 0;
 		}
 
-		// Stamped into the rail: cream lettering with a hard shadow under it,
-		// the way a table's own name is printed on the apron.
+		// Stamped into the rail, the way a table's name is printed on the apron.
 		&__title {
 			display: flex;
 			align-items: center;
-			// The name and its qualifier are separate flex items, so the space
-			// between them in the markup collapses -- the gap puts it back.
+			// The name and its qualifier are separate flex items, so the markup's space
+			// between them collapses -- the gap puts it back.
 			gap: 0.3em;
 			min-width: 0;
 			padding: 15px 0 14px;
@@ -60,29 +57,26 @@
 			}
 		}
 
-		// What the name is, set behind the name itself: the book weight and the
-		// dimmer print, so the wordmark reads as one line with one emphasis.
+		// Set behind the name itself, so the wordmark reads as one line with one
+		// emphasis.
 		&__title-sub {
 			font-weight: 400;
 			color: get($neutrals, 'fg-light');
 		}
 
-		// Deliberately not gated on the `compact` mixin as well. Whether the
-		// sidebar is in the page or in the drawer is decided in JS, and `App`
-		// only hands this button a callback in the second case -- so it is in the
-		// markup exactly when it is wanted. A second gate here could only ever
-		// disagree with the first, and the way it fails is the bad one: the
-		// sidebar out of the layout and no button to open it with.
+		// Deliberately not gated on `compact` as well: `App` hands this button a
+		// callback only when the sidebar is in the drawer, so it is in the markup
+		// exactly when it is wanted. A second gate could only disagree with the first,
+		// and it would fail the bad way -- no button to open the drawer with.
 		&__settings {
 			@include icon-button;
-			// Sat on the rail rather than on the felt, so unlike the drawer's own
-			// close it keeps a hairline and a recess at rest -- the rail has no
-			// other object on it to read the button against.
+			// Sat on the rail, which has no other object on it to read the button
+			// against, so it keeps a hairline and a recess at rest.
 			border-color: $rule-strong;
 			background-color: $cut-light;
 
-			// The shared hover draws its hairline onto a chromeless box; this one
-			// already has a stronger hairline than that, so it keeps it.
+			// The shared hover draws a hairline onto a chromeless box; this one already
+			// has a stronger one, so it keeps it.
 			&:hover:not(:disabled) {
 				border-color: $rule-strong;
 			}
@@ -93,9 +87,7 @@
 			}
 		}
 
-		// The tabs sit directly on the rail and are told apart by the gold
-		// marker under the live one -- the cut card's own colour, used here for
-		// the same job it does in a shoe: marking where things stand.
+		// Directly on the rail, told apart by the gold marker under the live one.
 		&__tab-list {
 			display: flex;
 			align-self: stretch;
@@ -107,13 +99,10 @@
 
 		&__tab {
 			@include tab(13px, 0.16em);
-			// The one place the print's condensed face is dropped: these four
-			// labels are the app's own navigation rather than lettering on the
-			// table, and the bar has the room to set them at full width.
+			// The one place the print's condensed face is dropped: these are the app's
+			// own navigation rather than lettering on the table.
 			font-family: 'Archivo', system-ui, sans-serif;
-			// Lighter than the shared tab's 600: at full width the labels do not
-			// need the extra weight, and the medium keeps them under the wordmark
-			// rather than level with it.
+			// Lighter than the shared tab's 600, which keeps them under the wordmark.
 			font-weight: 500;
 			padding: 0 18px;
 
@@ -125,11 +114,9 @@
 				padding: 12px 8px;
 			}
 
-			// Four labels rather than three, and "Bankroll" is the long one: at
-			// 360px the tracking and the side padding are what has to give, since
-			// a wrapped tab label would cost the bar a whole line.
-			// Size and tracking only, rather than the whole print: re-including
-			// it here would hand the labels the condensed face back.
+			// At 360px the tracking and the side padding are what give, since a wrapped
+			// label would cost the bar a whole line. Size and tracking only: including
+			// the whole print again would hand the labels the condensed face back.
 			@include phone {
 				font-size: 12px;
 				letter-spacing: 0.1em;

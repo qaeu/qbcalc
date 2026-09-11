@@ -32,8 +32,7 @@
 			gap: 16px;
 		}
 
-		// Full-bleed strip across the very top of the panel: the panel's own
-		// 20px padding is cancelled out so the bar meets its edges.
+		// Full-bleed across the top of the panel: its 20px padding is cancelled out.
 		&__tab-list {
 			display: flex;
 			gap: 0;
@@ -43,9 +42,8 @@
 			background-color: $cut-light;
 		}
 
-		// Marked underneath in the cut card's gold, the same as the header's
-		// tabs and the Play view's: "which one is live" reads identically at
-		// every level of the app.
+		// Marked in gold like the header's tabs and the Play view's, so "which one is
+		// live" reads the same at every level of the app.
 		&__tab {
 			@include tab(10px, 0.1em);
 			flex: 1;
@@ -53,8 +51,7 @@
 			gap: 4px;
 			min-width: 0;
 			padding: 9px 2px 8px;
-			// Four tabs to a 290px sidebar leaves each one comfortable, but a
-			// wrapped label would push the strip to two lines rather than clip.
+			// A wrapped label would push the strip to two lines rather than clip.
 			white-space: nowrap;
 
 			svg {
@@ -63,16 +60,15 @@
 			}
 		}
 
-		// Only the selected tab's panel is shown -- Ark hides the others with
-		// the `hidden` attribute, which a bare `display: flex` would override.
+		// Ark hides the unselected panels with the `hidden` attribute alone, which a
+		// bare `display: flex` would override.
 		&__tab-panel:not([hidden]) {
 			display: flex;
 			flex-direction: column;
 			gap: 16px;
 		}
 
-		// The full calculation and the timing that follows it read as one line,
-		// so they sit in a row rather than stacking under the card.
+		// The full calculation and the timing that follows it read as one line.
 		&__footer {
 			display: flex;
 			align-items: center;

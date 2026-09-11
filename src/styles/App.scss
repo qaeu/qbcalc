@@ -13,10 +13,8 @@
 
 		@include compact {
 			flex-direction: column;
-			// Stretch, not the `flex-start` above. Turning the column on swaps the
-			// cross axis to the horizontal, so `flex-start` stops meaning "sit at
-			// the top" and starts meaning "be only as wide as your content" --
-			// which leaves the felt and the bankroll cards short of the screen.
+			// Stretch, not the `flex-start` above: in a column that axis is the
+			// horizontal, where `flex-start` means "only as wide as your content".
 			align-items: stretch;
 		}
 	}

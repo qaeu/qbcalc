@@ -1,11 +1,9 @@
 @use 'base' as *;
 
 @layer screen {
-	// The printed band the Bankroll figures are set in, lifted out of PlayStats
-	// so the Sim stats read the same way. The figures sit straight on the page:
-	// no fill, and rules above and below only, so the band reads as a line of type
-	// rather than as a tray. See EvSummary.scss, which still carries its own
-	// copy of this for its loading skeletons.
+	// The band the training record and the Sim figures are both set in: no fill, and
+	// rules above and below only, so it reads as a line of type rather than a tray.
+	// EvSummary.scss carries its own copy for its loading skeletons.
 	.stat-band {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -16,21 +14,16 @@
 			grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
 		}
 
-		// The dividing hairlines are the cells' own borders, pulled back over the
-		// neighbour by a negative margin, so the ones that would fall on the
-		// band's own edges land outside the padding box and are clipped away --
-		// which a plain per-cell border cannot arrange for itself, since it
-		// cannot know where the row wraps. The row rule is drawn under each cell
-		// rather than over it, so a wrapped last line that doesn't fill its
-		// columns still leaves a complete rule under the line above it.
+		// The dividing hairlines are the cells' own borders, pulled back by a negative
+		// margin so the ones falling on the band's edges are clipped away -- which a
+		// per-cell border cannot arrange for itself, not knowing where the row wraps.
+		// Drawn under each cell rather than over it, so a wrapped last line still
+		// leaves a complete rule under the line above.
 		&__card {
-			// A subgrid of the band's own rows rather than a stack of its own, so
-			// the label, the figure and the note each sit in a row shared with
-			// every other cell on the line: a label that wraps to a second line
-			// makes room for itself across the whole line, and the figures stay
-			// level instead of one dropping below its neighbours. The row gap is
-			// set here, overriding the band's, so it applies between a cell's
-			// three rows and not between wrapped lines.
+			// A subgrid of the band's rows rather than a stack of its own, so a label
+			// that wraps makes room across the whole line and the figures stay level.
+			// The row gap is set here so it applies between a cell's three rows and not
+			// between wrapped lines.
 			display: grid;
 			grid-template-rows: subgrid;
 			grid-row: span 3;
@@ -40,9 +33,8 @@
 			border-left: 1px solid $rule-strong;
 			margin: 0 0 -1px -1px;
 
-			// The figure a balanced last line starts on sits a column or two into
-			// the band rather than against its edge, so there is no edge to clip
-			// its rule away -- see `#utils/gridBalance`. Transparent rather than
+			// A balanced last line starts a column or two in, where there is no edge to
+			// clip its rule away -- see `#utils/gridBalance`. Transparent rather than
 			// removed, so the cell keeps the width its border gives it.
 			&.is-line-start {
 				border-left-color: transparent;
@@ -55,18 +47,15 @@
 
 		&__label {
 			@include print(10px, 0.16em);
-			// Sat on the foot of the shared label row, so a one-line label stays
-			// next to its own figure rather than floating a line above it when a
-			// neighbour's label wraps.
+			// Sat on the foot of the shared label row, so a one-line label stays next to
+			// its own figure when a neighbour's wraps.
 			align-self: end;
 			color: $ink-muted;
 		}
 
 		&__value {
-			// Condensed and tracked tight: the figure is the largest thing in the
-			// band, so it is set as a printed number rather than as body text that
-			// happens to be big. Tabular, so it doesn't jitter its own width as a
-			// run's figures climb.
+			// A printed number rather than body text that happens to be big, and
+			// tabular so it doesn't jitter its width as a run's figures climb.
 			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
 			font-variant-numeric: tabular-nums;
 			font-size: 28px;
@@ -96,8 +85,7 @@
 			color: $ink-muted;
 		}
 
-		// The second reading, under the figure: small, sentence-cased, and in the
-		// label's own muted ink so it reads as a footnote rather than a rival.
+		// The second reading: in the label's muted ink, so it reads as a footnote.
 		&__note {
 			@include print(10px, 0.02em, $caps: false);
 			color: $ink-muted;

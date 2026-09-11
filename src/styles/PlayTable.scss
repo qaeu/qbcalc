@@ -1,6 +1,10 @@
 @use 'sass:map';
 @use 'base' as *;
 
+// The felt: the layout print, the seats, the card stock and the chip rail. Its
+// materials and the reservations that keep it from moving as a round turns are in
+// docs/design-language.md.
+
 // The chip colours a casino rail actually runs, keyed by denomination so the
 // value is readable before the number is.
 $chip-colours: (
@@ -13,9 +17,8 @@ $chip-colours: (
 );
 
 @layer screen {
-	// Out here rather than beside the rule that uses it: Sass leaves a nested
-	// @keyframes nested in the compiled CSS, where it is not a valid at-rule and
-	// is dropped -- so a nested one silently animates nothing.
+	// Top level of the layer, not nested: Sass leaves a nested @keyframes nested in
+	// the compiled CSS, where it is silently dropped.
 	//
 	// The deal gesture itself: in from the shoe's corner, squared up as it lands.
 	@keyframes play-table-deal {
@@ -34,8 +37,7 @@ $chip-colours: (
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
-		// Card geometry as variables rather than fixed lengths, so the seat's
-		// reserved height below follows whatever size the viewport calls for.
+		// As variables, so the seat's reserved height below follows the card size.
 		--play-card-width: 68px;
 		--play-card-height: 96px;
 
@@ -189,14 +191,11 @@ $chip-colours: (
 		&__cards {
 			display: flex;
 			justify-content: center;
-			// Wrapping rather than squashing: a five-hand split has more cards
-			// than a narrow felt can hold in one line, and the seat is free to
-			// grow now that nothing below it is pinned.
+			// Wrapping rather than squashing: a five-hand split has more cards than a
+			// narrow felt holds in one line.
 			flex-wrap: wrap;
 			gap: 7px;
-			// Reserved at the height of a card so a seat holds its place before its
-			// first card lands, instead of the felt growing under everything below
-			// it as the reveal queue lands each card.
+			// Reserved, so a seat holds its place before its first card lands.
 			min-height: var(--play-card-height);
 		}
 
@@ -213,12 +212,9 @@ $chip-colours: (
 			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
 			font-weight: 700;
 			line-height: 1;
-			// Each card is inserted as the reveal queue reaches it, so the deal
-			// gesture comes for free: the animation runs on mount and never again.
-			//
-			// The deal is the felt's own animation: Play has an animation speed in
-			// the sidebar, whose `instant` setting skips the reveal queue outright,
-			// and that is where a player turns the dealing off.
+			// Each card is inserted as the reveal queue reaches it, so the gesture comes
+			// for free: the animation runs on mount and never again. Turning it down is
+			// the sidebar's animation-speed setting, whose `instant` skips the queue.
 			animation: play-table-deal 380ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
 
 			&.is-red {
@@ -294,17 +290,14 @@ $chip-colours: (
 
 		/* ── Bet, result, and the rail ───────────────────────────── */
 
-		// The bet while a round is live, the result and net once it's settled --
-		// one slot, always mounted, so neither ever displaces the rail below it.
-		// Centred under the table, with the bet directly below the seats it is
-		// riding on rather than pushed out to a corner.
+		// The bet while a round is live, the result and net once it has settled: one
+		// slot, always mounted, so neither displaces the rail below it.
 		&__info {
 			display: flex;
 			align-items: center;
 			justify-content: center;
 			gap: 20px;
-			// Reserved to the height a wrapped, multi-hand result line can reach, so
-			// a split settling doesn't push the Next hand / Redeal row below it.
+			// Reserved to the height a wrapped multi-hand result line can reach.
 			min-height: 40px;
 		}
 
@@ -346,11 +339,9 @@ $chip-colours: (
 			}
 		}
 
-		// One shelf for every phase's controls, stacked in a single grid cell.
-		// The hidden panels still size the grid, so the shelf is always as tall
-		// as the tallest phase and nothing on the felt moves as the round turns
-		// from betting to acting to settled -- the same reservation `__info`
-		// makes for the result line, over a taller and more variable thing.
+		// One shelf for every phase's controls, stacked in a single grid cell: the
+		// hidden panels still size it, so nothing on the felt moves as the round turns
+		// from betting to acting to settled.
 		&__controls {
 			display: grid;
 		}
@@ -361,9 +352,8 @@ $chip-colours: (
 			flex-direction: column;
 			gap: 14px;
 			width: 100%;
-			// Not `display: none`: a panel out of the flow would stop reserving
-			// the height it is here for. Hidden this way it is also out of the
-			// tab order and untouchable, so only the live phase can be operated.
+			// Not `display: none`: a panel out of the flow would stop reserving the
+			// height it is here for. This also keeps it out of the tab order.
 			visibility: hidden;
 
 			&.is-shown {
@@ -378,8 +368,7 @@ $chip-colours: (
 			gap: 10px;
 		}
 
-		// The result of the round just settled, paused until the player says what
-		// happens next -- redeal at the same bet, or size a fresh one.
+		// Paused after a round settles, until the player redeals or sizes a fresh bet.
 		&__pause {
 			display: flex;
 			flex-wrap: wrap;
@@ -388,16 +377,16 @@ $chip-colours: (
 			gap: 8px;
 		}
 
-		// A hotkey label stacked above the button it fires -- shared by the chip
-		// row and the Repeat/Deal row so every rail control reads the same way.
+		// A hotkey label stacked above the button it fires, shared by the chip row and
+		// the Repeat/Deal row.
 		&__slot {
 			display: flex;
 			flex-direction: column;
 			align-items: center;
 			gap: 5px;
 
-			// Only the slots holding a full-width control take half the row; a
-			// chip's slot is the size of the chip in it, whatever the viewport.
+			// Only slots holding a full-width control take half the row; a chip's slot
+			// is the size of the chip in it.
 			@include compact {
 				&:has(> .play-table__control) {
 					flex: 1 1 calc(50% - 4px);
@@ -460,9 +449,8 @@ $chip-colours: (
 				}
 			}
 
-			// The lightest chip is the one the white text disappears on -- and the
-			// one whose edge spots vanish against its own face, so it takes a
-			// darker spot rather than the card-stock white every other chip uses.
+			// The white text and the card-stock edge spots both disappear on the
+			// lightest chip, so it takes dark ink and a darker spot.
 			&--1 {
 				color: $stock-ink;
 				background-image: repeating-conic-gradient(
@@ -478,9 +466,8 @@ $chip-colours: (
 					inset 0 1px 0 rgb(255 255 255 / 0.25);
 			}
 
-			// Pressing a lifted chip puts it back down on the felt rather than
-			// moving it further: it is the one control that already travels on
-			// hover, so the press undoes that instead of adding to it.
+			// A chip already travels on hover, so the press puts it back down on the
+			// felt rather than moving it further.
 			&:active:not(:disabled) {
 				transform: translateY(0);
 				box-shadow:
@@ -493,8 +480,7 @@ $chip-colours: (
 			}
 		}
 
-		// The denomination sits on top of the inlay ring, which is painted over
-		// the button's own content box.
+		// Above the inlay ring, which is painted over the button's own content box.
 		&__chip-value {
 			position: relative;
 			z-index: 1;
@@ -515,10 +501,8 @@ $chip-colours: (
 			@include button;
 			min-width: 150px;
 
-			// Two to a row rather than one per line: 150px is more than half a
-			// phone's width, so a fixed minimum would stack every button. The
-			// slot around it is the flex item, so the width is claimed there and
-			// the button just fills it.
+			// Two to a row: 150px is more than half a phone's width, so a fixed minimum
+			// would stack every button. The slot around it claims the width.
 			@include compact {
 				width: 100%;
 				min-width: 0;
@@ -538,10 +522,9 @@ $chip-colours: (
 				min-width: 0;
 			}
 
-			// The action colours the grids use, so a Stand on the felt and a
-			// Stand in a cell are the same colour. These were crossed over
-			// against `EvTable.scss` before -- Hit wore the Stand colour and
-			// vice versa, despite the comment here claiming they matched.
+			// The action colours the grids use, so a Stand on the felt and a Stand in a
+			// cell are the same colour. Check against `EvTable.scss` when changing
+			// either -- they have been crossed over before.
 			&.is-hit {
 				border-color: oklch(from get($successes, 'base') l c h / 0.55);
 				color: get($successes, 'fg-light');
@@ -562,20 +545,15 @@ $chip-colours: (
 				color: get($primaries, 'fg-light');
 			}
 
-			// Neutral, as in the grids: surrender is the action that declines to
-			// play, so it is the one that carries no colour of its own.
+			// Neutral, as in the grids: the one action that declines to play.
 			&.is-surrender {
 				border-color: $rule-strong;
 				color: get($neutrals, 'fg-light');
 			}
 		}
 
-		// The 44px tap target the felt used to reach with padding of its own is
-		// the shared `button` mixin's floor now, so every control in the app
-		// gets it rather than only these two.
-
-		// The digit that fires the button beside it, in the cap the grids'
-		// mode line wears for the same job.
+		// The digit that fires the button beside it, in the cap the grids' mode line
+		// wears for the same job.
 		&__key {
 			@include key-cap;
 		}
@@ -601,9 +579,8 @@ $chip-colours: (
 			text-align: center;
 		}
 
-		// The coach's verdict on the play just made. Marked in the cut card's
-		// gold rather than in an error red: a wrong play is information, and the
-		// felt already spends red on losing money.
+		// The coach's verdict on the play just made, marked in gold rather than red: a
+		// wrong play is information, and the felt spends red on losing money.
 		&__correction {
 			@include info-box(get($primaries, 'fade'), get($primaries, 'base'));
 			margin-bottom: 0;

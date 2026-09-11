@@ -17,9 +17,8 @@
 			font-size: 14px;
 			cursor: pointer;
 
-			// Ark marks a disabled trigger with an attribute rather than the
-			// `disabled` property, so `form-control`'s own disabled rule needs
-			// telling where to look.
+			// Ark marks a disabled trigger with an attribute rather than the `disabled`
+			// property, so `form-control`'s own rule needs telling where to look.
 			&[data-disabled] {
 				@include disabled-control;
 			}
@@ -38,9 +37,8 @@
 		// border-box so the padding and border below don't push min-width past
 		// the trigger's own (border-box) width.
 		box-sizing: border-box;
-		// Set by the popper middleware to the trigger's width, regardless of the
-		// `sameWidth` option -- used here as a floor so a long option can still
-		// widen the menu instead of wrapping.
+		// Set by the popper middleware to the trigger's width, used here as a floor so
+		// a long option can widen the menu rather than wrap.
 		min-width: var(--reference-width);
 		padding: 4px;
 		border: 1px solid $rule-strong;
@@ -67,18 +65,15 @@
 			color: get($primaries, 'fg-light');
 		}
 
-		// The same recipe a disabled field and a disabled trigger wear: an
-		// option the table forbids and the control showing it should read as
-		// unavailable in the same voice.
+		// The same recipe a disabled field and trigger wear.
 		&[data-disabled] {
 			color: get($neutrals, 'fg-light');
 			@include disabled-control;
 		}
 	}
 
-	// Only the chosen option carries the mark -- Zag hides the others with the
-	// `hidden` attribute alone, which a bare `display` here would override. Same
-	// trap as the drawer's panel and the sidebar's tab panels.
+	// Zag hides the unchosen marks with the `hidden` attribute alone, which a bare
+	// `display` here would override.
 	.setting-select__item-mark:not([hidden]) {
 		display: inline-flex;
 		flex: none;

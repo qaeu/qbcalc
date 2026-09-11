@@ -10,8 +10,8 @@
 			margin-bottom: 12px;
 		}
 
-		// Thirteen rows of six columns is wider than a phone, and squeezing the
-		// figures is worse than scrolling them.
+		// Six columns is wider than a phone, and squeezing figures is worse than
+		// scrolling them.
 		&__scroll {
 			overflow-x: auto;
 		}
@@ -46,9 +46,8 @@
 				color: get($neutrals, 'fg');
 			}
 
-			// A count that was watched but never wagered at -- wonged out, or
-			// bet nothing by the ramp. The rounds happened, so the row stays,
-			// but none of the money columns describe anything.
+			// A count watched but never wagered at -- wonged out, or bet nothing by the
+			// ramp. The rounds happened, so the row stays, but no money column does.
 			tr.is-sat-out {
 				color: $ink-faint;
 
@@ -67,8 +66,7 @@
 			}
 		}
 
-		// Stretched to whatever the column gives it, which is what
-		// `preserveAspectRatio="none"` on the drawing is for.
+		// Stretched to the column, which `preserveAspectRatio="none"` is for.
 		&__bar {
 			display: block;
 			width: 100%;

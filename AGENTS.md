@@ -133,6 +133,10 @@ Formatting is enforced by Prettier (`.prettierrc`): tabs, single quotes, 90 colu
 
 ### SASS/SCSS Styling
 
+- **Read the design doc first**: [docs/design-language.md](./docs/design-language.md)
+  records the materials, the depth and colour systems, the EV board's fills and
+  counters, and the Ark UI/Zag traps the stylesheets work around. Reasoning belongs
+  there; the stylesheets keep short comments that point at it.
 - **Module system**: Use `@use` for importing theme variables and mixins.
 - **Palette file**: `src/styles/_palette.scss` holds hand-authored 12-step scales as CSS
   custom properties. They are _dark_ scales — step 1 is the deepest surface and step 12 the

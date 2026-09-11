@@ -1,12 +1,9 @@
 @use 'base' as *;
 
 @layer screen {
-	// No panel. A panel grounds a bounded object -- a plot, a scrollable table,
-	// a grid with its own coordinate space -- because those need a surface that
-	// is demonstrably not the felt. This is a heading over a row of readings, and
-	// the heading and its rule already say where the section starts; a border
-	// around it was the view's fourth box in a column, saying "separate thing"
-	// three more times than the reader needed.
+	// No panel. A panel grounds a bounded object -- a plot, a scrollable table, a
+	// grid with its own coordinate space. This is a heading over a row of readings,
+	// and the heading and its rule already say where the section starts.
 	.sim-setup {
 		&__title {
 			@include panel-title;
@@ -15,9 +12,8 @@
 			border-bottom: 1px solid $rule;
 		}
 
-		// The rules as they would be printed on the felt's own layout line: a row
-		// of short readings, not a table -- there is one value each and no column
-		// they would share.
+		// The rules as the felt's own layout line prints them: a row of short readings
+		// rather than a table, since there is one value each and no shared column.
 		&__chips {
 			display: flex;
 			flex-wrap: wrap;
@@ -35,8 +31,7 @@
 			background-color: $cut-light;
 			color: get($neutrals, 'fg');
 
-			// The precision reading, marked the same way the sidebar marks a full
-			// calculation, since it is the same fact being reported twice.
+			// Marked as the sidebar marks a full calculation: the same fact, twice.
 			&--accent {
 				border-color: get($primaries, 'fg-light');
 				color: get($primaries, 'fg-light');

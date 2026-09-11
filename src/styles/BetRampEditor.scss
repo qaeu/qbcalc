@@ -3,8 +3,8 @@
 @layer screen {
 	.bet-ramp-editor {
 		display: grid;
-		// Seven buckets to a row, so each column is narrower still than the tag
-		// grid's five -- the labels carry the sign and the fields stay bare.
+		// Seven buckets to a row, narrower still than the tag grid's five: the labels
+		// carry the sign and the fields stay bare.
 		grid-template-columns: repeat(7, 1fr);
 		gap: 6px;
 
@@ -16,20 +16,17 @@
 			align-items: center;
 			gap: 2px;
 			font-size: 11px;
-			// The two open ends are labelled with a glyph Archivo has no cut of,
-			// so their line box comes from a fallback face a pixel taller than
-			// the five '+n' labels beside it -- enough to drop those two fields
-			// out of line with the rest. A line height of our own settles all
-			// seven.
+			// The two open ends are labelled with a glyph Archivo has no cut of, so
+			// their line box comes from a fallback face a pixel taller than the '+n'
+			// labels beside it. A line height of our own settles all seven.
 			line-height: 16px;
 			color: get($neutrals, 'fg-light');
 
 			input[type='number'] {
 				@include form-control;
 				min-width: 0;
-				// Barely any side padding: a column this narrow has to spend its
-				// width on the figure, and a two-unit bet clipped by its own
-				// field is worse than one sitting close to the edges.
+				// Barely any side padding: a column this narrow has to spend its width on
+				// the figure.
 				padding: 6px 1px;
 				text-align: center;
 			}

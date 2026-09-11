@@ -6,9 +6,8 @@
 		flex-direction: column;
 		gap: 18px;
 
-		// The figures themselves are `.stat-band`, shared with the Sim view -- a
-		// training record and a simulated session are read the same way, so they
-		// are set the same way. What is left here is the panel around them.
+		// The figures themselves are `.stat-band`, shared with the Sim view; what is
+		// left here is the panel around them.
 
 		&__reset {
 			display: flex;
@@ -18,9 +17,8 @@
 		&__reset-button {
 			@include button($errors);
 
-			// "Reset stats" and "Confirm reset?" take turns in the same slot, so
-			// the wider of the two sets its width and the row holds still through
-			// the step.
+			// "Reset stats" and "Confirm reset?" take turns in one slot, so the wider of
+			// the two sets its width.
 			&:first-child {
 				min-width: 170px;
 			}
@@ -34,9 +32,9 @@
 				}
 			}
 
-			// Filled rather than outlined: this is the last chance to keep a
-			// training record, so it is the one button in the app that stops
-			// reading as a recess and starts reading as a lit warning.
+			// Filled rather than outlined: the last chance to keep a training record, so
+			// the one button in the app that reads as a lit warning rather than a
+			// recess.
 			&.is-confirming {
 				background-color: get($errors, 'base');
 				border-color: get($errors, 'sep-dark');
@@ -50,8 +48,7 @@
 				}
 			}
 
-			// Standing in the row before it has anything to say -- see
-			// `#c/PlayStats`.
+			// Standing in the row before it has anything to say -- see `#c/PlayStats`.
 			&.is-reserved {
 				visibility: hidden;
 			}

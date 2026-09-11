@@ -2,6 +2,10 @@
 @use 'sass:list';
 @use 'sass:math';
 
+// The EV board: a gapped grid of tiles, each carrying a fill for the basic play,
+// with a counter standing on any cell the count has moved. The fill system, the
+// counter and the reasoning behind both are in docs/design-language.md.
+
 // Keep in sync with LOADING_PHASE_COUNT in src/components/EvTable.tsx.
 $skeleton-phase-count: 12;
 $skeleton-pulse-duration: 1.4s;
@@ -10,67 +14,46 @@ $cell-hover-duration: 0.1s;
 $cell-padding-y: 12px;
 $cell-padding-x: 10px;
 $cell-padding-x-phone: 4px;
-// What a data cell needs to show its widest contents -- a signed EV to one
-// decimal at 11px -- without ellipsising, and what the row label needs for
-// "A,T" at the header's tracked-out 11px print.
+// What a data cell needs for its widest contents -- a signed EV to one decimal at
+// 11px -- and what the row label needs for "A,T" at the header's 11px print.
 $cell-min-width: 38px;
 $label-column-width: 46px;
-// Fixed, rather than left to each state's own font metrics, because a cell's
-// contents change under it: the numeric modes drop to 11px, and the loading
-// skeleton is a 14px block, taller than the line either size makes. Under
-// `normal` that resized the rows on every recalculation -- each grid growing
-// 3px a row as the skeletons came in and shrinking back as the numbers landed,
-// which is the flash a count step used to set off. One pixel over the skeleton,
-// so it still clears the clipped content box at every size.
+// Fixed rather than left to each state's font metrics, since a cell's contents
+// change under it and the rows must not resize on every recalculation. One pixel
+// over the skeleton, so it clears the clipped content box at every size.
 $cell-line-height: 15px;
-// The board is gapped rather than ruled: a cell is a tile with felt showing
-// between it and its neighbours, which is what a laid-out table looks like and
-// what leaves room for a counter to stand on one tile without touching the
-// next. Two pixels is the whole separation -- any more and the board reads as
-// a grid of chips rather than as one layout.
+// The whole separation between cells: felt showing through. Any more and the
+// board reads as a grid of chips rather than as one layout.
 $cell-gap: 2px;
-// The counter's own radius, and the board's only one: a cell is square. The
-// gaps are what divide the board, so rounding the tiles as well breaks it into
-// a set of separate objects -- and it is the piece standing on a cell that is
-// meant to read as an object, which it does more plainly with square ground
-// under it.
+// The counter's own radius, and the board's only one: a cell is square, since the
+// gaps are what divide the board and the piece is what should read as an object.
 $counter-radius: 2px;
 // The hairline that says a cell opens something.
 $cell-hover-ring-shadow: inset 0 0 0 1px oklch(from get($primaries, 'base') l c h / 0.45);
-// The counter: the piece that stands on a cell whose play the count has moved.
-// It is inset from the cell's edges so the cell's own fill -- the basic play --
-// stays visible as a surround, which is the half of the pair the piece is not
-// carrying.
+// Inset from the cell's edges, so the cell's own fill -- the basic play -- stays
+// visible as a surround.
 $counter-inset: 3px 6px 4px;
-// Two slices of rim under the face, a pixel apart, dropped down the screen. A
-// box-shadow would turn with the face it is offset from and stay glued square
-// to it; a real slice stays where gravity put it.
+// Two slices of rim under the face, a pixel apart, dropped down the screen: a
+// box-shadow would turn with the face rather than staying where gravity put it.
 $counter-rim-depth: 2px;
-// How far the rim is sunk from the face it carries. Dark enough to read as the
-// side of the piece rather than as a second fill, light enough to keep the
-// piece's own hue.
+// How far the rim is sunk from the face: the side of the piece, not a second fill.
 $counter-rim-shade: 52%;
-// The lit top edge of the piece -- the same top light the felt's key caps and
-// buttons wear, and the one thing that says the counter has a face rather than
-// being a coloured rectangle.
+// The lit top edge: the same top light the felt's keys and buttons wear, and what
+// says the counter has a face rather than being a coloured rectangle.
 $counter-lip: rgb(255 255 255 / 0.08);
-// The three heights: sat on the cell, lifted under the pointer, and held above
-// it unplayed. The last is far enough that a counter is seen travelling rather
-// than fading in place.
+// Sat on the cell, lifted under the pointer, and held above it unplayed -- far
+// enough that a counter is seen travelling rather than fading in place.
 $counter-lift: 1px;
 $counter-lift-hover: 2px;
 $counter-lift-off: 8px;
-// A counter that has not been played is also a shade larger, so it reads as
-// nearer the eye than the board rather than merely fainter.
+// An unplayed counter is also larger, so it reads as nearer rather than fainter.
 $counter-off-scale: 1.07;
-// The board is dealt a row at a time. Down rather than across because a hand is
-// found by its total first and its upcard second, and because the rows are the
-// coarser division of the two -- the same total delay arrives in ten steps
-// instead of eleven smaller ones.
+// The board is dealt a row at a time, down rather than across: a hand is found by
+// its total first and its upcard second.
 $counter-row-step: 18ms;
-// Keep in sync with COUNTER_SEAT_COUNT in src/utils/counterSeat.ts. Each seat
-// is how far a piece is turned on its cell and how far it is jogged off centre:
-// pieces someone put down, not a second grid printed on the first.
+// How far a piece is turned on its cell and jogged off centre: pieces someone put
+// down, not a second grid printed on the first. Keep in sync with
+// COUNTER_SEAT_COUNT in src/utils/counterSeat.ts.
 $counter-seats: (
 	(1.8deg, 0.4px, -0.3px),
 	(-2.4deg, -0.6px, 0.5px),
@@ -90,67 +73,39 @@ $counter-seats: (
 $counter-row-count: 10;
 // Keep in sync with HEAT_STEPS in src/utils/cellDisplay.ts.
 $heat-steps: 8;
-// The ends of a heat ramp. The floor is what the old scale lacked: at
-// `step / 8 * 45%` the first step landed at 5.6% and three of the eight were
-// indistinguishable from an unfilled cell, so half the ramp was spent before
-// anything was visible -- which is where the board read as too muted. Raising
-// the ceiling instead would have cost the strong cells their text contrast, so
-// the floor moved and the ceiling barely did. Still well short of opaque, so
-// the cell's text keeps its contrast at both ends of the scale, in either theme.
+// The ends of a heat ramp. The floor is there because without one the first few
+// of eight steps are indistinguishable from an unfilled cell; the ceiling stays
+// well short of opaque, so a cell's text keeps its contrast in either theme.
 $heat-min-alpha: 12%;
 $heat-max-alpha: 50%;
-// One lift for both fill systems, so pointing at a cell means the same amount
-// wherever the board is and whichever mode it is in.
+// One lift for both fill systems, so pointing at a cell means the same amount in
+// whichever mode the board is in.
 $fill-hover-lift: 8%;
-// One strength for the four playable actions. They were at three different
-// strengths -- 0.12, 0.195 and 0.24 -- not by choice but because each was its
-// colourset's `fade` alpha times a multiplier, and those alphas were never
-// aligned with each other: baize is 0.08, gold 0.13, and sand, ruby and sky are
-// 0.16. Nothing was being encoded by the difference.
+// One strength for the four playable actions: nothing is encoded by a difference
+// between them.
 $action-fill-strength: 32%;
-// Surrender is the exception. It began as a forced one -- mixed into the green
-// panel there were only four tints that read as a fill at all, so Surrender had
-// to share Hit's cream and be told apart by weight. Grounding each fill in its
-// own scale ends that, and Hit moving to mint leaves the cream free: Surrender
-// has it to itself now. The weight stays anyway, because it says something
-// worth saying: this is the one cell on the board that is not a way of playing
-// the hand.
+// Surrender is held lighter: it is the one cell on the board that is not a way of
+// playing the hand.
 $surrender-fill-strength: 16%;
-// Split is the exception in the other direction, and the reason is what brown
-// is: a dark yellow. Gold's step 11 mixed down to the strength the others take
-// lands near L48, and at that lightness the hue reads as brown rather than as
-// gold however much chroma it carries -- more chroma only makes it a stronger
-// brown. So Split is drawn from the top of its scale instead, where the tint is
-// lighter and much less saturated, and carried further up. It ends the lightest
-// cell on the board, which the accent colour can afford to be.
+// Split goes the other way, because brown is a dark yellow: gold mixed to the
+// usual strength reads as brown whatever chroma it carries. Drawn from the top of
+// its scale and carried further up instead -- see docs/design-language.md.
 $split-tint: 'fg';
 $split-fill-strength: 38%;
-// A cell is a wash on the card, not a surface of its own. The colours above are
-// mixed opaque so each one holds its hue; this is what lets the card back
-// through afterwards, and it is a separate knob from strength because the two
-// say different things -- strength picks the colour, opacity says how firmly
-// the board asserts it.
+// A cell is a wash on the card, not a surface of its own. A separate knob from
+// strength: strength picks the colour, opacity says how firmly it is asserted.
 $action-fill-opacity: 75%;
-// Pointing at a cell firms the wash as well as lifting the tint. The tint lift
-// alone is a small move at this opacity, and the hover feedback should be the
-// one place the board asserts a fill fully.
+// Pointing at a cell firms the wash as well as lifting the tint: the tint lift
+// alone is a small move at this opacity.
 $action-fill-hover-opacity: 100%;
-// The numeric views ramp opacity as well as the tint, and that is what brings
-// their range back. Ramping the tint alone moved the negative cells over eleven
-// steps of lightness and almost no chroma at all -- 0.09 to 0.12 across the
-// whole scale, which is why differences between them stopped being readable.
-// Fading the low end into the card instead takes chroma from 0.01 to 0.12, so a
-// weak cell is weak in both of the ways the eye measures rather than only one.
-//
-// The floor is low because of what sits either side of it: a cell one step into
-// the positive and a cell one step into the negative are next to nothing apart
-// in value, and the ramp should say so. At a half-strength floor they were
-// still legibly green and legibly red, which overstates the difference between
-// two hands that are both very close to break-even.
+// The numeric views ramp opacity as well as the tint, which is what gives them
+// their range: fading the low end into the card moves chroma as well as lightness,
+// so a weak cell reads weak in both of the ways the eye measures. The floor is
+// low because a cell one step either side of break-even is next to nothing apart
+// in value, and the ramp should say so.
 $heat-min-opacity: 20%;
 $heat-max-opacity: 100%;
-// The popover carries one row rather than a whole board, so it does not need
-// the strength that reading a hundred cells at a glance does. Its chips sit on
+// One row rather than a whole board, so it needs less strength; its chips sit on
 // the popover rather than on the card, so they stay opaque.
 $popover-fill-strength: 20%;
 
@@ -169,11 +124,9 @@ $popover-fill-strength: 20%;
 
 		&__grid {
 			@include card;
-			// The auto margins below centre the card, and in doing so opt it out
-			// of a flex item's usual stretch -- which leaves it sized to its
-			// content, so the table's floor grows the card past the column and
-			// takes the page with it instead of letting the scroller inside it
-			// do its job. Stated explicitly, the width comes back.
+			// Stated explicitly: the auto margins below opt the card out of a flex
+			// item's usual stretch, leaving the table's own floor free to grow it
+			// past the column instead of letting the scroller inside it do its job.
 			width: 100%;
 			min-width: 0;
 			max-width: 800px;
@@ -194,26 +147,17 @@ $popover-fill-strength: 20%;
 
 		table {
 			// Separate, and actually spaced: the gap between cells is the whole
-			// division of the board now. The rules it replaces were a hairline of
-			// cream over whatever each cell was painted, so they read differently
-			// under a fill than over a bare cell and differently again around a
-			// cell whose fill was clipped -- three weights of the same line. Felt
-			// showing through is one weight everywhere.
+			// division of the board, and felt showing through is one weight
+			// everywhere a printed rule was three.
 			border-collapse: separate;
 			border-spacing: $cell-gap;
 			table-layout: fixed;
 			width: 100%;
-			// No ground of its own: the card it sits in is the surface, and a
-			// second one painted inside it only shows up as a rectangle a shade
-			// off the card's own. What the fills needed from an opaque ground
-			// they now get from their own colour scales -- see `action-colour`
-			// below -- so the board can be drawn straight onto the card.
-			// A floor under the whole board, so a narrow screen scrolls the grid
-			// in the wrapper above rather than shrinking eleven columns until
-			// every cell ellipsises. Below this the fixed layout was clipping
-			// single letters -- an "H" reading as "H…" -- and taking the row
-			// labels with it.
-			// The gaps are part of the floor: eleven columns have twelve of them.
+			// No ground of its own: the card it sits in is the surface, and the fills
+			// take what they need from their own scales -- see `action-colour` below.
+			// A floor under the whole board, so a narrow screen scrolls the grid in
+			// the wrapper above rather than shrinking eleven columns until every cell
+			// ellipsises. The gaps count: eleven columns have twelve of them.
 			min-width: $label-column-width + 10 * $cell-min-width + 12 * $cell-gap;
 			font-size: 13px;
 			user-select: none;
@@ -226,9 +170,8 @@ $popover-fill-strength: 20%;
 			line-height: $cell-line-height;
 			text-align: center;
 
-			// Bought back from the padding first: narrowing the gaps keeps more
-			// of the board on screen than narrowing the columns would, and the
-			// row rules still separate them.
+			// Bought back from the padding first: narrowing the gaps keeps more of the
+			// board on screen than narrowing the columns would.
 			@include phone {
 				padding-left: $cell-padding-x-phone;
 				padding-right: $cell-padding-x-phone;
@@ -242,24 +185,19 @@ $popover-fill-strength: 20%;
 			font-weight: 600;
 		}
 
-		// The label column, held at a width its longest label fits in rather
-		// than left to share the ten upcards' allowance. It is the widest thing
-		// on the row -- "A,T", "8,8" -- and the one cell whose text says which
-		// hand the row is, so it is the last that should be ellipsised. It
-		// scrolls away with the rest of the board: pinning it needs an opaque
-		// backing for the columns to pass under, and the only thing left to
-		// paint it with is a fixed colour on a card that is not one.
+		// Held at a width its longest label fits rather than sharing the upcards'
+		// allowance: it says which hand the row is, so it is the last thing that
+		// should ellipsise. It scrolls away with the board, since pinning it would
+		// need an opaque backing on a card that is not opaque.
 		th:first-child {
 			width: $label-column-width;
 		}
 
-		// On every cell, not just the coloured ones, so a cell eases between its
-		// old action colour, the bare loading state, and its new colour instead
-		// of cutting between them. Also covers the hover highlight.
+		// On every cell, not just the coloured ones, so a cell eases between its old
+		// action colour, the bare loading state and its new colour.
 		td {
-			// The counter stands in the cell's own box, so the cell is what
-			// positions it. Nothing is clipped here: an unplayed piece waits
-			// several pixels above its cell, outside it.
+			// The counter stands in the cell's own box. Nothing is clipped here: an
+			// unplayed piece waits several pixels above its cell, outside it.
 			position: relative;
 			background-color: transparent;
 			cursor: pointer;
@@ -270,30 +208,24 @@ $popover-fill-strength: 20%;
 				color $cell-fade-duration ease;
 		}
 
-		// A transition reads its duration from the state being moved *into*, so
-		// pointing at a cell picks the snappier one here while a recalculated cell
-		// still eases at $cell-fade-duration. Moving the pointer away reads from
-		// the rule above instead, so the highlight releases at the slower rate.
-		//
-		// The gold hairline is what says the cell opens something: brightening
-		// the fill is also what the count moving does, so on its own it reads as
-		// a recalculation rather than as an invitation. Drawn inside the cell so
-		// it never overlaps the neighbour a pixel away.
+		// Fast in, slow out, deliberately: a transition reads its duration from the
+		// state being moved *into*, so releasing reads the slower rule above. The
+		// gold hairline is what says the cell opens something -- brightening the
+		// fill is also what the count moving does. Drawn inside the cell so it never
+		// overlaps the neighbour a pixel away.
 		td:hover {
 			box-shadow: $cell-hover-ring-shadow;
 			transition-duration: $cell-hover-duration;
 		}
 
-		// Inside the cell for the same reason -- the plot on the Sim view chose
-		// the same offset over the global ring for the same reason.
+		// Inside the cell for the same reason, as the Sim view's plot is.
 		td:focus-visible {
 			outline-offset: -2px;
 		}
 
-		// Opacity applied after the fact, so the colour above is chosen at full
-		// strength and only then let down onto the card. Mixing towards
-		// `transparent` rather than restating the colour with an alpha keeps it
-		// working on a `color-mix` result, which has no channels to rewrite.
+		// The colour is chosen at full strength and only then let down onto the card.
+		// Mixing towards `transparent` rather than restating the colour with an alpha
+		// keeps it working on a `color-mix` result, which has no channels to rewrite.
 		@function wash($colour, $opacity) {
 			@if $opacity >= 100% {
 				@return $colour;
@@ -302,15 +234,10 @@ $popover-fill-strength: 20%;
 			@return color-mix(in oklab, $colour $opacity, transparent);
 		}
 
-		// A fill is its own colour mixed down into that colour's dark end, not
-		// laid over the table at an alpha and not mixed into the panel. Both of
-		// those put a green under it, and in oklab a warm tint blended into a
-		// green ground travels through the neutral axis on the way: a Hit came
-		// out at hue 141 and a Split at 122, which is to say both were still
-		// green, at less chroma than the felt they sat on. That is the mud. Sunk
-		// into their own scale's step 3 instead, they hold their hue all the way
-		// down -- sand and gold at 82, ruby at 12, sky at 237 -- and the strength
-		// only decides how far up the scale the cell has come.
+		// A fill is its own colour mixed down into that colour's dark end, never laid
+		// over the table at an alpha or mixed into the panel -- either of those puts
+		// a green under it and the tint comes out muddy. See
+		// docs/design-language.md.
 		@mixin action-colour(
 			$colourset,
 			$strength: $action-fill-strength,
@@ -360,14 +287,12 @@ $popover-fill-strength: 20%;
 			@include action-colour($sands, $surrender-fill-strength);
 		}
 
-		// One class per step rather than a gradient over the real value: a
-		// continuous scale would need an inline style per cell, and the ramp is
-		// read by comparing cells to each other rather than by decoding an exact
-		// shade, so discrete steps lose nothing.
+		// One class per step rather than a gradient over the real value: a continuous
+		// scale would need an inline style per cell, and the ramp is read by
+		// comparing cells rather than by decoding an exact shade.
 		@mixin heat-colour($colourset, $step) {
-			// Step 0 belongs to the frequency ramp alone, which is sequential and
-			// has no meaningful zero fill -- it stays the bare cell, but it still
-			// lifts under the pointer the way its neighbours do.
+			// Step 0 belongs to the sequential frequency ramp alone: the bare cell,
+			// still lifting under the pointer the way its neighbours do.
 			$alpha: 0%;
 			$opacity: $heat-min-opacity;
 
@@ -402,8 +327,8 @@ $popover-fill-strength: 20%;
 			}
 		}
 
-		// A cell sitting on zero EV keeps the bare cell background, so break-even
-		// reads as a pale band running between the two halves of the ramp.
+		// Break-even keeps the bare cell, so it reads as a pale band between the two
+		// halves of the ramp.
 		td.is-ev-zero {
 			color: get($neutrals, 'fg');
 		}
@@ -418,17 +343,15 @@ $popover-fill-strength: 20%;
 			}
 		}
 
-		// Sequential rather than diverging: occurrence has no meaningful middle,
-		// so step 0 is simply the bare cell.
+		// Sequential rather than diverging: occurrence has no meaningful middle.
 		@for $step from 0 through $heat-steps {
 			td.is-freq-#{$step} {
 				@include heat-colour($primaries, $step);
 			}
 		}
 
-		// The numeric modes carry three or four characters where the action mode
-		// carried one, and cells are a fixed eleventh of the table with their
-		// overflow clipped.
+		// Three or four characters where the action mode carries one, in a cell that
+		// is a fixed eleventh of the table with its overflow clipped.
 		td.is-numeric {
 			padding-left: 4px;
 			padding-right: 4px;
@@ -436,43 +359,31 @@ $popover-fill-strength: 20%;
 			font-variant-numeric: tabular-nums;
 		}
 
-		// A cell whose action the count has moved off basic strategy carries two
-		// plays at once, and two fills in one cell means two elements carrying
-		// them: the cell keeps the basic play whatever the count does, and a
-		// counter stands on it holding the play the count has moved to. That
-		// split is worth more than any of the finish: a change in the count only
-		// lands and lifts pieces, so the board itself never repaints under them.
-		//
-		// It replaces a ring drawn in the cell's own padding. The ring said the
-		// same two things, but only by spending the cell's padding on itself and
-		// by reading as a border wherever it met the board's rules.
+		// The cell keeps the basic play and a counter carries the play the count has
+		// moved to, so a change in the count only lands and lifts pieces and the
+		// board itself never repaints under them.
 		&__cell-figure {
-			// Block, so the ellipsis and the clip the numeric modes need live
-			// here rather than on the cell -- the cell must not clip, since an
-			// unplayed counter waits above it.
+			// Block, so the clip the numeric modes need lives here rather than on the
+			// cell -- the cell must not clip, since an unplayed counter waits above it.
 			display: block;
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;
-			// Faded rather than swapped out: the piece landing on it is a separate
-			// element, so both plays can be on screen while one of them arrives.
+			// Faded rather than swapped out, so both plays can be on screen while one
+			// of them arrives.
 			transition: opacity $dur-fast $ease;
 		}
 
-		// Written from the cell down rather than as `&__cell-figure`, so the rule
-		// stays scoped inside the block rather than matching every `td` on the
-		// page that happens to have the class.
+		// Written from the cell down, so it cannot match every `td` on the page that
+		// happens to carry the class.
 		td.has-counter .ev-table__cell-figure {
 			opacity: 0;
 		}
 
-		// The piece. Every state is written as its own rule with the values that
-		// change between them in the declarations, rather than swapped in through
-		// a custom property: a transition is triggered by a change of computed
-		// value, and a change arriving purely through a var() substitution is not
-		// something to rely on. What stays in variables is what never changes --
-		// the cell's seat, which is derived from the hand rather than drawn per
-		// render precisely so it survives a count step untouched.
+		// The piece. Every state is its own rule with real values rather than a
+		// custom property swapped under it: a change arriving purely through a
+		// `var()` substitution is not something to trigger a transition from. The
+		// variables hold only what never changes -- the cell's seat.
 		&__piece {
 			position: absolute;
 			z-index: 2;
@@ -487,11 +398,9 @@ $popover-fill-strength: 20%;
 				opacity $dur-slow $ease;
 		}
 
-		// Landing is dealt down the board rather than switched on: each row waits
-		// a little longer than the one above it. Every cell carries its row,
-		// deviated or not -- a board where only the deviated cells knew theirs
-		// dealt those late and the rest instantly, which reads as the deviated
-		// cells being slow rather than as a stagger at all.
+		// Dealt down the board rather than switched on. Every cell carries its row,
+		// deviated or not: if only the deviated cells knew theirs, they would read as
+		// slow rather than as part of a stagger.
 		&__piece.is-landed {
 			transition-delay: calc(var(--counter-row, 0) * #{$counter-row-step});
 		}
@@ -503,11 +412,9 @@ $popover-fill-strength: 20%;
 			);
 		}
 
-		// A counter the count has not called for is still here, held above the
+		// A counter the count has not called for is still mounted, held above the
 		// cell at zero opacity -- the only way a transition can run in both
-		// directions, and the reason a piece can be watched landing rather than
-		// appearing. Leaving is quicker than arriving and is not staggered: a
-		// piece the count has dropped is simply gone.
+		// directions. Leaving is quicker than arriving, and not staggered.
 		&__piece.is-off {
 			transform: translate(
 					var(--seat-x, 0px),
@@ -524,14 +431,12 @@ $popover-fill-strength: 20%;
 			position: absolute;
 			inset: 0;
 			border-radius: $counter-radius;
-			// Each slice is turned in place and only then dropped down the
-			// screen, in the piece's own space, which is what a vertical
-			// extrusion does.
+			// Turned in place and only then dropped down the screen, in the piece's
+			// own space: a vertical extrusion.
 			transform: rotate(var(--seat-rot, 0deg));
 		}
 
-		// The lower of the two slices, and the only one sitting on the cell, so
-		// it is the only one that casts onto it.
+		// The lower slice is the one sitting on the cell, so it is the one that casts.
 		&__piece-rim:first-child {
 			transform: translateY($counter-rim-depth) rotate(var(--seat-rot, 0deg));
 			box-shadow: 0 2px 4px rgb(0 0 0 / 0.3);
@@ -545,9 +450,7 @@ $popover-fill-strength: 20%;
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			// The top light: a hairline along the piece's upper edge, the same one
-			// the felt's keys and buttons wear. It is the whole of what says this
-			// is an object with a face rather than a coloured rectangle.
+			// The top light: the whole of what says this is an object with a face.
 			box-shadow: inset 0 1px 0 $counter-lip;
 			transition: background-color $cell-fade-duration ease;
 		}
@@ -568,10 +471,8 @@ $popover-fill-strength: 20%;
 			}
 		}
 
-		// The piece is an object standing on the board rather than a wash on it,
-		// so its face takes the action's colour at full strength -- the cell
-		// under it is the thing that stays let down onto the panel -- and its rim
-		// is that same colour sunk towards black.
+		// An object standing on the board rather than a wash on it: the face takes the
+		// action's colour at full strength, the rim that colour sunk towards black.
 		@mixin counter-colour(
 			$colourset,
 			$strength: $action-fill-strength,
@@ -617,10 +518,8 @@ $popover-fill-strength: 20%;
 			}
 		}
 
-		// Pointing at a cell firms the piece standing on it as well as the fill
-		// underneath, so the pair stay the same distance apart under the pointer.
-		// Written from the cell rather than as a `:hover` on the piece: the
-		// pointer is over the cell, and the piece is what it is holding.
+		// The piece firms with the fill under it, so the pair stay the same distance
+		// apart. Written from the cell, which is what the pointer is over.
 		td:hover {
 			.ev-table__piece.is-hit {
 				@include counter-colour($successes, $lift: $fill-hover-lift);
@@ -653,9 +552,8 @@ $popover-fill-strength: 20%;
 		}
 
 		td.is-loading {
-			// The popover stays mounted through the loading state, so block the
-			// pointer rather than unmounting it: hovering a skeleton would
-			// otherwise reveal the previous calculation's numbers.
+			// The popover stays mounted through the loading state, so block the pointer:
+			// hovering a skeleton would otherwise reveal the last calculation's numbers.
 			pointer-events: none;
 
 			// Negative delays start every cell mid-cycle, so the table is already
@@ -670,38 +568,32 @@ $popover-fill-strength: 20%;
 			}
 		}
 
-		// Names the view the cells are currently in, and the true count they
-		// are computed at. Both numeric modes render bare numbers, so without it
-		// there is nothing on screen saying whether a cell reads as EV or as
-		// occurrence; the count has no home in the sidebar either, now that the
-		// arrow keys are what move it.
+		// Names the view the cells are in and the count they are computed at. Both
+		// numeric modes render bare numbers, so without it nothing on screen says
+		// whether a cell reads as EV or as occurrence.
 		&__mode {
 			display: flex;
 			flex-wrap: wrap;
 			align-items: center;
 			justify-content: center;
 			gap: 8px;
-			// Pulled up out of the column's 30px gap, but not the whole way:
-			// the line belongs to the grids below it rather than to the header
-			// above, so it keeps more air over it than under.
+			// Pulled up out of the column's 30px gap, but not the whole way: the line
+			// belongs to the grids below it, so it keeps more air over it than under.
 			margin: -4px 0 -12px;
 			font-size: 13px;
 		}
 
-		// The figure itself, outside any control: what the cells are showing,
-		// and the count they are showing it at, are readings rather than
-		// buttons.
+		// Outside any control: what the cells show, and the count they show it at, are
+		// readings rather than buttons.
 		&__mode-name {
 			@include print(11px, 0.16em);
 			color: get($neutrals, 'fg');
 			font-weight: 600;
 		}
 
-		// Dressed as the felt's actions are -- the key cap, then what the key
-		// does -- so the two ways to reach the same handler are one control
-		// rather than a bare glyph. Shorter than the standard box: this line
-		// sits between the caption and the first grid, and a full-height
-		// control there pushes the board down a row.
+		// Dressed as the felt's actions are -- the key cap, then what the key does.
+		// Shorter than the standard box: a full-height control on this line pushes
+		// the board down a row.
 		&__mode-button,
 		&__count-step {
 			@include print(10px, 0.14em);
@@ -722,8 +614,7 @@ $popover-fill-strength: 20%;
 			@include key-cap;
 		}
 
-		// Separates the mode from the count, the two halves of the line each
-		// being a reading and the control that moves it.
+		// Separates the mode from the count, each a reading and the control for it.
 		&__mode-divider {
 			align-self: center;
 			width: 1px;
@@ -733,9 +624,8 @@ $popover-fill-strength: 20%;
 
 		&__cell-skeleton {
 			display: inline-block;
-			// Centred on the line rather than sat on its baseline, which would
-			// hang the block's full height below the text's own and push the line
-			// box past the height fixed above.
+			// Centred on the line: on its baseline the block would hang below the
+			// text's own and push the line box past the height fixed above.
 			vertical-align: middle;
 			width: 14px;
 			height: 14px;
@@ -763,9 +653,8 @@ $popover-fill-strength: 20%;
 			padding: 10px 12px;
 			background-color: oklch(from $panel l c h / 0.92);
 			backdrop-filter: blur(4px);
-			// Only the edge the arrow attaches to -- The popover opens above
-			// or below the cell depending on available space, so which edge
-			// that is flips with `data-side` (set by the positioning library)
+			// Only the edge the arrow attaches to, which flips with `data-side` as the
+			// popover opens above or below the cell.
 			border-top: 1px solid $rule-strong;
 			border-radius: 6px;
 
@@ -775,20 +664,16 @@ $popover-fill-strength: 20%;
 			}
 			font-size: 12px;
 			color: $foreground;
-			// Describes the cell, not an interactive surface of its own: the
-			// cursor moving onto it shouldn't keep it open, so it never registers
-			// a hover and the card closes as soon as the pointer leaves the cell.
-			// Zag's dismissable-layer stack writes `pointer-events: auto` inline on
-			// the open layer, so this needs !important to win; without it the card
-			// still sees its own pointerenter and reopens whenever the cursor
-			// crosses from the cell onto it before the close delay elapses.
+			// Describes the cell rather than being a surface of its own, so it never
+			// registers a hover and closes as soon as the pointer leaves the cell.
+			// Zag writes `pointer-events: auto` inline on the open layer, so this
+			// needs !important to win.
 			pointer-events: none !important;
 		}
 
-		// Bleeds to the popover's own edges (cancelling its padding) so the
-		// action fill reads as a banner across the full width, not an inset chip.
-		// Rounded on its own corners rather than via `overflow: hidden` on the
-		// popover, which would also clip the arrow poking outside its box.
+		// Bleeds to the popover's edges so the fill reads as a banner rather than an
+		// inset chip. Rounded on its own corners rather than by `overflow: hidden` on
+		// the popover, which would clip the arrow poking outside its box.
 		&__popover-action {
 			margin: -10px -12px 10px;
 			padding: 6px 12px;
@@ -850,22 +735,16 @@ $popover-fill-strength: 20%;
 		&__popover-arrow {
 			--arrow-size: 10px;
 			--arrow-background: #{$panel};
-			// Zag sets --arrow-offset inline (arrow tucked half into the content box
-			// by default), so this needs !important to win and pull the tip 1px
-			// clear of the content's border.
+			// Zag tucks the tip half inside the content box inline, so this needs
+			// !important to pull it clear of the border.
 			--arrow-offset: calc(var(--arrow-size-half) * -1) !important;
 		}
 
-		// The tip is a square rotated 45deg (225deg when the popover lands
-		// above the cell instead of below -- Zag flips it a further 180deg via
-		// the same top/left edges, so this clip needs no side-specific
-		// variant); only its top-left half ends up poking out past the
-		// content box, with the other half sitting underneath the content
-		// where it's invisible anyway. Clipping to that half stops its
-		// background from showing through the content's own translucency
-		// where the two overlap. Bordering the two straight edges of the
-		// triangle makes the tip read against the background instead of just
-		// blending into it.
+		// A square rotated 45deg, of which only the top-left half pokes out past the
+		// content box; clipping to that half stops its background showing through
+		// the content's translucency where the two overlap. Zag flips it a further
+		// 180deg on the same edges when the popover lands above the cell, so the
+		// clip needs no side-specific variant.
 		&__popover-arrow-tip {
 			clip-path: polygon(0 0, 100% 0, 0 100%);
 			border-top: 1px solid $rule-strong;

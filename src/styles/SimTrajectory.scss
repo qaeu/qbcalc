@@ -17,9 +17,8 @@
 			@include panel-title;
 		}
 
-		// The popover is positioned against this box rather than against the
-		// viewport, so its offsets can be read straight off the plot's own
-		// coordinates as percentages of the same width.
+		// The popover is positioned against this box, so its offsets can be read off
+		// the plot's own coordinates as percentages of the same width.
 		&__figure {
 			position: relative;
 			margin-top: 8px;
@@ -29,8 +28,7 @@
 			display: block;
 			width: 100%;
 			height: auto;
-			// The pointer reading is taken from the raw position, so a drag across
-			// the plot on a touch screen should track rather than scroll the page.
+			// A drag across the plot should track the reading rather than scroll.
 			touch-action: none;
 
 			&:focus-visible {
@@ -38,9 +36,8 @@
 			}
 		}
 
-		// Two nested bands rather than four edges: the outer is +/-2 sigma and the
-		// inner +/-1, and stacking them at the same low opacity is what makes the
-		// inner one read as the darker of the two without a second colour.
+		// Two nested bands rather than four edges -- outer +/-2 sigma, inner +/-1 --
+		// stacked at one opacity, so the inner reads darker without a second colour.
 		&__band {
 			fill: get($infos, 'base');
 			opacity: 0.16;
@@ -55,8 +52,8 @@
 			stroke-width: 1;
 		}
 
-		// The expectation is a dashed guide, the money the solid line drawn over
-		// it: one of them is a claim about the game and the other is what happened.
+		// A dashed guide under the solid money line: one is a claim about the game,
+		// the other is what happened.
 		&__expectation {
 			fill: none;
 			stroke: oklch(from get($neutrals, 'fg') l c h / 0.55);
@@ -72,8 +69,8 @@
 			stroke-linecap: round;
 		}
 
-		// Fainter than the zero line and dashed, so the money axis can be read off
-		// without the gridlines competing with the band edges for attention.
+		// Fainter than the zero line, so the gridlines don't compete with the band
+		// edges for attention.
 		&__grid {
 			stroke: oklch(from get($neutrals, 'fg') l c h / 0.1);
 			stroke-width: 1;
@@ -103,11 +100,9 @@
 			}
 		}
 
-		// Parked in whichever corner of the plot the drawing leaves emptiest
-		// rather than carried under the pointer, so the walk it is describing
-		// stays visible; the crosshair is what says which point it is about. Set
-		// on the felt at low opacity for the same reason -- a band edge or a
-		// gridline passing behind it still reads through.
+		// Parked in whichever corner the drawing leaves emptiest rather than carried
+		// under the pointer, so the walk it describes stays visible and the crosshair
+		// says which point it is about. Translucent for the same reason.
 		&__popover {
 			@include shadow($shadow-light);
 			position: absolute;
@@ -122,20 +117,17 @@
 			pointer-events: none;
 			white-space: nowrap;
 
-			// Every corner is given as a `top`/`left` pair on the plot's own edges,
-			// in percent so they hold as the drawing scales, with the box pulled
-			// back over itself at the far edges. Not `right`/`bottom`: an offset
-			// that flips to `auto` cannot be animated, and the box slides between
-			// corners rather than cutting, so a pointer crossing the middle of the
-			// plot doesn't make the figures jump.
+			// Every corner is a `top`/`left` pair in percent, so they hold as the drawing
+			// scales, with the box pulled back over itself at the far edges. Not
+			// `right`/`bottom`: an offset that flips to `auto` cannot be animated, and
+			// the box slides between corners rather than cutting.
 			transform: translate(var(--sim-trajectory-x, 0), var(--sim-trajectory-y, 0));
 			transition:
 				top $dur-base $ease,
 				left $dur-base $ease,
 				transform $dur-base $ease;
 
-			// PAD_LEFT and PAD_RIGHT as fractions of VIEW_WIDTH -- inside the money
-			// axis on the left, and on the plot's right edge.
+			// PAD_LEFT and PAD_RIGHT as fractions of VIEW_WIDTH.
 			&.is-left {
 				left: 8%;
 				--sim-trajectory-x: 0;
@@ -146,8 +138,8 @@
 				--sim-trajectory-x: -100%;
 			}
 
-			// PAD_TOP and the plot's floor as fractions of VIEW_HEIGHT, so the
-			// bottom corners clear the round-count ticks under the plot.
+			// PAD_TOP and the plot's floor as fractions of VIEW_HEIGHT, so the bottom
+			// corners clear the round-count ticks.
 			&.is-top {
 				top: 7%;
 				--sim-trajectory-y: 0;
@@ -205,8 +197,8 @@
 			}
 		}
 
-		// The legend's swatches are the drawn objects themselves at rest: the
-		// solid line, the dashed one, and the two band fills over the felt.
+		// The drawn objects themselves at rest: the solid line, the dashed one, and
+		// the two band fills over the felt.
 		&__swatch {
 			flex: none;
 			width: 16px;

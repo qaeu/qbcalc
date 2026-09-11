@@ -4,15 +4,15 @@
 
 @use 'palette';
 
+// The colour, material, depth, motion and control vocabulary the component
+// sheets are built from. docs/design-language.md holds the reasoning behind it;
+// keep new reasoning there rather than in a comment here.
+
 /* - THEME COLOURS - */
 
 // Maps a 12-step scale onto semantic slot names. Every value is a CSS custom
-// property, so switching `.dark-theme` on <body> reskins the whole app without
+// property, so switching `.dark-theme` on <body> reskins the app without
 // recompiling.
-//
-// The scales in `_palette.scss` are dark scales: step 1 is the deepest surface,
-// step 12 the lightest ink. The slot names below keep their meaning either way
-// -- `bg` is still what a surface is painted, `fg` still what text is set in.
 @function _colourset($colour-name) {
 	@return (
 		'fg': var(--#{$colour-name}-12),
@@ -42,13 +42,9 @@ $neutrals: _colourset('baize');
 $foreground: get($neutrals, 'fg');
 $background: get($neutrals, 'bg');
 
-// Cream at reduced alpha, in three steps. Fifteen stylesheets were each
-// deriving their own -- nine landing on 0.45 and eleven on 0.5 for the same
-// job, which are not tellable apart on screen. Named once here, with the rule
-// that decides between them: a figure is full ink, the label naming it is
-// muted, and faint is for text that qualifies something else rather than
-// saying it -- a placeholder, a house rule under the layout print, a footnote
-// to a figure that is already on the page.
+// Cream at reduced alpha, in three steps. A figure is full ink, the label
+// naming it is muted, and faint is for text that qualifies something else
+// rather than saying it -- a placeholder, a footnote to a figure already there.
 $ink: $foreground;
 $ink-muted: oklch(from $foreground l c h / 0.6);
 $ink-faint: oklch(from $foreground l c h / 0.35);
@@ -62,10 +58,8 @@ $warnings: _colourset('gold');
 $errors: _colourset('ruby');
 $infos: _colourset('sky');
 
-// The printed ink, and the fill a Surrender cell carries. Sand is the palette's
-// cream: the warmest scale with almost no chroma to it, which is what suits the
-// one cell on the EV board that is not a way of playing the hand. Held apart
-// from the neutrals because baize has a real green in it and this does not.
+// The printed ink, and the fill a Surrender cell carries. Held apart from the
+// neutrals because baize has a real green in it and sand does not.
 $sands: _colourset('sand');
 
 $white: var(--white-a12);
@@ -79,10 +73,8 @@ $stock-shade: var(--stock-shade);
 $stock-ink: var(--stock-ink);
 $stock-ink-red: var(--stock-ink-red);
 
-// The felt's own ramp, lit centre to the unlit far end. Held as named steps rather
-// than reached for by scale number, because the baize gradient is the one place
-// the scale is read as a *material* -- a table lit from above -- rather than as
-// a set of surface and ink slots.
+// The felt's own ramp, lit centre to the unlit far end. Named rather than reached
+// for by scale number: here the scale is read as a material, not as slots.
 $felt-lit: var(--baize-4);
 $felt: var(--baize-3);
 $felt-deep: var(--baize-2);
@@ -92,20 +84,13 @@ $rail: var(--rail-4);
 $rail-lit: var(--rail-6);
 $rail-deep: var(--rail-2);
 
-// Hairlines printed on the felt. The rules that structure the data views are
-// ink, not borders in a lighter grey -- there is no lighter grey here.
+// Hairlines printed on the felt: the data views are structured in ink, not in
+// borders of a lighter grey -- there is no lighter grey here.
 $rule: var(--baize-a3);
 $rule-strong: var(--baize-a4);
 
-// Black over baize: the app's second material, and the one that had no name.
-// A cut is how far into the table a surface is sunk, and sixteen alphas were
-// in use for it -- every stylesheet choosing again, and choosing differently.
-// Six steps rather than four, because four cannot be drawn without one of them
-// spanning 0.28 to 0.46, and that is a jump you can see.
-//
-// $scrim is the odd one out and is kept here anyway: it is not a cut but the
-// darkness *behind* a lifted object, so it belongs with the shadow mixins
-// below. It sits at the end of this ramp because it is made of the same thing.
+// Black over baize: how far into the table a surface is sunk. $scrim ends the
+// ramp although it is the darkness *behind* a lifted object rather than a cut.
 $cut-trace: rgb(0 0 0 / 0.12); // barely sunk: the Play felt, a disabled fill
 $cut-light: rgb(0 0 0 / 0.22); // a button at rest, the tab in play
 $cut: rgb(0 0 0 / 0.3); // a field or a key cap -- somewhere you write
@@ -113,34 +98,15 @@ $cut-deep: rgb(0 0 0 / 0.35); // genuinely hollow: a discard rack, a focused fie
 $cut-pressed: rgb(0 0 0 / 0.45); // the bottom of a press, and nothing else
 $scrim: rgb(0 0 0 / 0.55); // behind a dialog or the drawer
 
-// Radius says what a thing is made of, and follows the same three relationships
-// the shadows below do: 2px for something cut into the felt, because a cut edge
-// is nearly sharp; 3px for a panel laid on it; 6px for a lifted object, which
-// has a real edge catching real light. Left as literals rather than tokens --
-// a radius reads perfectly well as a number, and naming it would buy nothing.
-//
-// Two objects sit outside the rule on purpose, both because they are only a few
-// pixels tall and a radius from the ladder would round them into lozenges: the
-// Sim trajectory's 3px legend swatch, and the Play view's card backs at phone
-// size. Anything with room for the rule should follow it.
+// Radius is left as literals, on a three-step ladder matching the shadows: 2px
+// cut into the felt, 3px for a panel laid on it, 6px for a lifted object. See
+// docs/design-language.md, including the two objects too small to follow it.
 
-// The baize itself: a woven nap over a lit centre falling away to the rail.
-// The two repeating gradients are the weave; the radial is the pit light.
-//
-// The light is fixed to the viewport; the cloth is not. A pit light hangs over
-// the table rather than over the page, and left scrolling the lit spot
-// stretched to whatever height the content happened to be and slid off the top
-// entirely on a long Sim run, so the ground under a panel depended on how far
-// down the page it was. The nap is the opposite case: it is the material
-// itself, and a weave that holds still while the page moves over it reads as a
-// texture printed on the glass rather than as cloth. So the two repeating
-// gradients scroll with the document and only the radial is pinned.
-//
-// Pinning it compresses the whole ramp into one screen, which would make the
-// light harsher than it was, so the fall-off is softened to compensate: the
-// radial is wider and stops at $felt-deep rather than running down to
-// --baize-1. That roughly halves the lightness spread visible at once, which
-// is what the EV grid's fills are composited over.
+// The baize: a woven nap over a lit centre falling away to the rail. The two
+// repeating gradients are the weave and scroll with the document; the radial is
+// the pit light and is pinned to the viewport, hanging over the table rather
+// than over the page. Its fall-off is widened to compensate for being
+// compressed into one screen -- see docs/design-language.md.
 @mixin baize {
 	background-color: $felt;
 	background-attachment: scroll, scroll, fixed;
@@ -157,10 +123,8 @@ $scrim: rgb(0 0 0 / 0.55); // behind a dialog or the drawer
 }
 
 // Lettering stencilled onto the felt: the layout print, and every label that
-// takes its voice from it.
-// `$caps` off for anything that is a sentence rather than a label. A table's
-// lettering is set in capitals, but a line of prose set that way is just hard
-// to read -- the condensed face and the tracking carry the voice on their own.
+// takes its voice from it. `$caps: false` for anything that is a sentence rather
+// than a label -- the face and the tracking carry the voice without capitals.
 @mixin print($size: 12px, $tracking: 0.18em, $caps: true) {
 	font-family: 'Archivo Narrow', 'Archivo', system-ui, sans-serif;
 	font-size: $size;
@@ -184,8 +148,8 @@ $scrim: rgb(0 0 0 / 0.55); // behind a dialog or the drawer
 
 /* - SHADOWS - */
 
-// Black on a dark ground, and heavier than a shadow on white needs to be:
-// on baize an object is told from its surface by the light it blocks.
+// Black, and heavier than a shadow on white needs to be: on baize an object is
+// told from its surface by the light it blocks.
 $shadow-base: $black;
 $shadow-light: $black;
 
@@ -195,10 +159,8 @@ $shadow-light: $black;
 		0 2px 6px oklch(from $colour l c h / 0.2);
 }
 
-// Which way the light is blocked. Almost everything lifted off the table casts
-// downward, and the two objects that do not lie on it were the two rolling
-// their own box-shadow: the rail overhangs the felt, and the settings drawer
-// slides in from the side. A direction was all either of them wanted.
+// Which way the light is blocked. Almost everything casts downward; the rail
+// overhangs the felt and the drawer slides in from the side.
 $_shadow-directions: (
 	'down': (
 		0,
@@ -233,32 +195,21 @@ $_shadow-directions: (
 		inset 0 4px 12px oklch(from $colour l c h / 0.25);
 }
 
-// Two kinds of local box-shadow stay hand-written on purpose, and neither is a
-// lapse from the three above.
-//
-// A cut only a few pixels deep -- a toggle's slot, the discard rack, a field --
-// carries its own `inset 0 1px 2px` shading. That is the shape of the cut
-// rather than an elevation, and `shadow-inset` at 12px of blur would fill a
-// 7px track solid.
-//
-// A chip is the other: it sits at three heights, lifting under the pointer and
-// sinking under a press, and it carries a lit top edge that is a bevel rather
-// than a shadow. An object that moves needs more elevations than the one
-// `shadow()` describes, so it keeps its own.
+// Two kinds of local box-shadow stay hand-written rather than reaching for the
+// three above -- a cut a few pixels deep, and the chips. See
+// docs/design-language.md.
 
 /* - MOTION - */
 
-// Three speeds, so a control's states are told apart by how fast they arrive
-// rather than by each component picking a number. Everything eases the same
-// way: fast out of rest, settling into the new state.
+// Three speeds, so a control's states are told apart by how fast they arrive.
+// Everything eases the same way: fast out of rest, settling into the new state.
 $dur-fast: 120ms; // press, hover-in
 $dur-base: 180ms; // hover-out, colour changes
 $dur-slow: 300ms; // a recalculated figure settling
 $ease: cubic-bezier(0.2, 0, 0, 1);
 
-// The height every control lands on, so a field, a button and a tab in the
-// same row line up without any of them being measured by hand. The touch
-// floor is the 44px tap target, applied wherever the mixins are.
+// The height every control lands on, so a field, a button and a tab in one row
+// line up. The touch floor is the 44px tap target the mixins apply.
 $control-height: 34px;
 $control-height-touch: 44px;
 
@@ -269,8 +220,8 @@ $breakpoint-mobile: 560px;
 $breakpoint-short: 600px;
 
 // Narrow *or* short: a phone in landscape clears $breakpoint-tablet on width
-// while having less height than a settings card needs. Kept in sync by hand
-// with COMPACT_LAYOUT_QUERY in `utils/media.ts` -- change one, change the other.
+// while having less height than a settings card needs. Keep in sync with
+// COMPACT_LAYOUT_QUERY in `utils/media.ts`.
 @mixin compact {
 	@media (max-width: $breakpoint-tablet), (max-height: $breakpoint-short) {
 		@content;
@@ -303,17 +254,10 @@ $breakpoint-short: 600px;
 	}
 }
 
-// A panel on the felt. Not a card lifted off a light page -- there is no light
-// page here -- but a slightly deeper patch of table, bounded by a printed
-// hairline. Nothing in the data views floats.
-//
-// Held just short of opaque so the lit felt reads through it. $panel is a fixed
-// colour and the felt under it is not, so an opaque panel is a fixed distance
-// below the table at the top of the page and a much smaller one at the bottom;
-// letting a little of the ground through keeps the panel the same depth of
-// table wherever it sits. Only panels drawn straight onto the felt get this --
-// the select menu, the drawer and the figure bands' tiles each have something
-// other than felt behind them, and stay opaque.
+// A panel on the felt: a deeper patch of table bounded by a printed hairline,
+// not a card lifted off a light page. Nothing in the data views floats. Held
+// just short of opaque so the lit felt reads through and the panel stays the
+// same depth of table wherever it sits -- see docs/design-language.md.
 @mixin card($bg-colour: null) {
 	padding: 20px;
 	margin-bottom: 30px;
@@ -337,10 +281,9 @@ $breakpoint-short: 600px;
 	}
 }
 
-// One answer to "this is not available": flattened off the surface, dimmed,
-// and blocked at the cursor. Shared by fields, select triggers, menu options
-// and the chips, which each used to say it their own way -- a rule the table
-// forbids should look forbidden the same way wherever it is met.
+// One answer to "this is not available": flattened off the surface, dimmed, and
+// blocked at the cursor. A rule the table forbids should look forbidden the same
+// way wherever it is met.
 @mixin disabled-control {
 	opacity: 0.55;
 	box-shadow: none;
@@ -374,9 +317,8 @@ $breakpoint-short: 600px;
 		color: get($colourset, 'fg');
 	}
 
-	// The one confirmation every control in the app was missing: the button
-	// moves under the finger, so the click is known to have landed rather than
-	// only being known once its result arrives.
+	// The button moves under the finger, so the click is known to have landed
+	// before its result arrives.
 	&:active:not(:disabled) {
 		transform: translateY(1px);
 		background-color: $cut-pressed;
@@ -384,9 +326,8 @@ $breakpoint-short: 600px;
 		transition-duration: $dur-fast;
 	}
 
-	// The one to press. Was hover-only; now marked at rest by a gold hairline,
-	// gold ink and a lit top edge -- no fill, so `.active`'s gold keeps meaning
-	// "this is the selected one" and nothing else.
+	// The one to press: a gold hairline, gold ink and a lit top edge, but no fill,
+	// so `.active`'s gold keeps meaning "this is the selected one".
 	&.highlight {
 		border-color: get($colourset, 'base-dark');
 		color: get($colourset, 'fg');
@@ -416,10 +357,8 @@ $breakpoint-short: 600px;
 	}
 }
 
-// Shared look for text/number inputs and select triggers. Cut into the felt
-// rather than laid on it, so a field reads as somewhere to write -- and, since
-// it is written into rather than merely pointed at, it carries the same four
-// states the button beside it does.
+// Text/number inputs and select triggers: cut into the felt rather than laid on
+// it, so a field reads as somewhere to write.
 @mixin form-control {
 	box-sizing: border-box;
 	width: 100%;
@@ -439,9 +378,8 @@ $breakpoint-short: 600px;
 		border-color: get($neutrals, 'sep');
 	}
 
-	// The cut edge itself lights up, rather than the global ring floating 2px
-	// off a recessed field: the border is where the field ends, so that is
-	// where "this one has the keyboard" belongs.
+	// The cut edge itself lights up rather than the global ring floating 2px off a
+	// recess: the border is where the field ends.
 	&:focus-visible {
 		outline: none;
 		border-color: $primary;
@@ -460,9 +398,7 @@ $breakpoint-short: 600px;
 		color: $ink-faint;
 	}
 
-	// Every field wearing this is typed into rather than nudged, and the two
-	// grids narrow enough to have no room for spinners were already stripping
-	// them by hand.
+	// Every field wearing this is typed into rather than nudged.
 	&[type='number'] {
 		appearance: textfield;
 	}
@@ -479,20 +415,10 @@ $breakpoint-short: 600px;
 }
 
 // A grid of small fields under one settings caption -- the bet spread, the tag
-// values. `SettingsItem` is a `<label>`, so its first field is the one a click
-// on the caption lands in, and the browser lights that field up whenever the
-// pointer is anywhere inside the label. That is the right answer over the
-// caption itself, and the wrong one over any of the other fields: the first
-// column stayed lit while the pointer was six columns away. Once the pointer
-// is over a cell, every other cell goes back to rest -- a field marks itself,
-// not its neighbour.
-//
-// Within a cell the caption stands in for its field, the way the setting's own
-// caption stands in for the first: pointing at '+2' lights the '+2' field, and
-// clicking it puts the cursor there (the cell is a `<span>`, since a `<label>`
-// cannot nest inside the label around the whole grid -- see the components).
-// The field lighting up is the whole of that invitation: a caption keeps the
-// cursor a real label would have, since that is what it stands in for.
+// values. `SettingsItem` is a `<label>`, so the browser lights its *first* field
+// whenever the pointer is anywhere inside the label; these rules put that right,
+// so a field marks itself rather than its neighbour and a cell's own caption
+// stands in for the field beside it.
 @mixin grouped-fields($cell) {
 	&:has(#{$cell}:hover) #{$cell}:not(:hover) input:not(:disabled, :focus-visible) {
 		border-color: $rule-strong;
@@ -504,9 +430,8 @@ $breakpoint-short: 600px;
 }
 
 // A label in a tab strip, marked underneath in gold while it is the live one.
-// The three strips in the app -- the header's, the Play view's and the
-// sidebar's -- each keep their own size, tracking and padding and pass them
-// in; only the states are shared, which is what they had drifted apart on.
+// The three strips pass in their own size, tracking and padding; only the
+// states are shared.
 @mixin tab($size: 12px, $tracking: 0.16em) {
 	@include print($size, $tracking);
 	display: flex;
@@ -524,8 +449,7 @@ $breakpoint-short: 600px;
 		background-color $dur-base $ease,
 		border-color $dur-base $ease;
 
-	// The underline is previewed in the felt's own hairline rather than in
-	// gold, so the gold one keeps meaning "this is the view you are in".
+	// Previewed in the felt's own hairline, so gold keeps meaning "you are here".
 	&:hover:not(:disabled, [data-selected]) {
 		color: get($neutrals, 'fg');
 		background-color: get($neutrals, 'fade-light');
@@ -554,9 +478,7 @@ $breakpoint-short: 600px;
 }
 
 // The key that fires the button it sits in, printed as a cap on the face.
-// Hidden on touch, where there are no keys to press -- the handlers stay
-// wired, so a phone with a keyboard attached still works, it just gets no
-// hints.
+// Hidden on touch; the handlers stay wired, so an attached keyboard still works.
 @mixin key-cap {
 	display: inline-flex;
 	align-items: center;
@@ -577,18 +499,16 @@ $breakpoint-short: 600px;
 	}
 }
 
-// A button that is only its icon: square, chromeless where it sits, and
-// growing a hairline under the pointer so it still reads as pressable without
-// drawing a box on the rail.
+// A button that is only its icon: square, chromeless at rest, growing a hairline
+// under the pointer so it reads as pressable without drawing a box on the rail.
 @mixin icon-button($size: $control-height) {
 	display: inline-grid;
 	place-items: center;
 	flex: none;
 	width: $size;
 	height: $size;
-	// The base button's own floor is the control height, which outranks the
-	// `height` above and stretches anything asked for a smaller square into a
-	// tall rectangle. Squareness is the point here, so the floor is restated.
+	// Restated: the base button's control-height floor outranks `height` above and
+	// would stretch a smaller square into a tall rectangle.
 	min-height: $size;
 	padding: 0;
 	border: 1px solid transparent;
@@ -644,10 +564,9 @@ $breakpoint-short: 600px;
 	gap: 4px;
 }
 
-// The help icon itself, which opens its hint on hover, click or Enter --
-// see `#c/HintPopover`. The box is the shared icon button at label size; the
-// cursor stays `help`, since what it opens is an explanation rather than a
-// place to go.
+// The help icon that opens its hint on hover, click or Enter -- see
+// `#c/HintPopover`. The shared icon button at label size, keeping `cursor: help`
+// since what it opens is an explanation rather than a place to go.
 @mixin hint-icon {
 	@include icon-button(22px);
 	cursor: help;

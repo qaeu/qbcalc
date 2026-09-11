@@ -4,10 +4,9 @@
 @layer base, screen, ui, override;
 
 @layer base {
-	// Border-box everywhere: panels carry padding and a hairline border, and
-	// under content-box a padded panel and an unpadded one set to the same
-	// max-width come out different widths -- which is what pushed the graph
-	// card wider than the figures band above it.
+	// Border-box everywhere: panels carry padding and a hairline border, and under
+	// content-box a padded panel and an unpadded one set to the same max-width come
+	// out different widths.
 	*,
 	*::before,
 	*::after {
@@ -15,9 +14,8 @@
 	}
 
 	body {
-		// `100%`, not `100vw`: with the scrollbar gutter reserved on <html>
-		// below, the viewport unit is wider than the content box and is a
-		// standing horizontal-overflow trap that `overflow-x` only masks.
+		// `100%`, not `100vw`: with the scrollbar gutter reserved below, the
+		// viewport unit is wider than the content box.
 		width: 100%;
 		overflow-x: hidden;
 		min-height: 100vh;
@@ -35,17 +33,15 @@
 			border-color 300ms;
 	}
 
-	// Always reserve the scrollbar gutter to prevent layout shift. Deliberately
-	// no background of its own: that would stop the body's baize propagating to
-	// the canvas, leaving the felt to end with the body box and the page to
-	// finish in a flat colour below it.
+	// Reserve the scrollbar gutter to prevent layout shift. No background of its
+	// own: that would stop the body's baize propagating to the canvas, ending the
+	// felt with the body box.
 	html {
 		scrollbar-gutter: stable;
 	}
 
-	// Headings take the layout print's voice: condensed, tracked out, and set
-	// in the cream a table's lettering is stencilled in. They are the same
-	// material as "BLACKJACK PAYS 3 TO 2", so they are set the same way.
+	// Headings are the same material as "BLACKJACK PAYS 3 TO 2", so they are set
+	// the same way: the layout print's voice.
 	h1 {
 		@include print(clamp(17px, 4.2vw, 21px), 0.13em);
 		font-weight: 700;
@@ -78,8 +74,7 @@
 		@include button();
 	}
 
-	// Anything the pointer or the keyboard lands on is marked in gold -- the
-	// cut card is the table's own "this one", so focus borrows it.
+	// Marked in gold: the cut card is the table's own "this one".
 	:focus-visible {
 		outline: 2px solid get($primaries, 'base');
 		outline-offset: 2px;

@@ -6,8 +6,9 @@ $skeleton-phase-count: 12;
 $skeleton-pulse-duration: 1.4s;
 
 @layer screen {
-	// One band of figures printed on the table, not a tray of cards: no fill,
-	// and rules above and below only.
+	// One band of figures printed on the table, not a tray of cards: no fill, and
+	// rules above and below only. `StatBand` is the same band without the loading
+	// skeletons -- keep the two in step.
 	.ev-summary {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -22,21 +23,16 @@ $skeleton-pulse-duration: 1.4s;
 			grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
 		}
 
-		// The dividing hairlines are the cells' own borders, pulled back over the
-		// neighbour by a negative margin, so the ones that would fall on the
-		// band's own edges land outside the padding box and are clipped away --
-		// which a plain per-cell border cannot arrange for itself, since it
-		// cannot know where the row wraps. The row rule is drawn under each cell
-		// rather than over it, so a wrapped last line that doesn't fill its
-		// columns still leaves a complete rule under the line above it.
+		// The dividing hairlines are the cells' own borders, pulled back by a negative
+		// margin so the ones falling on the band's edges are clipped away -- which a
+		// per-cell border cannot arrange for itself, not knowing where the row wraps.
+		// Drawn under each cell rather than over it, so a wrapped last line still
+		// leaves a complete rule under the line above.
 		&__card {
-			// A subgrid of the band's own rows rather than a stack of its own, so
-			// the label and the figure each sit in a row shared with every other
-			// card: a label that wraps to a second line makes room for itself
-			// across the whole line, and the figures stay level instead of one
-			// dropping below its neighbours. The row gap is set here, overriding
-			// the band's, so it applies between a card's two rows and not between
-			// wrapped lines.
+			// A subgrid of the band's rows rather than a stack of its own, so a label
+			// that wraps makes room across the whole line and the figures stay level.
+			// The row gap is set here so it applies between a card's two rows and not
+			// between wrapped lines.
 			display: grid;
 			grid-template-rows: subgrid;
 			grid-row: span 2;
@@ -46,9 +42,8 @@ $skeleton-pulse-duration: 1.4s;
 			border-left: 1px solid $rule-strong;
 			margin: 0 0 -1px -1px;
 
-			// The figure a balanced last line starts on sits a column or two into
-			// the band rather than against its edge, so there is no edge to clip
-			// its rule away -- see `#utils/gridBalance`. Transparent rather than
+			// A balanced last line starts a column or two in, where there is no edge to
+			// clip its rule away -- see `#utils/gridBalance`. Transparent rather than
 			// removed, so the cell keeps the width its border gives it.
 			&.is-line-start {
 				border-left-color: transparent;
@@ -61,20 +56,16 @@ $skeleton-pulse-duration: 1.4s;
 
 		&__label {
 			@include print(10px, 0.16em);
-			// Sat on the foot of the shared label row, so a one-line label stays
-			// next to its own figure rather than floating a line above it when a
-			// neighbour's label wraps.
+			// Sat on the foot of the shared label row, so a one-line label stays next to
+			// its own figure when a neighbour's wraps.
 			align-self: end;
 			color: $ink-muted;
 		}
 
 		&__value {
-			// Condensed and tracked tight: the figure is the largest thing in the
-			// band, so it is set as a printed number rather than as body text
-			// that happens to be big.
+			// A printed number rather than body text that happens to be big, and
+			// tabular so it doesn't jitter its width as the count is swept through.
 			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
-			// Tabular figures so the number doesn't jitter its own width as the
-			// count is swept through.
 			font-variant-numeric: tabular-nums;
 			font-size: 28px;
 			font-weight: 700;
@@ -104,10 +95,8 @@ $skeleton-pulse-duration: 1.4s;
 			color: $ink-muted;
 		}
 
-		// The box itself matches &__value's line box (same font-size and
-		// line-height), so the band doesn't change height between the loading
-		// state and the result. The bar drawn inside it, via ::after, is smaller
-		// than that box on purpose.
+		// Matches &__value's line box, so the band doesn't change height between the
+		// loading state and the result. The bar drawn inside it is smaller on purpose.
 		&__skeleton {
 			display: flex;
 			align-items: center;
@@ -132,7 +121,7 @@ $skeleton-pulse-duration: 1.4s;
 		}
 
 		// Negative delays start every figure mid-cycle, so the band is already
-		// twinkling on the first frame rather than fading up together.
+		// twinkling on the first frame.
 		@for $phase from 0 through $skeleton-phase-count - 1 {
 			&__loading-phase-#{$phase}::after {
 				animation-delay: math.div($phase, $skeleton-phase-count) *
