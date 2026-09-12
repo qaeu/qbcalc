@@ -1,0 +1,156 @@
+@use '../base' as *;
+@use 'sass:math';
+
+// Keep in sync with LOADING_PHASE_COUNT in src/utils/ui/loadingPhase.ts.
+$skeleton-phase-count: 12;
+$skeleton-pulse-duration: 1.4s;
+
+@layer screen {
+	.count-ev-graph {
+		@include card;
+		// Sized like the summary band above it, so the two read as one block. The
+		// spacing below comes from `.ev-table`'s own gap.
+		width: 100%;
+		max-width: 1000px;
+		margin-bottom: 0;
+		margin-left: auto;
+		margin-right: auto;
+
+		&__header {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			gap: 12px;
+			flex-wrap: wrap;
+		}
+
+		&__title {
+			@include panel-title;
+		}
+
+		&__plot {
+			display: block;
+			width: 100%;
+			height: auto;
+			margin-top: 8px;
+			// A point is pointed at through its whole band, so the pointer only ever
+			// changes what the caption reads.
+			user-select: none;
+		}
+
+		// The axis the line is read against, and the edge the two fills meet on.
+		&__zero {
+			stroke: $rule-strong;
+			stroke-width: 1;
+		}
+
+		&__hit {
+			fill: transparent;
+		}
+
+		// The fills carry the sign, so the line itself stays neutral and unbroken.
+		&__line {
+			fill: none;
+			stroke: get($neutrals, 'fg');
+			stroke-width: 2;
+			stroke-linejoin: round;
+			stroke-linecap: round;
+		}
+
+		// The rounds a counter makes money on in gold, the rest of the shoe in ruby.
+		&__area {
+			fill: get($errors, 'base');
+			opacity: 0.3;
+
+			&.is-advantage {
+				fill: get($primaries, 'base');
+				opacity: 0.42;
+			}
+		}
+
+		&__point {
+			fill: get($errors, 'fg-light');
+			stroke: $panel;
+			stroke-width: 1.5;
+			transition:
+				fill 150ms ease,
+				r 100ms ease;
+
+			&.is-advantage {
+				fill: get($primaries, 'base-dark');
+			}
+
+			&.is-hovered {
+				fill: get($neutrals, 'fg');
+			}
+
+			&.is-advantage.is-hovered {
+				fill: get($primaries, 'fg');
+			}
+		}
+
+		// Text colours rather than the line's, so it stays legible whatever the fill
+		// does.
+		&__tick {
+			fill: $ink-muted;
+			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
+			font-size: 13px;
+			font-variant-numeric: tabular-nums;
+		}
+
+		&__peak {
+			fill: get($primaries, 'fg-light');
+			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
+			font-size: 15px;
+			font-weight: 600;
+			font-variant-numeric: tabular-nums;
+		}
+
+		&__reading {
+			@include print(12px, 0.01em, $caps: false);
+			margin: 10px 0 0;
+			// Held to one line, so the card doesn't resize between readings.
+			min-height: 1.4em;
+		}
+
+		// The plot's own box, at the same aspect ratio as VIEW_WIDTH x VIEW_HEIGHT, so
+		// the card doesn't resize between the loading state and the result. The bar
+		// inside it is twice the height of the band's value skeletons.
+		&__skeleton {
+			margin-top: 8px;
+			aspect-ratio: 960 / 190;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+
+			&::after {
+				content: '';
+				width: 50%;
+				height: 40px;
+				border-radius: 6px;
+				background-color: get($neutrals, 'sep-light');
+				opacity: 0.35;
+				animation: count-ev-skeleton-pulse $skeleton-pulse-duration
+					cubic-bezier(0.2, 1, 0, 0.8) infinite;
+			}
+		}
+
+		// A negative delay starts the block mid-cycle, in step with the band above.
+		@for $phase from 0 through $skeleton-phase-count - 1 {
+			&__loading-phase-#{$phase}::after {
+				animation-delay: math.div($phase, $skeleton-phase-count) *
+					-$skeleton-pulse-duration;
+			}
+		}
+
+		@keyframes count-ev-skeleton-pulse {
+			0%,
+			100% {
+				opacity: 0.35;
+			}
+			50% {
+				opacity: 0.8;
+			}
+		}
+	}
+}

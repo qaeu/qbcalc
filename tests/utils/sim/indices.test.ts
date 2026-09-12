@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import { RANKS, type Rank } from '#utils/ev/cards';
 import type { TagValues } from '#utils/ev/composition';
-import { hiLoCountScale } from '#utils/bankroll';
+import { hiLoCountScale } from '#utils/bankroll/bankroll';
 import { baseComposition } from '#utils/ev/composition';
 import { DEFAULT_RULE_SET, type PlayerAction } from '#utils/ev/rules';
 import {
@@ -12,7 +12,7 @@ import {
 	resolveInsurance,
 	startRound,
 } from '#utils/play/game';
-import { HI_LO_TAGS, tagsForSystem } from '#utils/countingSystems';
+import { HI_LO_TAGS, tagsForSystem } from '#utils/settings/countingSystems';
 import { ILLUSTRIOUS_18, indexAction } from '#utils/sim/indices';
 
 import { scriptedShoe } from '../play/scriptedShoe';

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 
 import App from '#App';
-import { DEFAULT_CONFIG, loadCalculatorConfig } from '#utils/storage';
+import { DEFAULT_CONFIG, loadCalculatorConfig } from '#utils/settings/storage';
 import {
 	goToBankroll,
 	goToTables,

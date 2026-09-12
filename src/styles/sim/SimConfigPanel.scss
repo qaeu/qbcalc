@@ -1,0 +1,91 @@
+@use '../base' as *;
+
+@layer screen {
+	// Bare, as `.sim-setup` is: a run of controls under a heading is a section, not
+	// a bounded object needing a ground of its own.
+	.sim-config {
+		&__title {
+			@include panel-title;
+			margin-bottom: 14px;
+			padding-bottom: 10px;
+			border-bottom: 1px solid $rule;
+		}
+
+		// The sidebar's own field width, wrapped rather than columned, so the panel
+		// reads the same at any width it is given.
+		&__grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+			gap: 12px 16px;
+			align-items: end;
+		}
+
+		&__number {
+			@include form-control;
+		}
+
+		&__actions {
+			display: flex;
+			align-items: center;
+			gap: 16px;
+			margin-top: 18px;
+			flex-wrap: wrap;
+
+			@include phone {
+				align-items: stretch;
+				flex-direction: column;
+			}
+		}
+
+		// The one thing on the panel that starts something, so it wears the shared
+		// button's `.highlight` gold, as the felt's Deal and Next hand do.
+		&__run {
+			@include button;
+		}
+
+		&__cancel {
+			@include button($errors);
+		}
+
+		&__progress {
+			display: flex;
+			flex: 1 1 220px;
+			flex-direction: column;
+			gap: 5px;
+			min-width: 0;
+		}
+
+		// Names the bar for a screen reader; the status line under it is what a sighted
+		// reader reads, so this is not drawn.
+		&__progress-label {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			margin: -1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+
+		&__bar {
+			height: 6px;
+			border-radius: 3px;
+			background-color: $cut;
+			border: 1px solid $rule-strong;
+			overflow: hidden;
+		}
+
+		&__bar-fill {
+			height: 100%;
+			background-color: get($primaries, 'base');
+			transition: width $dur-fast linear;
+		}
+
+		&__status {
+			@include print(11px, 0.02em, $caps: false);
+			color: $ink-muted;
+			font-variant-numeric: tabular-nums;
+		}
+	}
+}

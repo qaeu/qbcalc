@@ -8,8 +8,8 @@
  * app is already tested on. See docs/sim-model.md.
  */
 
-import { betAtCount, hiLoCountScale } from '../bankroll';
-import { ROUND_TRUE_COUNTS, roundCountBucket } from '../countRounds';
+import { betAtCount, hiLoCountScale } from '../bankroll/bankroll';
+import { ROUND_TRUE_COUNTS, roundCountBucket } from '../bankroll/countRounds';
 import { CARD_UNITS, RANK_INDEX, type Rank } from '../ev/cards';
 import { baseComposition, type Composition, type TagValues } from '../ev/composition';
 import { insuranceEvPercent, insuranceTenFraction } from '../ev/insurance';

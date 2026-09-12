@@ -9,8 +9,8 @@
  * §Against the bankroll model for what they found.
  */
 
-import { hiLoCountScale } from '#utils/bankroll';
-import { HI_LO_TAGS } from '#utils/countingSystems';
+import { hiLoCountScale } from '#utils/bankroll/bankroll';
+import { HI_LO_TAGS } from '#utils/settings/countingSystems';
 import { CARD_UNITS, RANKS, RANK_INDEX, type Rank } from '#utils/ev/cards';
 import { baseComposition, type Composition, type TagValues } from '#utils/ev/composition';
 import { bestAction } from '#utils/ev/outcome';

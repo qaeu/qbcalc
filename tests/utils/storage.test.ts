@@ -26,7 +26,7 @@ import {
 	type BankrollConfig,
 	type CalculatorConfig,
 	type PlayConfig,
-} from '#utils/storage';
+} from '#utils/settings/storage';
 import { EMPTY_PLAY_STATS, type PlayStats } from '#utils/play/stats';
 import { DEFAULT_SIM_CONFIG, type SimConfig } from '#utils/sim/config';
 

@@ -1,11 +1,11 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library';
 
-import { HI_LO_TAGS } from '#utils/countingSystems';
+import { HI_LO_TAGS } from '#utils/settings/countingSystems';
 import { DEFAULT_RULE_SET } from '#utils/ev/rules';
-import { DEFAULT_PLAY_CONFIG, type PlayConfig } from '#utils/storage';
+import { DEFAULT_PLAY_CONFIG, type PlayConfig } from '#utils/settings/storage';
 
-import PlayView from '#c/PlayView';
+import PlayView from '#c/play/PlayView';
 
 /** Instant dealing, so the felt is never mid-animation when a test reads it. */
 const CONFIG: PlayConfig = {

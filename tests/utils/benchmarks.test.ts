@@ -7,7 +7,7 @@ import { insuranceEvPercent } from '#utils/ev/insurance';
 import { FAST_PRECISION, FULL_PRECISION, type Precision } from '#utils/ev/precision';
 import { DEFAULT_RULE_SET, type RuleSet } from '#utils/ev/rules';
 import { averageEvPercent, computeEvComparison } from '#utils/ev/tables';
-import { HI_LO_TAGS } from '#utils/countingSystems';
+import { HI_LO_TAGS } from '#utils/settings/countingSystems';
 import { DEFAULT_SIM_CONFIG } from '#utils/sim/config';
 import { createRun, isDone, runChunk } from '#utils/sim/run';
 

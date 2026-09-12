@@ -6,7 +6,7 @@ import {
 	RULE_PRESETS,
 	rulesForPreset,
 	ruleSetsEqual,
-} from '#utils/rulePresets';
+} from '#utils/settings/rulePresets';
 
 describe('rule presets', () => {
 	describe('rulesForPreset', () => {

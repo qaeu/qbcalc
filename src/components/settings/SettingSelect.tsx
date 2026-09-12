@@ -1,0 +1,83 @@
+/**
+ * A dropdown for a settings field whose value is one of a small fixed set of
+ * strings (rule variations, counting system presets, ...). Expected to be
+ * wrapped in a `SettingsItem`, whose native `<label>` gives the trigger
+ * (rendered as a `<button>`, a labelable element) its accessible name --
+ * the same implicit association a plain `<input>` gets.
+ */
+
+import { Select, createListCollection } from '@ark-ui/solid/select';
+import { createMemo, For, type JSX } from 'solid-js';
+import { Portal } from 'solid-js/web';
+
+import { Check, ChevronDown } from 'lucide-solid';
+
+import { usePortalMount } from '#c/common/portalMount';
+
+import '#styles/settings/SettingSelect';
+
+export interface SettingOption<T extends string> {
+	value: T;
+	label: string;
+	/** Shown greyed out and not selectable -- for a rule the rest of the table forbids. */
+	disabled?: boolean;
+}
+
+interface SettingSelectProps<T extends string> {
+	options: readonly SettingOption<T>[];
+	value: T;
+	onChange: (value: T) => void;
+}
+
+function SettingSelect<T extends string>(props: SettingSelectProps<T>): JSX.Element {
+	// The body, except inside the settings drawer, where a menu portalled to the
+	// body would open underneath the drawer and close it on the way -- see
+	// `#c/portalMount`.
+	const mount = usePortalMount();
+
+	const collection = createMemo(() =>
+		createListCollection({
+			items: [...props.options],
+			isItemDisabled: (item) => item.disabled === true,
+		})
+	);
+
+	return (
+		<Select.Root
+			class="setting-select"
+			collection={collection()}
+			value={[props.value]}
+			onValueChange={(details) => props.onChange(details.value[0] as T)}
+		>
+			<Select.Control>
+				<Select.Trigger class="setting-select__trigger">
+					<Select.ValueText />
+					<Select.Indicator>
+						<ChevronDown />
+					</Select.Indicator>
+				</Select.Trigger>
+			</Select.Control>
+			<Portal mount={mount()}>
+				<Select.Positioner>
+					<Select.Content class="setting-select__content">
+						<For each={collection().items}>
+							{(item) => (
+								<Select.Item item={item} class="setting-select__item">
+									<Select.ItemText>{item.label}</Select.ItemText>
+									{/* The chosen option is marked as well as coloured: gold ink
+									    alone is the one thing in the menu a reader who cannot
+									    tell it from the rest has nothing to fall back on. */}
+									<Select.ItemIndicator class="setting-select__item-mark">
+										<Check />
+									</Select.ItemIndicator>
+								</Select.Item>
+							)}
+						</For>
+					</Select.Content>
+				</Select.Positioner>
+			</Portal>
+		</Select.Root>
+	);
+}
+
+export default SettingSelect;

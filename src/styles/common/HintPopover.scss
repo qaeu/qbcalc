@@ -1,0 +1,55 @@
+@use '../base' as *;
+
+@layer screen {
+	.hint-popover {
+		&__trigger {
+			// The shared icon button at label size, `cursor: help` and all -- see
+			// `hint-icon`.
+			@include hint-icon;
+			line-height: 0;
+
+			&:hover,
+			&[data-state='open'] {
+				color: get($neutrals, 'fg');
+			}
+		}
+
+		// The same card as the EV table's cell popover: a translucent panel over the
+		// felt, with the hairline only on the edge the arrow attaches to, which flips
+		// with `data-side`.
+		&__content {
+			@include shadow($shadow-light);
+			z-index: 20;
+			max-width: 240px;
+			padding: 8px 10px;
+			border-bottom: 1px solid $rule-strong;
+			border-radius: 6px;
+			background-color: oklch(from $panel l c h / 0.92);
+			backdrop-filter: blur(4px);
+			font-size: 12px;
+			line-height: 1.45;
+			color: $foreground;
+
+			&[data-side='bottom'] {
+				border-bottom: 0;
+				border-top: 1px solid $rule-strong;
+			}
+		}
+
+		&__arrow {
+			--arrow-size: 9px;
+			--arrow-background: #{$panel};
+			// Zag tucks the tip half inside the content box inline, so this needs
+			// !important to pull it clear of the border.
+			--arrow-offset: calc(var(--arrow-size-half) * -1) !important;
+		}
+
+		// A square rotated 45deg, of which only the top-left half pokes out past the
+		// content box -- see the EV table's arrow tip, which is the same shape.
+		&__arrow-tip {
+			clip-path: polygon(0 0, 100% 0, 0 100%);
+			border-top: 1px solid $rule-strong;
+			border-left: 1px solid $rule-strong;
+		}
+	}
+}

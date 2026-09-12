@@ -1,0 +1,49 @@
+@use '../base' as *;
+
+@layer screen {
+	.play-view {
+		display: flex;
+		flex-direction: column;
+		// As with the Bankroll view: nothing here is wide enough to claim the space on
+		// its own, so the column is told to take it.
+		flex: 1 1 0%;
+		min-width: 0;
+		gap: 20px;
+
+		&__tabs {
+			display: flex;
+			flex-direction: column;
+			gap: 18px;
+			// The felt is a table, not a page: past this width it reads as a stretched
+			// panel.
+			width: 100%;
+			max-width: 760px;
+			margin: 0 auto;
+		}
+
+		// Printed labels on the felt, marked in gold as the header's own tabs are.
+		&__tab-list {
+			display: flex;
+			gap: 20px;
+			align-self: flex-start;
+			border-bottom: 1px solid $rule;
+			width: 100%;
+
+			@include compact {
+				gap: 0;
+			}
+		}
+
+		&__tab {
+			@include tab(12px, 0.18em);
+			padding: 8px 2px 9px;
+
+			@include compact {
+				flex: 1;
+				justify-content: center;
+				padding: 11px 12px;
+				text-align: center;
+			}
+		}
+	}
+}

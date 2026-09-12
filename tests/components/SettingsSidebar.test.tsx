@@ -1,16 +1,16 @@
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen, cleanup, waitFor } from '@solidjs/testing-library';
 
-import SettingsSidebar from '#c/SettingsSidebar';
+import SettingsSidebar from '#c/settings/SettingsSidebar';
 import { ACE_FIVE_TAGS } from '#utils/ev/composition';
-import { HI_LO_TAGS } from '#utils/countingSystems';
+import { HI_LO_TAGS } from '#utils/settings/countingSystems';
 import {
 	DEFAULT_BANKROLL_CONFIG,
 	DEFAULT_CONFIG,
 	DEFAULT_PLAY_CONFIG,
 	settingsFromConfig,
 	type CalculatorSettings,
-} from '#utils/storage';
+} from '#utils/settings/storage';
 
 // What the form owns, which is every field of a config but the running count:
 // that one is driven by the arrow keys and never passes through the sidebar.

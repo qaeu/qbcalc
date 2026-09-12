@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { createRoot } from 'solid-js';
 
-import { COMPACT_LAYOUT_QUERY, createMediaQuery } from '#utils/media';
+import { COMPACT_LAYOUT_QUERY, createMediaQuery } from '#utils/app/media';
 
 /**
  * A `matchMedia` stand-in whose matches can be moved from the test. jsdom ships

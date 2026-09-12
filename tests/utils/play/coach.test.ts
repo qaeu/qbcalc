@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import type { Rank } from '#utils/ev/cards';
 import { DEFAULT_RULE_SET, type RuleSet } from '#utils/ev/rules';
-import { HI_LO_TAGS } from '#utils/countingSystems';
+import { HI_LO_TAGS } from '#utils/settings/countingSystems';
 import { computeEvWorkerResponse, type PlayGrids } from '#utils/evWorkerProtocol';
 import { gradeDecision } from '#utils/play/coach';
 import { applyAction, createGame, startRound, type GameState } from '#utils/play/game';

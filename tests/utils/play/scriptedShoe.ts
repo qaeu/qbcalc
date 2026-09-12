@@ -1,5 +1,5 @@
 import type { Rank } from '#utils/ev/cards';
-import { HI_LO_TAGS } from '#utils/countingSystems';
+import { HI_LO_TAGS } from '#utils/settings/countingSystems';
 import type { DealtShoe } from '#utils/play/shoe';
 
 /**

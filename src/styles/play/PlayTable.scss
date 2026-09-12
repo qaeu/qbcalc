@@ -1,0 +1,330 @@
+@use 'sass:map';
+@use '../base' as *;
+
+// The Play view around the shared felt (Felt.scss): the shoe's HUD, the result
+// line, and the chip rail. The reservations that keep it from moving as a round
+// turns are in docs/design-language.md.
+
+// The chip colours a casino rail actually runs, keyed by denomination so the
+// value is readable before the number is.
+$chip-colours: (
+	1: #e9e6dd,
+	5: #b6303a,
+	25: #1f7a4a,
+	100: #17130f,
+	500: #6b3f9e,
+	1000: #c8961e,
+);
+
+@layer screen {
+	.play-table {
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+
+		/* ── The shoe, read across the top of the table ──────────── */
+
+		&__hud {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: 14px;
+			padding-bottom: 12px;
+			border-bottom: 1px solid $rule;
+		}
+
+		&__decks {
+			@include print(11px, 0.16em);
+			white-space: nowrap;
+		}
+
+		&__shoe {
+			flex: 1 1 auto;
+			min-width: 60px;
+			max-width: 260px;
+		}
+
+		// Cut into the felt, not laid on it: a discard rack is a hole in a table.
+		&__shoe-track {
+			height: 7px;
+			border-radius: 2px;
+			background-color: $cut-deep;
+			box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.4);
+			overflow: hidden;
+		}
+
+		&__shoe-range {
+			height: 100%;
+			background: linear-gradient(
+				90deg,
+				oklch(from get($neutrals, 'fg-light') l c h / 0.55),
+				oklch(from get($neutrals, 'fg') l c h / 0.8)
+			);
+			transition: width $dur-base $ease;
+		}
+
+		&__count {
+			@include print(11px, 0.12em);
+			font-variant-numeric: tabular-nums;
+			font-weight: 700;
+			color: get($primaries, 'fg-light');
+		}
+
+		// Pushed to the far end of the instrument strip, so the shoe reads from
+		// the left and the money from the right.
+		&__money {
+			@include print(11px, 0.16em);
+			margin-left: auto;
+			white-space: nowrap;
+
+			strong {
+				font-family: 'Archivo Narrow', 'Archivo', sans-serif;
+				font-variant-numeric: tabular-nums;
+				font-size: 15px;
+				letter-spacing: 0.02em;
+				color: get($neutrals, 'fg');
+			}
+		}
+
+		/* ── Bet, result, and the rail ───────────────────────────── */
+
+		// The bet while a round is live, the result and net once it has settled: one
+		// slot, always mounted, so neither displaces the rail below it.
+		&__info {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 20px;
+			// Reserved to the height a wrapped multi-hand result line can reach.
+			min-height: 40px;
+		}
+
+		&__results {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 12px;
+		}
+
+		&__result {
+			@include print(12px, 0.16em);
+			font-weight: 700;
+
+			&.is-blackjack,
+			&.is-win {
+				color: get($successes, 'fg-light');
+			}
+
+			&.is-push {
+				color: get($neutrals, 'fg-light');
+			}
+
+			&.is-lose,
+			&.is-bust,
+			&.is-surrendered {
+				color: get($errors, 'fg-light');
+			}
+		}
+
+		&__bet-amount {
+			@include print(11px, 0.16em);
+
+			strong {
+				font-family: 'Archivo Narrow', 'Archivo', sans-serif;
+				font-variant-numeric: tabular-nums;
+				font-size: 19px;
+				letter-spacing: 0.02em;
+				color: get($neutrals, 'fg');
+			}
+		}
+
+		// One shelf for every phase's controls, stacked in a single grid cell: the
+		// hidden panels still size it, so nothing on the felt moves as the round turns
+		// from betting to acting to settled.
+		&__controls {
+			display: grid;
+		}
+
+		&__panel {
+			grid-area: 1 / 1;
+			display: flex;
+			flex-direction: column;
+			gap: 14px;
+			width: 100%;
+			// Not `display: none`: a panel out of the flow would stop reserving the
+			// height it is here for. This also keeps it out of the tab order.
+			visibility: hidden;
+
+			&.is-shown {
+				visibility: visible;
+			}
+		}
+
+		&__rail {
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: center;
+			gap: 10px;
+		}
+
+		// Paused after a round settles, until the player redeals or sizes a fresh bet.
+		&__pause {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			justify-content: center;
+			gap: 8px;
+		}
+
+		// A hotkey label stacked above the button it fires, shared by the chip row and
+		// the Repeat/Deal row.
+		&__slot {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 5px;
+
+			// Only slots holding a full-width control take half the row; a chip's slot
+			// is the size of the chip in it.
+			@include compact {
+				&:has(> .play-table__control) {
+					flex: 1 1 calc(50% - 4px);
+					min-width: 0;
+				}
+			}
+		}
+
+		/* ── Chips ───────────────────────────────────────────────── */
+
+		// Clay composite: edge spots cut into the rim by a repeating conic stop,
+		// an inlay ring set into the face, and a real drop onto the felt.
+		&__chip {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			position: relative;
+			width: 48px;
+			height: 48px;
+			padding: 0;
+			border: 0;
+			border-radius: 50%;
+			font-family: 'Archivo', sans-serif;
+			font-size: 12px;
+			font-weight: 700;
+			font-variant-numeric: tabular-nums;
+			letter-spacing: 0;
+			text-transform: none;
+			color: #fff;
+			cursor: pointer;
+			box-shadow:
+				0 4px 9px rgb(0 0 0 / 0.45),
+				inset 0 1px 0 rgb(255 255 255 / 0.25);
+			transition:
+				transform $dur-fast $ease,
+				box-shadow $dur-fast $ease;
+
+			// The inlay: the flat centre the denomination is printed on, ringed
+			// against the spotted edge.
+			&::after {
+				content: '';
+				position: absolute;
+				inset: 6px;
+				border-radius: 50%;
+				background-color: inherit;
+				box-shadow:
+					0 0 0 1px rgb(0 0 0 / 0.22),
+					inset 0 1px 2px rgb(0 0 0 / 0.3);
+			}
+
+			@each $value, $colour in $chip-colours {
+				&--#{$value} {
+					// `background-color` rather than the shorthand: the inlay reads it
+					// back through `inherit`, so the two always match.
+					background-color: $colour;
+					background-image: repeating-conic-gradient(
+						$stock 0deg 13deg,
+						$colour 13deg 45deg
+					);
+				}
+			}
+
+			// The white text and the card-stock edge spots both disappear on the
+			// lightest chip, so it takes dark ink and a darker spot.
+			&--1 {
+				color: $stock-ink;
+				background-image: repeating-conic-gradient(
+					#9a9487 0deg 13deg,
+					map.get($chip-colours, 1) 13deg 45deg
+				);
+			}
+
+			&:hover:not(:disabled) {
+				transform: translateY(-4px);
+				box-shadow:
+					0 8px 14px rgb(0 0 0 / 0.5),
+					inset 0 1px 0 rgb(255 255 255 / 0.25);
+			}
+
+			// A chip already travels on hover, so the press puts it back down on the
+			// felt rather than moving it further.
+			&:active:not(:disabled) {
+				transform: translateY(0);
+				box-shadow:
+					0 2px 5px rgb(0 0 0 / 0.5),
+					inset 0 2px 4px rgb(0 0 0 / 0.3);
+			}
+
+			&:disabled {
+				@include disabled-control;
+			}
+		}
+
+		// Above the inlay ring, which is painted over the button's own content box.
+		&__chip-value {
+			position: relative;
+			z-index: 1;
+		}
+
+		/* ── Controls ────────────────────────────────────────────── */
+
+		&__rail-controls {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			justify-content: center;
+			gap: 8px;
+		}
+
+		&__control {
+			@include button;
+			min-width: 150px;
+
+			// Two to a row: 150px is more than half a phone's width, so a fixed minimum
+			// would stack every button. The slot around it claims the width.
+			@include compact {
+				width: 100%;
+				min-width: 0;
+			}
+		}
+
+		// The digit that fires the button beside it, in the cap the grids' mode line
+		// wears for the same job.
+		&__key {
+			@include key-cap;
+		}
+
+		&__net {
+			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
+			font-variant-numeric: tabular-nums;
+			font-size: 22px;
+			font-weight: 700;
+
+			&.is-positive {
+				color: get($successes, 'fg-light');
+			}
+
+			&.is-negative {
+				color: get($errors, 'fg-light');
+			}
+		}
+	}
+}

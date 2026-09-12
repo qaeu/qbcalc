@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
-import { analyzeBankroll } from '#utils/bankroll';
-import { HI_LO_TAGS } from '#utils/countingSystems';
-import { ROUND_TRUE_COUNTS } from '#utils/countRounds';
+import { analyzeBankroll } from '#utils/bankroll/bankroll';
+import { HI_LO_TAGS } from '#utils/settings/countingSystems';
+import { ROUND_TRUE_COUNTS } from '#utils/bankroll/countRounds';
 import { RANKS } from '#utils/ev/cards';
 import { baseComposition, type TagValues } from '#utils/ev/composition';
 import { ShoeEv } from '#utils/ev/engine';

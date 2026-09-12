@@ -13,9 +13,9 @@ import {
 	startRound,
 	type GameState,
 } from '#utils/play/game';
-import { DEFAULT_PLAY_CONFIG, type PlayConfig } from '#utils/storage';
+import { DEFAULT_PLAY_CONFIG, type PlayConfig } from '#utils/settings/storage';
 
-import PlayTable from '#c/PlayTable';
+import PlayTable from '#c/play/PlayTable';
 
 import { scriptedShoe } from '../utils/play/scriptedShoe';
 

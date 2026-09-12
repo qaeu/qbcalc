@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { createSignal } from 'solid-js';
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 
-import SettingSelect from '#c/SettingSelect';
-import SettingsDrawer from '#c/SettingsDrawer';
+import SettingSelect from '#c/settings/SettingSelect';
+import SettingsDrawer from '#c/settings/SettingsDrawer';
 
 /** The drawer with its own open state, as `App` gives it. */
 function renderDrawer() {

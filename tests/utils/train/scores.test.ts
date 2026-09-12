@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { ACE_FIVE_TAGS } from '#utils/ev/composition';
-import { HI_LO_TAGS } from '#utils/countingSystems';
+import { HI_LO_TAGS } from '#utils/settings/countingSystems';
 import { DEFAULT_RULE_SET } from '#utils/ev/rules';
 import {
 	BOARD_SIZE,

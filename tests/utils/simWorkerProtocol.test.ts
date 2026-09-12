@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { HI_LO_TAGS } from '#utils/countingSystems';
+import { HI_LO_TAGS } from '#utils/settings/countingSystems';
 import { DEFAULT_RULE_SET } from '#utils/ev/rules';
 import { DEFAULT_SIM_CONFIG, type SimConfig } from '#utils/sim/config';
 import {

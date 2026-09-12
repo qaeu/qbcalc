@@ -6,7 +6,11 @@ import type { RuleSet } from '#utils/ev/rules';
 import type { TrainGrids } from '#utils/evWorkerProtocol';
 import { createGame, preRound, type GameState } from '#utils/play/game';
 import { createShoe } from '#utils/play/shoe';
-import { loadTrainConfig, loadTrainScores, type AnimationSpeed } from '#utils/storage';
+import {
+	loadTrainConfig,
+	loadTrainScores,
+	type AnimationSpeed,
+} from '#utils/settings/storage';
 import { CARD_DEAL_DELAY_MS } from '#utils/play/reveal';
 import {
 	checkpointRounds,
@@ -16,7 +20,7 @@ import {
 	planDrill,
 } from '#utils/train/drills';
 
-import TrainView from '#c/TrainView';
+import TrainView from '#c/train/TrainView';
 
 import { RULE_SET, TAGS, trainGrids } from '../utils/train/trainGrids';
 

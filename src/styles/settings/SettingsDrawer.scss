@@ -1,0 +1,92 @@
+@use '../base' as *;
+
+// The same layer the cell drill-down sits at: the drawer is the only dialog
+// the compact layout opens, so the two never overlap, but they should not be
+// able to slide under each other's backdrop either.
+$drawer-z-index: 40;
+
+@layer screen {
+	.settings-drawer {
+		box-sizing: border-box;
+		display: flex;
+		// The panel stays mounted across a close (`unmountOnExit={false}`, so the form
+		// holds its state) and Ark marks it closed with the `hidden` attribute alone,
+		// which the `display: flex` above would override.
+		&[hidden] {
+			display: none;
+		}
+
+		flex-direction: column;
+		gap: 12px;
+		// Held to the viewport rather than the content: scrolling inside the panel is
+		// what makes it usable in landscape.
+		height: 100dvh;
+		width: min(320px, 88vw);
+		padding: 16px 12px;
+		padding-bottom: max(16px, env(safe-area-inset-bottom));
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		// The anchor for the popup layer below.
+		position: relative;
+		border-right: 1px solid $rule-strong;
+		background-color: $panel;
+		@include shadow($direction: 'right');
+		// Taken back from the positioner, which disowns them viewport-wide.
+		pointer-events: auto;
+
+		&__backdrop {
+			position: fixed;
+			inset: 0;
+			z-index: $drawer-z-index;
+			background-color: $scrim;
+			backdrop-filter: blur(2px);
+		}
+
+		// Pinned to the inline-start edge, full height: a panel the page slides out
+		// from, not a card laid over it.
+		&__positioner {
+			position: fixed;
+			inset: 0;
+			z-index: $drawer-z-index;
+			display: flex;
+			justify-content: flex-start;
+			// The positioner is never marked `hidden`: once opened it stays in the page
+			// as a viewport-sized layer for good, so it must never be the thing a click
+			// lands on. Dismissing by tapping outside still works -- that is a
+			// document-level listener, not hit-testing this element.
+			pointer-events: none;
+		}
+
+		// Hosts the menus portalled out of the form, inside the panel so the dialog's
+		// dismissable layer counts a click on one as within itself rather than a
+		// reason to close. Out of flow, so it claims no row of the panel's column.
+		&__layer {
+			position: absolute;
+			top: 0;
+			left: 0;
+		}
+
+		&__header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+		}
+
+		&__title {
+			@include panel-title;
+		}
+
+		// Icon only, so the shared button chrome would read as a stray box.
+		&__close {
+			@include icon-button;
+		}
+
+		// The sidebar inside the drawer is already as wide as the panel allows,
+		// and has nothing below it to stick to.
+		.settings-sidebar {
+			flex: 0 0 auto;
+			position: static;
+		}
+	}
+}

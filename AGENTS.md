@@ -31,13 +31,20 @@ src/
 ├── index.tsx                    # SolidJS app initialization
 ├── setupTests.ts                # Test configuration
 ├── types.d.ts                   # Global type definition file
-├── styles/
+├── styles/                      # Mirrors the components/ folders one for one
 │   ├── _palette.scss            # The 12-step baize/gold/sand/mint/ruby/sky scales
 │   ├── _theme.scss              # Colour sets, materials, shadows, reusable mixins
 │   ├── _base.scss               # Cascade layers, element defaults
-│   └── *.scss                   # Component specific stylings
-├── components/
-│   └── *.tsx                    # SolidJS components
+│   ├── App.scss                 # The app shell's own sheet
+│   └── <folder>/*.scss          # One sheet per component, `@use '../base' as *`
+├── components/                  # Grouped by the view each belongs to
+│   ├── common/                  # AppHeader, Felt, HintPopover, StatBand, portalMount
+│   ├── ev/                      # The EV board: table, cell popover, drill-down dialog
+│   ├── bankroll/                # Bankroll cards, bet ramp editor, weighted-EV graph
+│   ├── play/                    # The Play felt, its table and its stats
+│   ├── train/                   # The Train view: picker, the drills, HUD, results
+│   ├── sim/                     # The Sim view: setup, config, stats, trajectory
+│   └── settings/                # The drawer/sidebar, its tabs, the shared inputs
 └── utils/
     ├── ev/
     │   ├── cards.ts             # Rank vocabulary, hand arithmetic
@@ -74,11 +81,28 @@ src/
     │   ├── strategy.ts          # Grids per whole count, priced on demand and memoised
     │   ├── run.ts               # The loop: deal, bet, play, grade, bucket
     │   └── result.ts            # A finished run's derived figures, in one pure function
-    ├── bankroll.ts              # Count frequency, bet spread, risk of ruin
-    ├── countRounds.ts           # Simulated shoes: rounds played at each count
+    ├── bankroll/
+    │   ├── bankroll.ts          # Count frequency, bet spread, risk of ruin
+    │   └── countRounds.ts       # Simulated shoes: rounds played at each count
+    ├── settings/                # What the settings UI reads and persists
+    │   ├── storage.ts           # Every stored config, loaded and validated
+    │   ├── countingSystems.ts   # Counting system presets, as tag vectors
+    │   └── rulePresets.ts       # Table-rule presets, and recovering one from rules
+    ├── ui/                      # How a computed figure is displayed
+    │   ├── format.ts            # Number and label formatting
+    │   ├── actionStyle.ts       # Action fills and sign classes
+    │   ├── cellDisplay.ts       # The grid's cell view modes and heat steps
+    │   ├── counterSeat.ts       # Where a deviation counter sits on its cell
+    │   ├── loadingPhase.ts      # Scattering skeletons across the pulse cycle
+    │   └── gridBalance.ts       # Centring an auto-fit grid's last line
+    ├── app/                     # App-shell plumbing
+    │   ├── hashRoute.ts         # The five views, addressed by URL fragment
+    │   ├── keyboard.ts          # Global shortcuts, and what may swallow a key
+    │   ├── media.ts             # Media queries as signals
+    │   └── settle.ts            # How long an input waits before a calculation
     ├── blackjackEv.worker.ts    # The EV calculator, off the main thread
     ├── sim.worker.ts            # A simulated session, in chunks, cancellable
-    └── *.ts                     # Worker protocols and utility scripts
+    └── *WorkerProtocol.ts       # The two worker protocols, shared with the stub
 tests/
 └── **/*.test.ts(x)              # Mirrors the src/ tree
 ```
@@ -189,7 +213,7 @@ Formatting is enforced by Prettier (`.prettierrc`): tabs, single quotes, 90 colu
 
 ### EV Engine Guidelines
 
-- **Read the model doc first**: [docs/ev-model.md](./docs/ev-model.md) records the method, the simplifications the numbers rest on, and why the engine is shaped the way it is. Reasoning belongs there; the modules under `src/utils/ev/` keep short comments that point at it. [docs/bankroll-model.md](./docs/bankroll-model.md) does the same for `src/utils/bankroll.ts`, the bet-sizing and risk layer above it, [docs/count-rounds-model.md](./docs/count-rounds-model.md) for `src/utils/countRounds.ts`, the shoe simulation behind the weighted-EV graph card, [docs/play-model.md](./docs/play-model.md) for `src/utils/play/`, the dealt game, its coach and its training stats, [docs/train-model.md](./docs/train-model.md) for `src/utils/train/`, the Train view's drills, how they are priced and graded, and how they are scored, and [docs/sim-model.md](./docs/sim-model.md) for `src/utils/sim/`, the simulated session the Sim view runs through that same stack.
+- **Read the model doc first**: [docs/ev-model.md](./docs/ev-model.md) records the method, the simplifications the numbers rest on, and why the engine is shaped the way it is. Reasoning belongs there; the modules under `src/utils/ev/` keep short comments that point at it. [docs/bankroll-model.md](./docs/bankroll-model.md) does the same for `src/utils/bankroll/bankroll.ts`, the bet-sizing and risk layer above it, [docs/count-rounds-model.md](./docs/count-rounds-model.md) for `src/utils/bankroll/countRounds.ts`, the shoe simulation behind the weighted-EV graph card, [docs/play-model.md](./docs/play-model.md) for `src/utils/play/`, the dealt game, its coach and its training stats, [docs/train-model.md](./docs/train-model.md) for `src/utils/train/`, the Train view's drills, how they are priced and graded, and how they are scored, and [docs/sim-model.md](./docs/sim-model.md) for `src/utils/sim/`, the simulated session the Sim view runs through that same stack.
 - **Pure functions**: EV calculation must be side-effect free and independent of SolidJS so it is directly unit testable.
 - **Rules as data**: Table variations (deck count, dealer hits soft 17, blackjack payout, DAS, surrender) belong in a `RuleSet` object passed in — never hardcoded.
 - **Exact over sampled**: Prefer exact combinatorial computation; if simulation is ever used, seed it so tests are deterministic.

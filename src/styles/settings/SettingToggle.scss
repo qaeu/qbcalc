@@ -1,0 +1,92 @@
+@use '../base' as *;
+
+@layer screen {
+	// The whole row is the target: a rule is switched by hitting its name.
+	.setting-toggle {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-height: 28px;
+		font-size: 13px;
+		color: get($neutrals, 'fg-light');
+		cursor: pointer;
+
+		@include touch {
+			min-height: $control-height-touch;
+		}
+
+		// Cut into the felt like a field: a small one holding a mark, not a number.
+		&__box {
+			display: grid;
+			place-items: center;
+			flex: none;
+			width: 16px;
+			height: 16px;
+			border: 1px solid $rule-strong;
+			border-radius: 3px;
+			background-color: $cut;
+			box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.3);
+			transition:
+				background-color $dur-base $ease,
+				border-color $dur-base $ease,
+				box-shadow $dur-fast $ease,
+				transform $dur-fast $ease;
+
+			// Switched on is gold, as everywhere else something is the one in play. The
+			// rim is a step *down* the scale from the fill, so the box stays cut into
+			// the felt and the hover edge below has somewhere to go.
+			&[data-state='checked'] {
+				background-color: get($primaries, 'base');
+				border-color: get($primaries, 'sep-dark');
+				box-shadow: none;
+			}
+
+			// After the checked fill, so the box takes the same border lift every other
+			// field does either way it is switched. On gold that edge alone is quiet,
+			// so the fill comes up the scale with it.
+			&[data-hover] {
+				border-color: get($neutrals, 'sep');
+
+				&[data-state='checked'] {
+					background-color: get($primaries, 'fg-light');
+				}
+			}
+
+			// Focus lands on Ark's hidden input, so the ring is drawn from the state it
+			// hands the box instead.
+			&[data-focus-visible] {
+				outline: 2px solid get($primaries, 'base');
+				outline-offset: 2px;
+			}
+
+			&[data-active] {
+				transform: translateY(1px);
+			}
+
+			&[data-disabled] {
+				@include disabled-control;
+			}
+		}
+
+		// In the rail's own brown: on gold, ink rather than more light. Ark hides it
+		// while unchecked with the `hidden` attribute alone, which `display` must not
+		// override.
+		&__mark:not([hidden]) {
+			display: grid;
+			place-items: center;
+			color: var(--rail-1);
+
+			svg {
+				width: 11px;
+				height: 11px;
+				stroke-width: 3.6;
+			}
+		}
+
+		// The label text and, where there is one, its hint icon.
+		&__label {
+			@include label-row;
+			user-select: none;
+		}
+	}
+}

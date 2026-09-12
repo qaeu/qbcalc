@@ -1,0 +1,142 @@
+@use '../base' as *;
+@use 'sass:math';
+
+// Keep in sync with LOADING_PHASE_COUNT in src/utils/ui/loadingPhase.ts.
+$skeleton-phase-count: 12;
+$skeleton-pulse-duration: 1.4s;
+
+@layer screen {
+	// One band of figures printed on the table, not a tray of cards: no fill, and
+	// rules above and below only. `StatBand` is the same band without the loading
+	// skeletons -- keep the two in step.
+	.ev-summary {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+		width: 100%;
+		max-width: 1000px;
+		margin-left: auto;
+		margin-right: auto;
+		border-block: 1px solid $rule-strong;
+		overflow: hidden;
+
+		@include phone {
+			grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+		}
+
+		// The dividing hairlines are the cells' own borders, pulled back by a negative
+		// margin so the ones falling on the band's edges are clipped away -- which a
+		// per-cell border cannot arrange for itself, not knowing where the row wraps.
+		// Drawn under each cell rather than over it, so a wrapped last line still
+		// leaves a complete rule under the line above.
+		&__card {
+			// A subgrid of the band's rows rather than a stack of its own, so a label
+			// that wraps makes room across the whole line and the figures stay level.
+			// The row gap is set here so it applies between a card's two rows and not
+			// between wrapped lines.
+			display: grid;
+			grid-template-rows: subgrid;
+			grid-row: span 2;
+			gap: 5px;
+			padding: 15px 18px 16px;
+			border-bottom: 1px solid $rule-strong;
+			border-left: 1px solid $rule-strong;
+			margin: 0 0 -1px -1px;
+
+			// A balanced last line starts a column or two in, where there is no edge to
+			// clip its rule away -- see `#utils/gridBalance`. Transparent rather than
+			// removed, so the cell keeps the width its border gives it.
+			&.is-line-start {
+				border-left-color: transparent;
+			}
+
+			@include phone {
+				padding: 12px 13px 13px;
+			}
+		}
+
+		&__label {
+			@include print(10px, 0.16em);
+			// Sat on the foot of the shared label row, so a one-line label stays next to
+			// its own figure when a neighbour's wraps.
+			align-self: end;
+			color: $ink-muted;
+		}
+
+		&__value {
+			// A printed number rather than body text that happens to be big, and
+			// tabular so it doesn't jitter its width as the count is swept through.
+			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
+			font-variant-numeric: tabular-nums;
+			font-size: 28px;
+			font-weight: 700;
+			letter-spacing: -0.01em;
+			line-height: 1.05;
+			color: get($neutrals, 'fg');
+			transition: color $dur-slow $ease;
+
+			@include phone {
+				font-size: 23px;
+			}
+
+			&.is-positive {
+				color: get($successes, 'fg-light');
+			}
+
+			&.is-negative {
+				color: get($errors, 'fg-light');
+			}
+		}
+
+		&__unit {
+			margin-left: 3px;
+			font-size: 13px;
+			font-weight: 500;
+			letter-spacing: 0.04em;
+			color: $ink-muted;
+		}
+
+		// Matches &__value's line box, so the band doesn't change height between the
+		// loading state and the result. The bar drawn inside it is smaller on purpose.
+		&__skeleton {
+			display: flex;
+			align-items: center;
+			font-size: 28px;
+			line-height: 1.05;
+			height: 1.05em;
+
+			@include phone {
+				font-size: 23px;
+			}
+
+			&::after {
+				content: '';
+				width: 72px;
+				height: 18px;
+				border-radius: 2px;
+				background-color: get($neutrals, 'sep-light');
+				opacity: 0.35;
+				animation: ev-summary-skeleton-pulse $skeleton-pulse-duration
+					cubic-bezier(0.2, 1, 0, 0.8) infinite;
+			}
+		}
+
+		// Negative delays start every figure mid-cycle, so the band is already
+		// twinkling on the first frame.
+		@for $phase from 0 through $skeleton-phase-count - 1 {
+			&__loading-phase-#{$phase}::after {
+				animation-delay: math.div($phase, $skeleton-phase-count) *
+					-$skeleton-pulse-duration;
+			}
+		}
+
+		@keyframes ev-summary-skeleton-pulse {
+			0%,
+			100% {
+				opacity: 0.35;
+			}
+			50% {
+				opacity: 0.8;
+			}
+		}
+	}
+}

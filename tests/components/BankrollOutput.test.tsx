@@ -1,15 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@solidjs/testing-library';
 
-import type { CountEvProfile } from '#c/CountEvGraph';
-import BankrollOutput from '#c/BankrollOutput';
-import { analyzeBankroll, hiLoCountScale, type BankrollAnalysis } from '#utils/bankroll';
-import { simulateRoundFrequency } from '#utils/countRounds';
+import type { CountEvProfile } from '#c/bankroll/CountEvGraph';
+import BankrollOutput from '#c/bankroll/BankrollOutput';
+import {
+	analyzeBankroll,
+	hiLoCountScale,
+	type BankrollAnalysis,
+} from '#utils/bankroll/bankroll';
+import { simulateRoundFrequency } from '#utils/bankroll/countRounds';
 import { baseComposition, DEFAULT_PARAMS } from '#utils/ev/composition';
 import { DEFAULT_RULE_SET } from '#utils/ev/rules';
-import { DEFAULT_BANKROLL_CONFIG } from '#utils/storage';
+import { DEFAULT_BANKROLL_CONFIG } from '#utils/settings/storage';
 import { computeAllEvTables } from '#utils/ev/tables';
-import { formatEvPercent } from '#utils/format';
+import { formatEvPercent } from '#utils/ui/format';
 import type { EvWorkerResult } from '#utils/evWorkerProtocol';
 
 // Real (not mocked) exact-enumeration result, computed once and reused as a

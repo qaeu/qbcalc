@@ -1,0 +1,94 @@
+@use '../base' as *;
+
+@layer screen {
+	.settings-sidebar {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		flex: 0 0 290px;
+		position: sticky;
+		top: 20px;
+
+		@include compact {
+			flex-basis: auto;
+			position: static;
+		}
+
+		&__card {
+			@include card;
+			margin-bottom: 0;
+		}
+
+		&__controls {
+			display: flex;
+			flex-direction: column;
+			align-items: stretch;
+			gap: 16px;
+		}
+
+		&__tabs {
+			display: flex;
+			flex-direction: column;
+			gap: 16px;
+		}
+
+		// Full-bleed across the top of the panel: its 20px padding is cancelled out.
+		&__tab-list {
+			display: flex;
+			gap: 0;
+			margin: -20px -20px 4px;
+			padding: 0 8px;
+			border-bottom: 1px solid $rule;
+			background-color: $cut-light;
+		}
+
+		// Marked in gold like the header's tabs and the Play view's, so "which one is
+		// live" reads the same at every level of the app.
+		&__tab {
+			@include tab(10px, 0.1em);
+			flex: 1;
+			justify-content: center;
+			gap: 4px;
+			min-width: 0;
+			padding: 9px 2px 8px;
+			// A wrapped label would push the strip to two lines rather than clip.
+			white-space: nowrap;
+
+			svg {
+				width: 13px;
+				height: 13px;
+			}
+		}
+
+		// Ark hides the unselected panels with the `hidden` attribute alone, which a
+		// bare `display: flex` would override.
+		&__tab-panel:not([hidden]) {
+			display: flex;
+			flex-direction: column;
+			gap: 16px;
+		}
+
+		// The full calculation and the timing that follows it read as one line.
+		&__footer {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		&__full-calc {
+			@include button;
+			padding: 7px 11px;
+			font-size: 10px;
+			white-space: nowrap;
+		}
+
+		&__calc-time {
+			@include print(12px, 0.01em, $caps: false);
+			color: $ink-muted;
+		}
+
+		&__precision {
+			color: get($primaries, 'fg-light');
+		}
+	}
+}

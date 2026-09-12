@@ -7,7 +7,7 @@
  */
 
 import { addValue, type Rank } from '../ev/cards';
-import type { AnimationSpeed } from '../storage';
+import type { AnimationSpeed } from '../settings/storage';
 import type { GameState, PlayHand } from './game';
 
 /**

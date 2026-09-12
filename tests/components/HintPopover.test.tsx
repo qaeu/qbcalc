@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 
-import HintPopover from '#c/HintPopover';
-import SettingsItem from '#c/SettingsItem';
+import HintPopover from '#c/common/HintPopover';
+import SettingsItem from '#c/settings/SettingsItem';
 
 const HINT = 'Number of decks in the shoe';
 const OTHER_HINT = 'How deep the shoe is dealt before a shuffle';

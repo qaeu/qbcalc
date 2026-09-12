@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
 
-import EvTable from '#c/EvTable';
+import EvTable from '#c/ev/EvTable';
 import { DEFAULT_RULE_SET } from '#utils/ev/rules';
 import { computeAllEvTables } from '#utils/ev/tables';
 import type { EvWorkerResult } from '#utils/evWorkerProtocol';

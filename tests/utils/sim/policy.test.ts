@@ -6,7 +6,7 @@ import type { ActionAnalysis } from '#utils/ev/outcome';
 import type { PlayCell, PlayGrids } from '#utils/ev/playGrids';
 import { gridKey, splitGridKey } from '#utils/ev/engine';
 import { DEFAULT_RULE_SET, type PlayerAction } from '#utils/ev/rules';
-import { HI_LO_TAGS } from '#utils/countingSystems';
+import { HI_LO_TAGS } from '#utils/settings/countingSystems';
 import {
 	createGame,
 	legalActions,

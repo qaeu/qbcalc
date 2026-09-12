@@ -1,0 +1,26 @@
+@use '../base' as *;
+
+@layer screen {
+	// A column of panels rather than a grid: a run is read top to bottom -- the
+	// game, the settings, the figures, then the drawings that unpack them.
+	.sim-view {
+		display: flex;
+		flex-direction: column;
+		// Without an explicit grow this flex item shrinks to its content's natural
+		// width, and nothing here is wide enough to force the issue on its own.
+		flex: 1 1 0%;
+		min-width: 0;
+		gap: 24px;
+
+		&__error {
+			margin: 0;
+			color: get($errors, 'fg');
+		}
+
+		&__timing {
+			@include print(11px, 0.02em, $caps: false);
+			margin: -12px 0 0;
+			color: $ink-muted;
+		}
+	}
+}

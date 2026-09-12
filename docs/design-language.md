@@ -313,11 +313,11 @@ The headless components leave a few traps, all of which have bitten here:
 
 ## Things kept in sync by hand
 
-- `compact` mixin ↔ `COMPACT_LAYOUT_QUERY` in `src/utils/media.ts`.
-- `$skeleton-phase-count` ↔ `LOADING_PHASE_COUNT` (`src/utils/loadingPhase.ts`,
+- `compact` mixin ↔ `COMPACT_LAYOUT_QUERY` in `src/utils/app/media.ts`.
+- `$skeleton-phase-count` ↔ `LOADING_PHASE_COUNT` (`src/utils/ui/loadingPhase.ts`,
   and `EvTable.tsx`'s own copy).
-- `$counter-seats` ↔ `COUNTER_SEAT_COUNT` in `src/utils/counterSeat.ts`.
+- `$counter-seats` ↔ `COUNTER_SEAT_COUNT` in `src/utils/ui/counterSeat.ts`.
 - `$counter-row-count` ↔ `HARD_TOTALS` / `PAIR_RANKS` in `src/utils/ev/rules.ts`.
-- `$heat-steps` ↔ `HEAT_STEPS` in `src/utils/cellDisplay.ts`.
+- `$heat-steps` ↔ `HEAT_STEPS` in `src/utils/ui/cellDisplay.ts`.
 - The Sim trajectory's popover corner offsets ↔ that plot's `PAD_*` and
   `VIEW_*` constants.

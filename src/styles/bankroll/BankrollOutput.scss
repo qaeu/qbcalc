@@ -1,0 +1,19 @@
+@use '../base' as *;
+
+@layer screen {
+	.bankroll-output {
+		display: flex;
+		flex-direction: column;
+		// Without an explicit grow this flex item shrinks to its content's natural
+		// width -- fine for `.ev-table`, whose grids are wide enough to force the
+		// issue on their own, but the band and the graph have nothing that wide.
+		flex: 1 1 0%;
+		min-width: 0;
+		gap: 30px;
+
+		&__error {
+			margin: 0 0 20px;
+			color: get($errors, 'fg');
+		}
+	}
+}

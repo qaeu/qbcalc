@@ -1,0 +1,17 @@
+@use '../base' as *;
+
+@layer screen {
+	.settings-play-tab {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+
+		h3 {
+			@include panel-title;
+		}
+
+		input[type='number'] {
+			@include form-control;
+		}
+	}
+}

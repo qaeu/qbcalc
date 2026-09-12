@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@solidjs/testing-library';
 
-import type { BankrollAnalysis } from '#utils/bankroll';
-import { ROUND_TRUE_COUNTS } from '#utils/countRounds';
+import type { BankrollAnalysis } from '#utils/bankroll/bankroll';
+import { ROUND_TRUE_COUNTS } from '#utils/bankroll/countRounds';
 import { DEFAULT_SIM_CONFIG } from '#utils/sim/config';
 import type { SimResult } from '#utils/sim/result';
 import { EMPTY_PLAY_STATS } from '#utils/play/stats';
 
-import SimStats from '#c/SimStats';
+import SimStats from '#c/sim/SimStats';
 
 /** A finished run, with every figure distinguishable from every other. */
 const RESULT: SimResult = {

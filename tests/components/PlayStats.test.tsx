@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@solidjs/testing-library';
 
 import { EMPTY_PLAY_STATS, type PlayStats as PlayStatsRecord } from '#utils/play/stats';
 
-import PlayStats from '#c/PlayStats';
+import PlayStats from '#c/play/PlayStats';
 
 /** A session's worth of play, with every card's figure distinguishable. */
 const SAMPLE: PlayStatsRecord = {

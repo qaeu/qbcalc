@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 
 import { DEFAULT_SIM_CONFIG } from '#utils/sim/config';
 
-import SimConfigPanel from '#c/SimConfigPanel';
+import SimConfigPanel from '#c/sim/SimConfigPanel';
 
 function renderPanel(props: Partial<Parameters<typeof SimConfigPanel>[0]> = {}) {
 	const onChange = vi.fn();

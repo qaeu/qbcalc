@@ -1,0 +1,243 @@
+@use '../base' as *;
+
+@layer screen {
+	.sim-trajectory {
+		@include card;
+		margin-bottom: 0;
+
+		&__header {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			gap: 12px;
+			flex-wrap: wrap;
+		}
+
+		&__title {
+			@include panel-title;
+		}
+
+		// The popover is positioned against this box, so its offsets can be read off
+		// the plot's own coordinates as percentages of the same width.
+		&__figure {
+			position: relative;
+			margin-top: 8px;
+		}
+
+		&__plot {
+			display: block;
+			width: 100%;
+			height: auto;
+			// A drag across the plot should track the reading rather than scroll.
+			touch-action: none;
+
+			&:focus-visible {
+				outline-offset: -2px;
+			}
+		}
+
+		// Two nested bands rather than four edges -- outer +/-2 sigma, inner +/-1 --
+		// stacked at one opacity, so the inner reads darker without a second colour.
+		&__band {
+			fill: get($infos, 'base');
+			opacity: 0.16;
+
+			&.is-inner {
+				opacity: 0.22;
+			}
+		}
+
+		&__zero {
+			stroke: $rule-strong;
+			stroke-width: 1;
+		}
+
+		// A dashed guide under the solid money line: one is a claim about the game,
+		// the other is what happened.
+		&__expectation {
+			fill: none;
+			stroke: oklch(from get($neutrals, 'fg') l c h / 0.55);
+			stroke-width: 1.5;
+			stroke-dasharray: 6 5;
+		}
+
+		&__money {
+			fill: none;
+			stroke: get($primaries, 'base');
+			stroke-width: 2;
+			stroke-linejoin: round;
+			stroke-linecap: round;
+		}
+
+		// Fainter than the zero line, so the gridlines don't compete with the band
+		// edges for attention.
+		&__grid {
+			stroke: oklch(from get($neutrals, 'fg') l c h / 0.1);
+			stroke-width: 1;
+			stroke-dasharray: 3 5;
+		}
+
+		&__tick {
+			fill: $ink-muted;
+			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
+			font-size: 13px;
+			font-variant-numeric: tabular-nums;
+		}
+
+		&__crosshair {
+			stroke: oklch(from get($primaries, 'base') l c h / 0.45);
+			stroke-width: 1;
+			stroke-dasharray: 2 3;
+		}
+
+		&__dot {
+			fill: get($primaries, 'base-dark');
+			stroke: $panel;
+			stroke-width: 1.5;
+
+			&.is-expectation {
+				fill: oklch(from get($neutrals, 'fg') l c h / 0.55);
+			}
+		}
+
+		// Parked in whichever corner the drawing leaves emptiest rather than carried
+		// under the pointer, so the walk it describes stays visible and the crosshair
+		// says which point it is about. Translucent for the same reason.
+		&__popover {
+			@include shadow($shadow-light);
+			position: absolute;
+			z-index: 20;
+			padding: 8px 11px;
+			background-color: oklch(from $panel l c h / 0.78);
+			backdrop-filter: blur(3px);
+			border-top: 1px solid $rule-strong;
+			border-radius: 6px;
+			font-size: 13px;
+			font-variant-numeric: tabular-nums;
+			pointer-events: none;
+			white-space: nowrap;
+
+			// Every corner is a `top`/`left` pair in percent, so they hold as the drawing
+			// scales, with the box pulled back over itself at the far edges. Not
+			// `right`/`bottom`: an offset that flips to `auto` cannot be animated, and
+			// the box slides between corners rather than cutting.
+			transform: translate(var(--sim-trajectory-x, 0), var(--sim-trajectory-y, 0));
+			transition:
+				top $dur-base $ease,
+				left $dur-base $ease,
+				transform $dur-base $ease;
+
+			// PAD_LEFT and PAD_RIGHT as fractions of VIEW_WIDTH.
+			&.is-left {
+				left: 8%;
+				--sim-trajectory-x: 0;
+			}
+
+			&.is-right {
+				left: 98%;
+				--sim-trajectory-x: -100%;
+			}
+
+			// PAD_TOP and the plot's floor as fractions of VIEW_HEIGHT, so the bottom
+			// corners clear the round-count ticks.
+			&.is-top {
+				top: 7%;
+				--sim-trajectory-y: 0;
+			}
+
+			&.is-bottom {
+				top: 89%;
+				--sim-trajectory-y: -100%;
+			}
+		}
+
+		&__popover-head {
+			@include print(11px, 0.14em);
+			margin-bottom: 6px;
+			padding-bottom: 5px;
+			border-bottom: 1px solid $rule;
+		}
+
+		&__popover-grid {
+			display: grid;
+			grid-template-columns: auto auto;
+			column-gap: 14px;
+			row-gap: 4px;
+
+			span:nth-child(odd) {
+				color: get($neutrals, 'fg-light');
+			}
+
+			span:nth-child(even) {
+				text-align: right;
+			}
+
+			.is-positive {
+				color: get($successes, 'fg-light');
+			}
+
+			.is-negative {
+				color: get($errors, 'fg-light');
+			}
+		}
+
+		&__legend {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px 18px;
+			margin: 10px 0 0;
+			padding: 0;
+			list-style: none;
+
+			li {
+				@include print(12px, 0.01em, $caps: false);
+				display: inline-flex;
+				align-items: center;
+				gap: 7px;
+			}
+		}
+
+		// The drawn objects themselves at rest: the solid line, the dashed one, and
+		// the two band fills over the felt.
+		&__swatch {
+			flex: none;
+			width: 16px;
+			height: 3px;
+			border-radius: 1px;
+
+			&.is-money {
+				background-color: get($primaries, 'base');
+			}
+
+			&.is-expectation {
+				background-image: linear-gradient(
+					to right,
+					oklch(from get($neutrals, 'fg') l c h / 0.55) 0 6px,
+					transparent 6px 11px,
+					oklch(from get($neutrals, 'fg') l c h / 0.55) 11px
+				);
+			}
+
+			&.is-inner-band,
+			&.is-band {
+				height: 10px;
+				background-color: oklch(from get($infos, 'base') l c h / 0.16);
+			}
+
+			&.is-inner-band {
+				background-color: oklch(from get($infos, 'base') l c h / 0.34);
+			}
+		}
+
+		&__reading,
+		&__empty {
+			@include print(12px, 0.01em, $caps: false);
+			margin: 10px 0 0;
+			min-height: 1.4em;
+		}
+
+		&__empty {
+			color: $ink-muted;
+		}
+	}
+}

@@ -20,7 +20,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { HI_LO_TAGS } from '#utils/countingSystems';
+import { HI_LO_TAGS } from '#utils/settings/countingSystems';
 import { baseComposition } from '#utils/ev/composition';
 import { createRun } from '#utils/sim/run';
 

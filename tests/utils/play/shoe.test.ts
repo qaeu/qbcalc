@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { HI_LO_TAGS } from '#utils/countingSystems';
+import { HI_LO_TAGS } from '#utils/settings/countingSystems';
 import { CARDS_PER_DECK } from '#utils/ev/composition';
 import { DEFAULT_RULE_SET } from '#utils/ev/rules';
 import { createShoe, restoreShoe, type DealtShoe } from '#utils/play/shoe';

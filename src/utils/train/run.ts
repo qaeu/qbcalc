@@ -5,7 +5,7 @@
 
 import type { Rank } from '../ev/cards';
 import type { PlayerAction } from '../ev/rules';
-import { formatCount } from '../format';
+import { formatCount } from '../ui/format';
 import { partialTotal } from '../play/reveal';
 import type { DecisionQuestion, DeviationIndex, DrillId, DrillMode } from './drills';
 import type { CheckpointAnswer, DecisionAnswer } from './grade';

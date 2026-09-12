@@ -10,7 +10,7 @@ import { RANKS } from '#utils/ev/cards';
 import { gridKey, splitGridKey } from '#utils/ev/engine';
 import { PAIR_RANKS } from '#utils/ev/rules';
 import { DEFAULT_RULE_SET } from '#utils/ev/rules';
-import { tagsForSystem } from '#utils/countingSystems';
+import { tagsForSystem } from '#utils/settings/countingSystems';
 
 const HI_LO = tagsForSystem('hi-lo')!;
 

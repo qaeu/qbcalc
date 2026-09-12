@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@solidjs/testing-library';
 
-import CountEvGraph, { type CountEvProfile } from '#c/CountEvGraph';
-import { hiLoCountScale } from '#utils/bankroll';
-import { ROUND_TRUE_COUNTS, simulateRoundFrequency } from '#utils/countRounds';
+import CountEvGraph, { type CountEvProfile } from '#c/bankroll/CountEvGraph';
+import { hiLoCountScale } from '#utils/bankroll/bankroll';
+import { ROUND_TRUE_COUNTS, simulateRoundFrequency } from '#utils/bankroll/countRounds';
 import { baseComposition } from '#utils/ev/composition';
 import { DEFAULT_RULE_SET } from '#utils/ev/rules';
-import { tagsForSystem } from '#utils/countingSystems';
+import { tagsForSystem } from '#utils/settings/countingSystems';
 
 const PROFILE: CountEvProfile = {
 	rounds: simulateRoundFrequency(

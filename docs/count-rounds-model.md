@@ -1,6 +1,6 @@
 # The round frequency model
 
-How `src/utils/countRounds.ts` works out what share of a shoe's rounds are played at each
+How `src/utils/bankroll/countRounds.ts` works out what share of a shoe's rounds are played at each
 true count, which is the weight the graph card above the grids prices each count's edge by.
 The bet-sizing layer is documented separately in [bankroll-model.md](./bankroll-model.md),
 and the EV result both sit above in [ev-model.md](./ev-model.md).

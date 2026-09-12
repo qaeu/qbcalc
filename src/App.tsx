@@ -8,12 +8,16 @@ import {
 	type Component,
 } from 'solid-js';
 
-import { analyzeBankroll, hiLoCountScale, type BankrollAnalysis } from '#utils/bankroll';
-import { labelForSystem } from '#utils/countingSystems';
+import {
+	analyzeBankroll,
+	hiLoCountScale,
+	type BankrollAnalysis,
+} from '#utils/bankroll/bankroll';
+import { labelForSystem } from '#utils/settings/countingSystems';
 import { baseComposition } from '#utils/ev/composition';
-import { simulateRoundFrequency, type RoundFrequency } from '#utils/countRounds';
-import { createHashRoute, type AppTab } from '#utils/hashRoute';
-import { COMPACT_LAYOUT_QUERY, createMediaQuery } from '#utils/media';
+import { simulateRoundFrequency, type RoundFrequency } from '#utils/bankroll/countRounds';
+import { createHashRoute, type AppTab } from '#utils/app/hashRoute';
+import { COMPACT_LAYOUT_QUERY, createMediaQuery } from '#utils/app/media';
 import {
 	calculatorSettingsEqual,
 	DEFAULT_BANKROLL_CONFIG,
@@ -33,7 +37,7 @@ import {
 	type CalculatorConfig,
 	type CalculatorSettings,
 	type PlayConfig,
-} from '#utils/storage';
+} from '#utils/settings/storage';
 import { DEFAULT_SIM_CONFIG, type SimConfig } from '#utils/sim/config';
 import type { PrecisionId } from '#utils/ev/precision';
 import type {
@@ -45,18 +49,18 @@ import type {
 	TrainGrids,
 } from '#utils/evWorkerProtocol';
 
-import { createGlobalKeydown, isKeyConsumingTarget } from '#utils/keyboard';
-import { INPUT_SETTLE_MS } from '#utils/settle';
+import { createGlobalKeydown, isKeyConsumingTarget } from '#utils/app/keyboard';
+import { INPUT_SETTLE_MS } from '#utils/app/settle';
 
-import AppHeader from '#c/AppHeader';
-import BankrollOutput from '#c/BankrollOutput';
-import type { CountEvProfile } from '#c/CountEvGraph';
-import EvTable from '#c/EvTable';
-import PlayView from '#c/PlayView';
-import SettingsDrawer from '#c/SettingsDrawer';
-import SettingsSidebar from '#c/SettingsSidebar';
-import SimView from '#c/SimView';
-import TrainView from '#c/TrainView';
+import AppHeader from '#c/common/AppHeader';
+import BankrollOutput from '#c/bankroll/BankrollOutput';
+import type { CountEvProfile } from '#c/bankroll/CountEvGraph';
+import EvTable from '#c/ev/EvTable';
+import PlayView from '#c/play/PlayView';
+import SettingsDrawer from '#c/settings/SettingsDrawer';
+import SettingsSidebar from '#c/settings/SettingsSidebar';
+import SimView from '#c/sim/SimView';
+import TrainView from '#c/train/TrainView';
 
 import '#styles/App';
 

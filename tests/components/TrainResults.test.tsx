@@ -5,7 +5,7 @@ import { gradeCheckpoint, nextBasis, ZERO_BASIS } from '#utils/train/grade';
 import { scoreEntry, type CheckpointRecord, type DrillRun } from '#utils/train/run';
 import { boardKey, recordScore } from '#utils/train/scores';
 
-import TrainResults from '#c/TrainResults';
+import TrainResults from '#c/train/TrainResults';
 
 import { RULE_SET, TAGS } from '../utils/train/trainGrids';
 

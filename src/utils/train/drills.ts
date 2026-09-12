@@ -6,7 +6,7 @@
  * See docs/train-model.md.
  */
 
-import { hiLoCountScale, wholeCountFrequencies } from '../bankroll';
+import { hiLoCountScale, wholeCountFrequencies } from '../bankroll/bankroll';
 import { blackjackHoleRank, RANK_INDEX, RANKS, type Rank } from '../ev/cards';
 import { baseComposition, type TagValues } from '../ev/composition';
 import type { PlayerAction, RuleSet } from '../ev/rules';
@@ -23,7 +23,7 @@ import {
 import { mulberry32, type SeededRandom } from '../play/rng';
 import { restoreShoe } from '../play/shoe';
 import { MAX_PRICED_COUNT } from '../sim/strategy';
-import type { AnimationSpeed } from '../storage';
+import type { AnimationSpeed } from '../settings/storage';
 import { priceDecision, type PricedDecision } from './grade';
 
 export type DrillId = 'basic' | 'counting' | 'deviation';

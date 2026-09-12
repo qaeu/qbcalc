@@ -1,6 +1,6 @@
 # The bankroll model
 
-How `src/utils/bankroll.ts` turns an EV result into a win rate and a risk of ruin, and
+How `src/utils/bankroll/bankroll.ts` turns an EV result into a win rate and a risk of ruin, and
 what those figures do and do not assume. The EV result itself is documented separately in
 [ev-model.md](./ev-model.md); this is the layer above it.
 

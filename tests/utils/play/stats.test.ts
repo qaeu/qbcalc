@@ -9,7 +9,7 @@ import {
 	recordRound,
 	type PlayStats,
 } from '#utils/play/stats';
-import { loadPlayStats, resetPlayStats, savePlayStats } from '#utils/storage';
+import { loadPlayStats, resetPlayStats, savePlayStats } from '#utils/settings/storage';
 
 const PLAY_STATS_KEY = 'qbcalc:play-stats';
 

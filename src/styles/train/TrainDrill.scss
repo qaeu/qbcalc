@@ -1,0 +1,191 @@
+@use '../base' as *;
+
+@layer screen {
+	// Top level of the layer, not nested -- see Felt.scss.
+	//
+	// The true count set down on the felt: in from above, settling as it lands.
+	@keyframes train-puck-land {
+		from {
+			opacity: 0;
+			transform: translateY(-16px) scale(1.14);
+		}
+
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+
+	// A drill on the felt, shared by the decision and counting drills: the true
+	// count's counter, the verdict slot and the shelf of controls.
+	.train-drill {
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+
+		// The true count, as a gold counter on the felt: the object the EV board
+		// uses for a play the count has moved.
+		&__tc {
+			position: absolute;
+			top: 16px;
+			right: 18px;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 7px;
+
+			@include phone {
+				position: static;
+				flex-direction: row;
+				gap: 10px;
+				margin-top: -2px;
+			}
+		}
+
+		&__tc-label {
+			@include print(9px, 0.2em);
+			font-weight: 600;
+			color: $ink-muted;
+		}
+
+		&__puck {
+			display: grid;
+			place-items: center;
+			width: 56px;
+			height: 56px;
+			border-radius: 50%;
+			background: radial-gradient(
+				circle at 50% 30%,
+				get($primaries, 'base-dark') 0%,
+				get($primaries, 'base') 55%,
+				get($primaries, 'sep-dark') 100%
+			);
+			color: var(--rail-1);
+			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
+			font-variant-numeric: tabular-nums;
+			font-size: 21px;
+			font-weight: 700;
+			letter-spacing: -0.01em;
+			box-shadow:
+				inset 0 1px 0 rgb(255 255 255 / 0.5),
+				inset 0 0 0 4px rgb(0 0 0 / 0.08),
+				0 3px 0 get($primaries, 'sep-light'),
+				0 4px 0 get($primaries, 'bg'),
+				0 9px 14px rgb(0 0 0 / 0.45);
+			animation: train-puck-land 420ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
+
+			@include phone {
+				width: 44px;
+				height: 44px;
+				font-size: 17px;
+			}
+		}
+
+		// Reserved to a verdict's height, so the banner arriving never moves the
+		// shelf beneath it.
+		&__verdict {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			min-height: 56px;
+		}
+
+		&__hint {
+			@include print(12px, 0.14em);
+			margin: 0;
+			color: $ink-faint;
+			text-align: center;
+		}
+
+		// Every control the drill shows, stacked in one grid cell and shown by
+		// visibility rather than display, so the felt holds its height as they swap.
+		&__shelf {
+			display: grid;
+			visibility: hidden;
+
+			&.is-shown {
+				visibility: visible;
+			}
+
+			> * {
+				grid-area: 1 / 1;
+			}
+
+			> .train-drill__hint,
+			> .train-drill__entry {
+				visibility: hidden;
+
+				&.is-shown {
+					visibility: visible;
+				}
+			}
+		}
+
+		// The counting drill's answer: a field cut into the felt, a sign to flip for
+		// a phone keypad that has none, and the key that sends it.
+		&__entry {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			justify-content: center;
+			gap: 8px;
+		}
+
+		&__entry-label {
+			@include print(11px, 0.16em);
+		}
+
+		&__input {
+			@include form-control;
+			width: 104px;
+			min-height: 40px;
+			padding: 5px 9px;
+			font-family: 'Archivo Narrow', 'Archivo', sans-serif;
+			font-variant-numeric: tabular-nums;
+			font-size: 22px;
+			font-weight: 700;
+			text-align: center;
+
+			&:disabled {
+				opacity: 1;
+			}
+		}
+
+		&__sign {
+			min-width: 44px;
+			font-size: 16px;
+		}
+
+		// The key that answers a button, printed on it as the action bar's are.
+		&__key {
+			@include key-cap;
+			margin-right: 8px;
+		}
+
+		// A hint's words about the keyboard, gone with the key caps on touch.
+		&__keys {
+			@include touch {
+				display: none;
+			}
+		}
+
+		// Easy's rounds to the checkpoint, as pips cut into the strip.
+		&__rounds {
+			display: flex;
+			gap: 4px;
+
+			i {
+				width: 7px;
+				height: 7px;
+				border-radius: 50%;
+				background: $cut-deep;
+				box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.4);
+
+				&.is-on {
+					background: oklch(from $foreground l c h / 0.7);
+					box-shadow: none;
+				}
+			}
+		}
+	}
+}

@@ -1,4 +1,4 @@
-import { HI_LO_TAGS } from '#utils/countingSystems';
+import { HI_LO_TAGS } from '#utils/settings/countingSystems';
 import { DEFAULT_RULE_SET, type RuleSet } from '#utils/ev/rules';
 import { computeEvWorkerResponse, type TrainGrids } from '#utils/evWorkerProtocol';
 

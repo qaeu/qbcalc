@@ -9,7 +9,7 @@ import {
 	nextCellDisplayMode,
 	occurrenceHeatClass,
 	type CellDisplayMode,
-} from '#utils/cellDisplay';
+} from '#utils/ui/cellDisplay';
 import type { EvCellData } from '#utils/ev/tables';
 
 /** Only the three fields the cell text reads; the rest never leaves the engine. */

@@ -7,11 +7,11 @@ import {
 	wholeCountFrequencies,
 	RAMP_TRUE_COUNTS,
 	type BankrollInputs,
-} from '#utils/bankroll';
+} from '#utils/bankroll/bankroll';
 import { RANKS } from '#utils/ev/cards';
 import { ACE_FIVE_TAGS, baseComposition, type TagValues } from '#utils/ev/composition';
 import { DEFAULT_RULE_SET, type RuleSet } from '#utils/ev/rules';
-import { tagsForSystem } from '#utils/countingSystems';
+import { tagsForSystem } from '#utils/settings/countingSystems';
 
 const SIX_DECK: RuleSet = { ...DEFAULT_RULE_SET, decks: 6, penetrationPercent: 75 };
 

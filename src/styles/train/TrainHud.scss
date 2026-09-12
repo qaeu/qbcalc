@@ -1,0 +1,134 @@
+@use '../base' as *;
+
+@layer screen {
+	// A drill's instrument strip, read across the top of the felt as the Play
+	// view's shoe is.
+	.train-hud {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 10px 14px;
+		padding-bottom: 12px;
+		border-bottom: 1px solid $rule;
+
+		&__drill {
+			@include print(11px, 0.16em);
+			font-weight: 600;
+			color: $ink;
+			white-space: nowrap;
+
+			em {
+				font-style: normal;
+				font-weight: 500;
+				color: get($primaries, 'fg-light');
+			}
+		}
+
+		&__read {
+			@include print(11px, 0.16em);
+			font-variant-numeric: tabular-nums;
+			white-space: nowrap;
+
+			b {
+				font-size: 15px;
+				letter-spacing: 0.02em;
+				color: $ink;
+			}
+		}
+
+		// The far end: the score and the clock, pushed right as the Play view's money
+		// is.
+		&__end {
+			display: flex;
+			align-items: center;
+			gap: 14px;
+			margin-left: auto;
+
+			@include phone {
+				width: 100%;
+				margin-left: 0;
+				justify-content: space-between;
+			}
+		}
+
+		// Segmented progress, cut into the felt like the shoe's discard rack.
+		&__steps {
+			display: flex;
+			gap: 3px;
+			flex: 1 1 120px;
+			min-width: 90px;
+			max-width: 280px;
+
+			&.is-dense {
+				gap: 2px;
+			}
+
+			@include phone {
+				max-width: none;
+			}
+		}
+
+		&__step {
+			flex: 1;
+			height: 7px;
+			border-radius: 2px;
+			background-color: $cut-deep;
+			box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.4);
+			transition: background-color $dur-base $ease;
+
+			&.is-right {
+				background-color: get($successes, 'base');
+				box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25);
+			}
+
+			// Gold, as the verdict marks a miss: information, not money lost.
+			&.is-miss {
+				background-color: get($primaries, 'base');
+				box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25);
+			}
+
+			// A Test holds its verdicts back, so an answered step says only that.
+			&.is-done {
+				background-color: oklch(from $foreground l c h / 0.55);
+			}
+
+			&.is-current {
+				box-shadow: inset 0 0 0 1px get($primaries, 'base');
+			}
+		}
+
+		&__countdown {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		&__countdown-track {
+			width: 110px;
+			height: 7px;
+			border-radius: 2px;
+			background-color: $cut-deep;
+			box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.4);
+			overflow: hidden;
+		}
+
+		&__countdown-range {
+			height: 100%;
+			background: linear-gradient(
+				90deg,
+				get($primaries, 'sep-dark'),
+				get($primaries, 'base-dark')
+			);
+			// Paced to the clock's own tick, so the drain reads as continuous.
+			transition: width 100ms linear;
+
+			&.is-low {
+				background: linear-gradient(
+					90deg,
+					get($errors, 'base'),
+					get($errors, 'fg-light')
+				);
+			}
+		}
+	}
+}

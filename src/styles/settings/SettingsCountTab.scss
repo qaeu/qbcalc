@@ -1,0 +1,19 @@
+@use '../base' as *;
+
+@layer screen {
+	.settings-count-tab {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+
+		h3 {
+			@include panel-title;
+		}
+
+		// Scoped to this tab's own fields: the tag grid's inputs style
+		// themselves, and are nested deeper.
+		> .settings-item > input[type='number'] {
+			@include form-control;
+		}
+	}
+}

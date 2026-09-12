@@ -11,7 +11,7 @@ import {
 	type Composition,
 	type TagValues,
 } from './ev/composition';
-import { hiLoCountScale } from './bankroll';
+import { hiLoCountScale } from './bankroll/bankroll';
 import { RANKS } from './ev/cards';
 import { computeEvGrids, ShoeEv, type AverageEvParts, type EvGrids } from './ev/engine';
 import { analyzeInsurance } from './ev/insurance';

@@ -4,10 +4,10 @@ import {
 	ROUND_TRUE_COUNTS,
 	simulateRoundFrequency,
 	type RoundFrequency,
-} from '#utils/countRounds';
+} from '#utils/bankroll/countRounds';
 import { ACE_FIVE_TAGS, type TagValues } from '#utils/ev/composition';
 import { DEFAULT_RULE_SET, type RuleSet } from '#utils/ev/rules';
-import { tagsForSystem } from '#utils/countingSystems';
+import { tagsForSystem } from '#utils/settings/countingSystems';
 
 const SIX_DECK: RuleSet = { ...DEFAULT_RULE_SET, decks: 6, penetrationPercent: 75 };
 const SINGLE_DECK: RuleSet = { ...DEFAULT_RULE_SET, decks: 1, penetrationPercent: 75 };
