@@ -22,7 +22,7 @@ import {
 
 import TrainView from '#c/train/TrainView';
 
-import { RULE_SET, TAGS, trainGrids } from '../utils/train/trainGrids';
+import { RULE_SET, TAGS, trainGrids } from '../../utils/train/trainGrids';
 
 const SEED = 2024;
 const allCounts = planDrill('deviation', 'hard', RULE_SET, TAGS).counts;

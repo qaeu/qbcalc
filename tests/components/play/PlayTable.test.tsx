@@ -17,7 +17,7 @@ import { DEFAULT_PLAY_CONFIG, type PlayConfig } from '#utils/settings/storage';
 
 import PlayTable from '#c/play/PlayTable';
 
-import { scriptedShoe } from '../utils/play/scriptedShoe';
+import { scriptedShoe } from '../../utils/play/scriptedShoe';
 
 /**
  * A round dealt to order. The script is the table's own deal order -- player,

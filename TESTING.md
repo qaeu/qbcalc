@@ -35,17 +35,30 @@ Tests live in `tests/`, mirroring the `src/` tree, with the end-to-end tests in
 ```
 src/
 ├── App.tsx
+├── components/
+│   └── ev/EvTable.tsx
 └── utils/
-    └── ev.ts
+    ├── ev/tables.ts
+    └── bankroll/bankroll.ts
 tests/
 ├── components/
-│   └── EvTable.test.tsx
+│   └── ev/EvTable.test.tsx
 ├── integration/
 │   ├── appHarness.ts
 │   └── app.play.test.tsx
 └── utils/
-    └── ev.test.ts
+    ├── ev/blackjackEv.test.ts
+    └── bankroll/bankroll.test.ts
 ```
+
+The mirror is of folders, not of filenames: a test is named for what it covers,
+so `tests/utils/ev/` holds `blackjackEv.test.ts`, `averageEv.test.ts` and
+`insurance.test.ts` rather than one file per engine module. Two kinds of file sit
+at a `tests/utils/` root by the same rule the source does: the worker-protocol
+tests, mirroring the protocols that stay at `src/utils/` root, and
+`benchmarks.test.ts`, which times the engine, the sim and the counting systems
+together and so mirrors no single module. Shared fixtures — `scriptedShoe.ts`,
+`trainGrids.ts`, `attribution.ts` — live beside the tests that use them.
 
 Two projects, split by what a test drives rather than by what it asserts:
 

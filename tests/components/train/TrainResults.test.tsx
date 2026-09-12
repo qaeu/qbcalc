@@ -7,7 +7,7 @@ import { boardKey, recordScore } from '#utils/train/scores';
 
 import TrainResults from '#c/train/TrainResults';
 
-import { RULE_SET, TAGS } from '../utils/train/trainGrids';
+import { RULE_SET, TAGS } from '../../utils/train/trainGrids';
 
 /** A Test's checkpoints, graded the way the drill grades them, one after another. */
 function testCheckpoints(
