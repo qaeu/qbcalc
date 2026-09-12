@@ -16,8 +16,8 @@ Test holds every verdict until the end and allows 5 s per question.
 | Mode | Decision questions | Counting checkpoints |
 | ---- | ------------------ | -------------------- |
 | Easy | 10                 | 5                    |
-| Hard | 20                 | 10                   |
-| Test | 40                 | 12                   |
+| Hard | 20                 | 5                    |
+| Test | 40                 | 10                   |
 
 The modules:
 
@@ -164,7 +164,8 @@ runs out at 5 s, and a timeout counts as exactly 5 s.
 
 ## Counting checkpoints
 
-A Counting drill deals one seeded shoe from start to finish. `dealCountingRound` plays
+A Counting drill deals one seeded shoe from start to finish. At Hard and Test,
+`dealCountingRound` plays
 each round to basic strategy through `game.ts`: one seat, insurance declined, and every
 decision the best legal play off the unadjusted grids. The round is dealt settled in a
 single step and handed to the felt, where the reveal queue lands its cards in table order.
@@ -180,9 +181,23 @@ clears.
 
 | Mode | Deal speed | Most time to count a round | Rounds per checkpoint | Tolerance |
 | ---- | ---------- | -------------------------- | --------------------- | --------- |
-| Easy | 2x         | 10 s                       | 5                     | ±1        |
-| Hard | 4x         | 5 s                        | 6–10                  | exact     |
+| Easy | 2x         | 10 s                       | 5 deals of 4 cards    | exact     |
+| Hard | 4x         | 8 s                        | 6–10                  | exact     |
 | Test | 4x         | 5 s                        | 6–10                  | exact     |
+
+**Easy deals cards, not rounds.** `dealCountingCards` — `dealLooseCards` in `game.ts` —
+lays four cards on one seat and stops: no upcard, no hole card, nobody to act, nothing to
+settle, and no total printed under them, since loose cards do not add up to a hand. Every
+card is drawn face up, so each one moves the running count as it lands.
+
+The drill asks for the running count, and at Easy a hand played out is only more to watch
+while keeping it. Dealing the cards alone also makes the mode uniform: every deal is
+exactly four cards and 10 s, where a real round is anywhere from four cards to a dozen. It
+costs Easy the thing the other modes keep — the count moving under a game actually being
+played — which is what Hard and Test are for, and why only Easy is shaped this way.
+
+The shoe is otherwise the shoe: loose cards come off it in order, it shuffles at its cut
+card, and the count starts again at 0 when it does.
 
 The deal speed is part of the mode, not the Play view's setting: how fast the cards come
 is part of what the drill asks, and at `instant` a player could read a whole round at

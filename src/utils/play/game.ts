@@ -257,6 +257,27 @@ export function createGame(ruleSet: RuleSet, shoe: DealtShoe): GameState {
 }
 
 /**
+ * `count` cards off the shoe and onto one seat, with no game around them: no
+ * upcard, no hole card, nobody to act and nothing to settle. Every card is drawn
+ * face up, so each one moves the running count as it lands.
+ *
+ * Not a round, and deliberately so -- it is the Train view's Easy counting
+ * drill, where the question is what the cards add up to under the tag vector and
+ * a hand to play would only be something else to watch. See
+ * docs/train-model.md §Counting checkpoints. Shuffles at the cut card first, as
+ * `startRound` does, so the drill's shoe behaves like any other.
+ */
+export function dealLooseCards(state: GameState, count: number): GameState {
+	if (state.shoe.needsShuffle()) state.shoe.shuffle();
+	const cards = Array.from({ length: count }, () => state.shoe.draw());
+	return {
+		...emptyState(state.ruleSet, state.shoe),
+		phase: 'settled',
+		hands: [newHand(cards, 0)],
+	};
+}
+
+/**
  * Leaves the settled round behind for a fresh pre-round felt -- the cards and
  * result of the hand just played are gone, same as a dealer clearing the
  * table before the next bet. A no-op outside `settled`, since there is

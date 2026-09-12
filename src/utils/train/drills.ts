@@ -14,6 +14,7 @@ import type { PlayGrids, TrainGrids } from '../evWorkerProtocol';
 import {
 	applyAction,
 	createGame,
+	dealLooseCards,
 	resolveInsurance,
 	settleRound,
 	startRound,
@@ -41,8 +42,8 @@ export const DECISION_QUESTIONS: Record<DrillMode, number> = {
 /** Checkpoints in a Counting drill. */
 export const COUNT_CHECKPOINTS: Record<DrillMode, number> = {
 	easy: 5,
-	hard: 10,
-	test: 12,
+	hard: 5,
+	test: 10,
 };
 
 /** A Test answers every question against this clock; running out is a miss. */
@@ -66,6 +67,12 @@ export interface CountingPace {
 	maxRounds: number;
 	/** How far from the right count an answer may be and still be right. */
 	tolerance: number;
+	/**
+	 * Where the mode deals cards rather than rounds, how many it lays down each
+	 * time. Easy's own shape: no game to follow, just cards to count. See
+	 * `dealCountingCards`.
+	 */
+	cardsPerRound?: number;
 }
 
 export const COUNTING_PACE: Record<DrillMode, CountingPace> = {
@@ -74,11 +81,12 @@ export const COUNTING_PACE: Record<DrillMode, CountingPace> = {
 		countMs: 10_000,
 		minRounds: 5,
 		maxRounds: 5,
-		tolerance: 1,
+		tolerance: 0,
+		cardsPerRound: 4,
 	},
 	hard: {
 		speed: '4x',
-		countMs: 5000,
+		countMs: 8000,
 		minRounds: 6,
 		maxRounds: 10,
 		tolerance: 0,
@@ -686,6 +694,16 @@ export function checkpointRounds(mode: DrillMode, seed: number): number[] {
 		{ length: COUNT_CHECKPOINTS[mode] },
 		() => minRounds + Math.floor(random() * (maxRounds - minRounds + 1))
 	);
+}
+
+/**
+ * What Easy deals instead of a round: `count` cards onto the felt and nothing
+ * else -- no upcard, no hand to play, no total under them. The mode asks for the
+ * running count, and a hand played out is only more to watch while keeping it.
+ * Shuffles at the cut card as a round does.
+ */
+export function dealCountingCards(game: GameState, count: number): GameState {
+	return dealLooseCards(game, count);
 }
 
 /**

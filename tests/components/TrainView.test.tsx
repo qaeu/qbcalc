@@ -4,13 +4,14 @@ import { fireEvent, render, screen, within } from '@solidjs/testing-library';
 
 import type { RuleSet } from '#utils/ev/rules';
 import type { TrainGrids } from '#utils/evWorkerProtocol';
-import { createGame, preRound } from '#utils/play/game';
+import { createGame, preRound, type GameState } from '#utils/play/game';
 import { createShoe } from '#utils/play/shoe';
 import { loadTrainConfig, loadTrainScores, type AnimationSpeed } from '#utils/storage';
 import { CARD_DEAL_DELAY_MS } from '#utils/play/reveal';
 import {
 	checkpointRounds,
 	COUNTING_PACE,
+	dealCountingCards,
 	dealCountingRound,
 	planDrill,
 } from '#utils/train/drills';
@@ -101,7 +102,7 @@ describe('TrainView', () => {
 			const panel = drillPanel('Counting accuracy');
 			fireEvent.click(within(panel).getByRole('radio', { name: 'Hard' }));
 			expect(within(panel).getByRole('radio', { name: 'Hard' }).ariaChecked).toBe('true');
-			expect(panel.querySelector('dd')?.textContent).toBe('10checkpoints');
+			expect(panel.querySelector('dd')?.textContent).toBe('5checkpoints');
 			expect(loadTrainConfig()?.modes.counting).toBe('hard');
 		});
 
@@ -283,11 +284,8 @@ describe('TrainView', () => {
 			let game = createGame(RULE_SET, createShoe(RULE_SET, TAGS, SEED));
 			let atMs = 0;
 			for (let round = 0; round < rounds; round += 1) {
-				game = dealCountingRound(preRound(game), GRIDS.get(0)!);
-				const cards =
-					game.dealer.cards.length
-					+ game.hands.reduce((sum, hand) => sum + hand.cards.length, 0);
-				atMs += (cards + 1) * CARD_DEAL_DELAY_MS[speed] + countMs;
+				game = dealDrill(game, mode);
+				atMs += beats(game, mode) * CARD_DEAL_DELAY_MS[speed] + countMs;
 			}
 			return { count: game.shoe.runningCount(), atMs };
 		}
@@ -310,16 +308,29 @@ describe('TrainView', () => {
 			expect(document.querySelector('.felt__verdict')!.textContent).toMatch(/exact/);
 		});
 
-		/** When the first round's last card has landed and its time to count begins. */
-		function firstRoundDealtMs(mode: 'easy' | 'hard'): number {
-			const game = dealCountingRound(
-				preRound(createGame(RULE_SET, createShoe(RULE_SET, TAGS, SEED))),
-				GRIDS.get(0)!
-			);
+		/** The next deal, the drill's own way: Easy's loose cards, or a played round. */
+		function dealDrill(game: GameState, mode: 'easy' | 'hard'): GameState {
+			const { cardsPerRound } = COUNTING_PACE[mode];
+			return cardsPerRound === undefined ?
+					dealCountingRound(preRound(game), GRIDS.get(0)!)
+				:	dealCountingCards(preRound(game), cardsPerRound);
+		}
+
+		/** The beats the felt takes to land a deal; a round turns its hole card too. */
+		function beats(game: GameState, mode: 'easy' | 'hard'): number {
 			const cards =
 				game.dealer.cards.length
 				+ game.hands.reduce((sum, hand) => sum + hand.cards.length, 0);
-			return (cards + 1) * CARD_DEAL_DELAY_MS[COUNTING_PACE[mode].speed];
+			return COUNTING_PACE[mode].cardsPerRound === undefined ? cards + 1 : cards;
+		}
+
+		/** When the first deal's last card has landed and its time to count begins. */
+		function firstRoundDealtMs(mode: 'easy' | 'hard'): number {
+			const game = dealDrill(
+				createGame(RULE_SET, createShoe(RULE_SET, TAGS, SEED)),
+				mode
+			);
+			return beats(game, mode) * CARD_DEAL_DELAY_MS[COUNTING_PACE[mode].speed];
 		}
 
 		const roundsPlayed = () =>
@@ -353,9 +364,9 @@ describe('TrainView', () => {
 			startDrill('Counting accuracy', 'Hard');
 			const { atMs } = firstCheckpoint('hard');
 			vi.advanceTimersByTime(atMs - 1);
-			expect(screen.queryByText('Checkpoint 1 of 10')).toBeNull();
+			expect(screen.queryByText('Checkpoint 1 of 5')).toBeNull();
 			vi.advanceTimersByTime(1);
-			expect(screen.getByText('Checkpoint 1 of 10')).toBeDefined();
+			expect(screen.getByText('Checkpoint 1 of 5')).toBeDefined();
 		});
 
 		it.each([
@@ -372,7 +383,7 @@ describe('TrainView', () => {
 			expect(document.querySelectorAll('.felt__cards .felt__card')).toHaveLength(1);
 		});
 
-		it('takes an answer one out as right at Easy, and says so', () => {
+		it('takes an answer one out as wrong at Easy, and gives the count', () => {
 			vi.useFakeTimers();
 			renderView();
 			startDrill('Counting accuracy', 'Easy');
@@ -381,7 +392,24 @@ describe('TrainView', () => {
 			const input = screen.getByRole('textbox', { name: 'Running count' });
 			fireEvent.input(input, { target: { value: String(count + 1) } });
 			fireEvent.submit(input.closest('form')!);
-			expect(document.querySelector('.felt__verdict')!.textContent).toMatch(/Within one/);
+			expect(document.querySelector('.felt__verdict.is-right')).toBeNull();
+			expect(document.querySelector('.felt__verdict')!.textContent).toMatch(
+				new RegExp(`The RC was .?${Math.abs(count)}`)
+			);
+		});
+
+		it('deals Easy four loose cards at a time, every one counted', () => {
+			let game = createGame(RULE_SET, createShoe(RULE_SET, TAGS, SEED));
+			let shown = 0;
+			for (let round = 0; round < 20; round += 1) {
+				if (game.shoe.needsShuffle()) shown = 0;
+				game = dealCountingCards(preRound(game), 4);
+				expect(game.dealer.cards).toHaveLength(0);
+				expect(game.hands).toHaveLength(1);
+				expect(game.hands[0].cards).toHaveLength(4);
+				shown += game.hands[0].cards.reduce((sum, rank) => sum + TAGS[rank], 0);
+				expect(game.shoe.runningCount()).toBe(shown);
+			}
 		});
 	});
 });

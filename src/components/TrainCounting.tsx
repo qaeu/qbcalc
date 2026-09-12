@@ -29,6 +29,7 @@ import { createAnswerClock } from '#utils/train/clock';
 import {
 	checkpointRounds,
 	COUNTING_PACE,
+	dealCountingCards,
 	dealCountingRound,
 	hasFeedback,
 	TEST_TIME_LIMIT_MS,
@@ -91,6 +92,9 @@ const TrainCounting: Component<TrainCountingProps> = (props) => {
 	// drill rather than reaching into it.
 	const { mode, ruleSet, tags, grids, seed } = untrack(() => ({ ...props }));
 	const pace = COUNTING_PACE[mode];
+	// Easy deals loose cards rather than rounds: there is no hand to follow, only
+	// cards to count. See docs/train-model.md §Counting checkpoints.
+	const loose = pace.cardsPerRound;
 	const feedback = hasFeedback(mode);
 	// One seed, two streams: the shoe's shuffles, and the checkpoints' lengths.
 	const blocks = checkpointRounds(mode, seed + 1);
@@ -127,7 +131,10 @@ const TrainCounting: Component<TrainCountingProps> = (props) => {
 	);
 
 	const deal = () => {
-		game = dealCountingRound(game, grids);
+		game =
+			loose === undefined ?
+				dealCountingRound(game, grids)
+			:	dealCountingCards(game, loose);
 		// The felt clears before the round lands on it. A round no bigger than the
 		// last would otherwise read as already shown, and its time to count would
 		// start before its first card did.
@@ -296,7 +303,8 @@ const TrainCounting: Component<TrainCountingProps> = (props) => {
 			<Felt
 				state={felt()}
 				queue={queue}
-				playerLabel="Seat · played to basic"
+				playerLabel={loose === undefined ? 'Seat · played to basic' : 'Cards dealt'}
+				showTotals={loose === undefined}
 				quiet={notice() !== null}
 				onTap={hurry}
 			>

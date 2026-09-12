@@ -203,6 +203,11 @@ interface FeltProps {
 	/** What the player's seat is called. 'You' where omitted. */
 	playerLabel?: string;
 	/**
+	 * Whether a seat prints what its cards add up to. False where the cards are
+	 * not a hand -- the Easy counting drill's loose cards, which total nothing.
+	 */
+	showTotals?: boolean;
+	/**
 	 * While a notice holds the felt, the seats keep their room but not their print,
 	 * so the table does not change height under the notice.
 	 */
@@ -314,8 +319,12 @@ export const Felt: Component<FeltProps> = (props) => {
 									)}
 								</For>
 							</div>
+							{/* The slot keeps its room either way, so a felt without totals
+							    is not a shorter one. */}
 							<span class="felt__total">
-								{totalLabel(hand(), revealed().hands[handIndex] ?? 0)}
+								{props.showTotals === false ?
+									''
+								:	totalLabel(hand(), revealed().hands[handIndex] ?? 0)}
 							</span>
 						</div>
 					)}

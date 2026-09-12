@@ -44,10 +44,15 @@ function modeNote(drill: DrillId, mode: DrillMode): string {
 			:	`${pace.minRounds}–${pace.maxRounds}`;
 		const pacing = `dealt at ${pace.speed}, up to ${pace.countMs / 1000} s to count each`;
 		if (mode === 'test')
-			return 'Hard pacing, 5 s per checkpoint, verdicts held until the end.';
+			return `${rounds} rounds per checkpoint, ${pacing}. 5 s to answer, verdicts held until the end.`;
+		// Easy deals loose cards, not rounds, so it counts them rather than hands.
+		const unit =
+			pace.cardsPerRound === undefined ?
+				'rounds'
+			:	`deals of ${pace.cardsPerRound} cards`;
 		return pace.tolerance > 0 ?
-				`${rounds} rounds per checkpoint, ${pacing}. Within ±${pace.tolerance} counts as right.`
-			:	`${rounds} rounds per checkpoint, ${pacing}. Exact counts only.`;
+				`${rounds} ${unit} per checkpoint, ${pacing}. Within ±${pace.tolerance} counts as right.`
+			:	`${rounds} ${unit} per checkpoint, ${pacing}. Exact counts only.`;
 	}
 	if (mode === 'test')
 		return 'The hard pool against the clock. Verdicts held until the end.';
